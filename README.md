@@ -24,6 +24,19 @@ kestrel/
 3. Apply `supabase/migrations/001_schema.sql` to the target Supabase project.
 4. Run the web app with `npm run dev` and the API with `uvicorn app.main:app --reload`.
 
+## GitHub Actions
+
+- `.github/workflows/ci.yml` runs the branch-protection-safe checks for every PR and every push to `main`.
+- `.github/workflows/vercel-prebuilt-check.yml` is a manual Vercel CLI build check for the `web/` app. It only runs when the repo secrets are configured.
+
+### Optional GitHub Secrets
+
+- `VERCEL_TOKEN`
+- `VERCEL_ORG_ID`
+- `VERCEL_PROJECT_ID`
+
+Render is still expected to deploy through native GitHub integration using [`engine/render.yaml`](engine/render.yaml).
+
 ## Current Scaffold Scope
 
 This repository is a fresh Kestrel scaffold. The early differentiators are implemented with the most depth:
