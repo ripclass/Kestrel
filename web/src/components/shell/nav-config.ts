@@ -1,0 +1,38 @@
+import type { Persona, Role, Viewer } from "@/types/domain";
+
+export interface NavItem {
+  label: string;
+  href: string;
+  section: string;
+  personas?: Persona[];
+  roles?: Role[];
+}
+
+const navItems: NavItem[] = [
+  { section: "Overview", label: "Overview", href: "/overview" },
+  { section: "Intelligence Tools", label: "Investigate", href: "/investigate" },
+  { section: "Intelligence Tools", label: "Intelligence", href: "/intelligence/entities" },
+  { section: "Operations", label: "Alerts", href: "/alerts" },
+  { section: "Operations", label: "Cases", href: "/cases" },
+  { section: "Operations", label: "Scan", href: "/scan", personas: ["bank_camlco"] },
+  { section: "Command", label: "National", href: "/reports/national", personas: ["bfiu_director", "bfiu_analyst"] },
+  { section: "Command", label: "Compliance", href: "/reports/compliance", personas: ["bfiu_director", "bank_camlco"] },
+  { section: "Command", label: "Trends", href: "/reports/trends", personas: ["bfiu_director"] },
+  { section: "Command", label: "Export", href: "/reports/export" },
+  { section: "Admin", label: "Settings", href: "/admin", roles: ["admin", "manager", "superadmin"] },
+  { section: "Admin", label: "Team", href: "/admin/team", roles: ["admin", "manager", "superadmin"] },
+  { section: "Admin", label: "Rules", href: "/admin/rules", roles: ["admin", "manager", "superadmin"] },
+  { section: "Admin", label: "API Keys", href: "/admin/api-keys", roles: ["admin", "manager", "superadmin"] },
+];
+
+export function getNavigation(viewer: Viewer) {
+  return navItems.filter((item) => {
+    if (item.personas && !item.personas.includes(viewer.persona)) {
+      return false;
+    }
+    if (item.roles && !item.roles.includes(viewer.role)) {
+      return false;
+    }
+    return true;
+  });
+}

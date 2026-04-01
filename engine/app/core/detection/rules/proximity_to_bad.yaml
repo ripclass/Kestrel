@@ -1,0 +1,4 @@
+code: proximity_to_bad
+title: Proximity to bad
+weight: 5.0
+threshold: 55
