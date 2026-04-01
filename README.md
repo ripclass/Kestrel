@@ -6,9 +6,9 @@ Kestrel is a financial crime intelligence platform for Bangladesh. It sits on to
 
 ```text
 kestrel/
-├── web/         # Next.js 16 App Router application for public, auth, and platform UX
-├── engine/      # FastAPI intelligence engine + worker scaffolding for Render
-└── supabase/    # Schema, RLS policies, and migration assets
+|-- web/         # Next.js 16 App Router application for public, auth, and platform UX
+|-- engine/      # FastAPI intelligence engine + worker scaffolding for Render
+`-- supabase/    # Schema, RLS policies, and migration assets
 ```
 
 ## Runtime Targets
@@ -28,14 +28,22 @@ kestrel/
 
 - `.github/workflows/ci.yml` runs the branch-protection-safe checks for every PR and every push to `main`.
 - `.github/workflows/vercel-prebuilt-check.yml` is a manual Vercel CLI build check for the `web/` app. It only runs when the repo secrets are configured.
+- `.github/workflows/deploy-web-production.yml` deploys `web/` to Vercel on pushes to `main` that touch the frontend.
+- `.github/workflows/deploy-engine-production.yml` triggers Render production deploys for the API and worker on pushes to `main` that touch `engine/` or `supabase/`.
 
 ### Optional GitHub Secrets
 
 - `VERCEL_TOKEN`
 - `VERCEL_ORG_ID`
 - `VERCEL_PROJECT_ID`
+- `RENDER_ENGINE_DEPLOY_HOOK_URL`
+- `RENDER_WORKER_DEPLOY_HOOK_URL`
 
-Render is still expected to deploy through native GitHub integration using [`engine/render.yaml`](engine/render.yaml).
+### Deployment Notes
+
+- The Vercel production workflow uses `vercel pull`, `vercel build --prod`, and `vercel deploy --prebuilt --prod`.
+- The Render production workflow expects per-service deploy hooks from the Render dashboard for the web service and worker declared in [`engine/render.yaml`](engine/render.yaml).
+- If the required secrets are missing, the deployment workflows skip cleanly and leave a summary in the Actions run instead of failing.
 
 ## Current Scaffold Scope
 
