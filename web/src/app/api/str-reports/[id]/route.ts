@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 
 import { proxyEngineRequest } from "@/lib/engine-server";
+import { readResponsePayload } from "@/lib/http";
 import { normalizeSTRReportDetail } from "@/lib/str-reports";
 
 type RouteContext = {
@@ -10,11 +11,11 @@ type RouteContext = {
 export async function GET(_request: NextRequest, context: RouteContext) {
   const { id } = await context.params;
   const response = await proxyEngineRequest(`/str-reports/${id}`);
-  const payload = await response.json();
+  const payload = await readResponsePayload<unknown>(response);
   if (!response.ok) {
     return NextResponse.json(payload, { status: response.status });
   }
-  return NextResponse.json(normalizeSTRReportDetail(payload), { status: response.status });
+  return NextResponse.json(normalizeSTRReportDetail(payload as never), { status: response.status });
 }
 
 export async function PATCH(request: NextRequest, context: RouteContext) {
@@ -41,9 +42,10 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
       metadata: body.metadata ?? {},
     }),
   });
-  const payload = await response.json();
+  const payload = await readResponsePayload<{ report: unknown }>(response);
   if (!response.ok) {
     return NextResponse.json(payload, { status: response.status });
   }
-  return NextResponse.json({ report: normalizeSTRReportDetail(payload.report) }, { status: response.status });
+  const successPayload = payload as { report: unknown };
+  return NextResponse.json({ report: normalizeSTRReportDetail(successPayload.report as never) }, { status: response.status });
 }

@@ -1,16 +1,18 @@
 import { NextRequest, NextResponse } from "next/server";
 
 import { proxyEngineRequest } from "@/lib/engine-server";
+import { readResponsePayload } from "@/lib/http";
 import { normalizeSTRReportDetail, normalizeSTRReportList } from "@/lib/str-reports";
 
 async function buildResponse(response: Response) {
-  const payload = await response.json();
+  const payload = await readResponsePayload<{ reports?: unknown[] }>(response);
   if (!response.ok) {
     return NextResponse.json(payload, { status: response.status });
   }
+  const successPayload = payload as { reports?: unknown[] };
   return NextResponse.json(
     {
-      reports: normalizeSTRReportList(payload.reports ?? []),
+      reports: normalizeSTRReportList((successPayload.reports ?? []) as never),
     },
     { status: response.status },
   );
@@ -44,9 +46,10 @@ export async function POST(request: NextRequest) {
       metadata: body.metadata ?? {},
     }),
   });
-  const payload = await response.json();
+  const payload = await readResponsePayload<{ report: unknown }>(response);
   if (!response.ok) {
     return NextResponse.json(payload, { status: response.status });
   }
-  return NextResponse.json({ report: normalizeSTRReportDetail(payload.report) }, { status: response.status });
+  const successPayload = payload as { report: unknown };
+  return NextResponse.json({ report: normalizeSTRReportDetail(successPayload.report as never) }, { status: response.status });
 }

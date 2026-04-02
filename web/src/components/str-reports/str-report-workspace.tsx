@@ -10,6 +10,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { detailFromPayload, readResponsePayload } from "@/lib/http";
 
 function toDraftPayload(report: STRReportDetail): STRDraftPayload {
   return {
@@ -48,14 +49,18 @@ export function STRReportWorkspace({
 
   useEffect(() => {
     void (async () => {
-      const response = await fetch(`/api/str-reports/${reportId}`, { cache: "no-store" });
-      const payload = (await response.json()) as STRReportDetail | { detail?: string };
-      if (!response.ok) {
-        setError("detail" in payload ? (payload.detail ?? "Unable to load STR report.") : "Unable to load STR report.");
-        return;
+      try {
+        const response = await fetch(`/api/str-reports/${reportId}`, { cache: "no-store" });
+        const payload = (await readResponsePayload<STRReportDetail>(response)) as STRReportDetail | { detail?: string };
+        if (!response.ok) {
+          setError(detailFromPayload(payload, "Unable to load STR report."));
+          return;
+        }
+        setReport(payload as STRReportDetail);
+        setDraft(toDraftPayload(payload as STRReportDetail));
+      } catch (caughtError) {
+        setError(caughtError instanceof Error ? caughtError.message : "Unable to load STR report.");
       }
-      setReport(payload as STRReportDetail);
-      setDraft(toDraftPayload(payload as STRReportDetail));
     })();
   }, [reportId]);
 
@@ -76,76 +81,95 @@ export function STRReportWorkspace({
     if (!draft) {
       return;
     }
-    const response = await fetch(`/api/str-reports/${reportId}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(draft),
-    });
-    const payload = (await response.json()) as STRMutationResponse | { detail?: string };
-    if (!response.ok) {
-      setError("detail" in payload ? (payload.detail ?? "Unable to save STR draft.") : "Unable to save STR draft.");
-      return;
+    try {
+      const response = await fetch(`/api/str-reports/${reportId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(draft),
+      });
+      const payload = (await readResponsePayload<STRMutationResponse>(response)) as STRMutationResponse | { detail?: string };
+      if (!response.ok) {
+        setError(detailFromPayload(payload, "Unable to save STR draft."));
+        return;
+      }
+      setReport((payload as STRMutationResponse).report);
+      setDraft(toDraftPayload((payload as STRMutationResponse).report));
+      setError(null);
+    } catch (caughtError) {
+      setError(caughtError instanceof Error ? caughtError.message : "Unable to save STR draft.");
     }
-    setReport((payload as STRMutationResponse).report);
-    setDraft(toDraftPayload((payload as STRMutationResponse).report));
-    setError(null);
   }
 
   async function submitDraft() {
-    const response = await fetch(`/api/str-reports/${reportId}/submit`, {
-      method: "POST",
-    });
-    const payload = (await response.json()) as STRMutationResponse | { detail?: string };
-    if (!response.ok) {
-      setError("detail" in payload ? (payload.detail ?? "Unable to submit STR.") : "Unable to submit STR.");
-      return;
+    try {
+      const response = await fetch(`/api/str-reports/${reportId}/submit`, {
+        method: "POST",
+      });
+      const payload = (await readResponsePayload<STRMutationResponse>(response)) as STRMutationResponse | { detail?: string };
+      if (!response.ok) {
+        setError(detailFromPayload(payload, "Unable to submit STR."));
+        return;
+      }
+      setReport((payload as STRMutationResponse).report);
+      setDraft(toDraftPayload((payload as STRMutationResponse).report));
+      setError(null);
+    } catch (caughtError) {
+      setError(caughtError instanceof Error ? caughtError.message : "Unable to submit STR.");
     }
-    setReport((payload as STRMutationResponse).report);
-    setDraft(toDraftPayload((payload as STRMutationResponse).report));
-    setError(null);
   }
 
   async function generateEnrichment() {
-    const response = await fetch(`/api/str-reports/${reportId}/enrich`, {
-      method: "POST",
-    });
-    const payload = (await response.json()) as { report: STRReportDetail; detail?: string };
-    if (!response.ok) {
-      setError(payload.detail ?? "Unable to generate enrichment.");
-      return;
-    }
-    setReport(payload.report);
-    setDraft((current) => {
-      if (!current || !payload.report.enrichment) {
-        return current;
-      }
-      return {
-        ...current,
-        narrative: current.narrative || payload.report.enrichment.draftNarrative,
+    try {
+      const response = await fetch(`/api/str-reports/${reportId}/enrich`, {
+        method: "POST",
+      });
+      const payload = (await readResponsePayload<{ report: STRReportDetail; detail?: string }>(response)) as {
+        report: STRReportDetail;
+        detail?: string;
       };
-    });
-    setError(null);
+      if (!response.ok) {
+        setError(detailFromPayload(payload, "Unable to generate enrichment."));
+        return;
+      }
+      setReport(payload.report);
+      setDraft((current) => {
+        if (!current || !payload.report.enrichment) {
+          return current;
+        }
+        return {
+          ...current,
+          narrative: current.narrative || payload.report.enrichment.draftNarrative,
+        };
+      });
+      setError(null);
+    } catch (caughtError) {
+      setError(caughtError instanceof Error ? caughtError.message : "Unable to generate enrichment.");
+    }
   }
 
   async function runReview(action: STRReviewPayload["action"]) {
-    const response = await fetch(`/api/str-reports/${reportId}/review`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        action,
-        note: reviewNote || undefined,
-        assignedTo: assignee || undefined,
-      }),
-    });
-    const payload = (await response.json()) as STRMutationResponse | { detail?: string };
-    if (!response.ok) {
-      setError("detail" in payload ? (payload.detail ?? "Unable to apply review action.") : "Unable to apply review action.");
-      return;
+    try {
+      const response = await fetch(`/api/str-reports/${reportId}/review`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action,
+          note: reviewNote || undefined,
+          assignedTo: assignee || undefined,
+        }),
+      });
+      const payload = (await readResponsePayload<STRMutationResponse>(response)) as STRMutationResponse | { detail?: string };
+      if (!response.ok) {
+        setError(detailFromPayload(payload, "Unable to apply review action."));
+        return;
+      }
+      setReport((payload as STRMutationResponse).report);
+      setDraft(toDraftPayload((payload as STRMutationResponse).report));
+      setReviewNote("");
+      setError(null);
+    } catch (caughtError) {
+      setError(caughtError instanceof Error ? caughtError.message : "Unable to apply review action.");
     }
-    setReport((payload as STRMutationResponse).report);
-    setDraft(toDraftPayload((payload as STRMutationResponse).report));
-    setReviewNote("");
-    setError(null);
   }
 
   if (!report || !draft) {

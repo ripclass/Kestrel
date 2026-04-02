@@ -12,6 +12,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { detailFromPayload, readResponsePayload } from "@/lib/http";
 
 const emptyDraft: STRDraftPayload = {
   subjectAccount: "",
@@ -41,13 +42,17 @@ export function STRReportList({ viewer }: { viewer: Viewer }) {
 
   useEffect(() => {
     void (async () => {
-      const response = await fetch("/api/str-reports", { cache: "no-store" });
-      const payload = (await response.json()) as STRListResponse | { detail?: string };
-      if (!response.ok) {
-        setError("detail" in payload ? (payload.detail ?? "Unable to load STR reports.") : "Unable to load STR reports.");
-        return;
+      try {
+        const response = await fetch("/api/str-reports", { cache: "no-store" });
+        const payload = (await readResponsePayload<STRListResponse>(response)) as STRListResponse | { detail?: string };
+        if (!response.ok) {
+          setError(detailFromPayload(payload, "Unable to load STR reports."));
+          return;
+        }
+        setReports((payload as STRListResponse).reports);
+      } catch (caughtError) {
+        setError(caughtError instanceof Error ? caughtError.message : "Unable to load STR reports.");
       }
-      setReports((payload as STRListResponse).reports);
     })();
   }, []);
 
@@ -57,20 +62,24 @@ export function STRReportList({ viewer }: { viewer: Viewer }) {
 
   async function createDraft() {
     setError(null);
-    const response = await fetch("/api/str-reports", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        ...draft,
-        channels: draft.channels ?? [],
-      }),
-    });
-    const payload = (await response.json()) as STRMutationResponse | { detail?: string };
-    if (!response.ok) {
-      setError("detail" in payload ? (payload.detail ?? "Unable to create STR draft.") : "Unable to create STR draft.");
-      return;
+    try {
+      const response = await fetch("/api/str-reports", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          ...draft,
+          channels: draft.channels ?? [],
+        }),
+      });
+      const payload = (await readResponsePayload<STRMutationResponse>(response)) as STRMutationResponse | { detail?: string };
+      if (!response.ok) {
+        setError(detailFromPayload(payload, "Unable to create STR draft."));
+        return;
+      }
+      router.push(`/strs/${(payload as STRMutationResponse).report.id}`);
+    } catch (caughtError) {
+      setError(caughtError instanceof Error ? caughtError.message : "Unable to create STR draft.");
     }
-    router.push(`/strs/${(payload as STRMutationResponse).report.id}`);
   }
 
   return (
