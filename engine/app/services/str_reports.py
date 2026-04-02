@@ -217,6 +217,7 @@ async def _fetch_report_with_org(session: AsyncSession, report_id: str) -> tuple
         select(STRReport, Organization.name.label("org_name"))
         .join(Organization, Organization.id == STRReport.org_id)
         .where(STRReport.id == UUID(report_id))
+        .execution_options(populate_existing=True)
         .limit(1)
     )
     result = await session.execute(stmt)
@@ -316,6 +317,7 @@ async def create_str_report(
         ip=ip,
     )
     await session.commit()
+    await session.refresh(report)
     refreshed, org_name = await _fetch_report_with_org(session, str(report.id))
     return STRMutationResponse(report=serialize_report_detail(refreshed, org_name))
 
