@@ -137,3 +137,7 @@ def test_serialize_report_detail_reads_embedded_review_and_enrichment() -> None:
 
 def test_audit_log_uses_server_default_timestamp() -> None:
     assert AuditLog.__table__.c.created_at.server_default is not None
+
+
+def test_timestamp_mixin_sets_server_default_for_updated_at() -> None:
+    assert STRReport.__table__.c.updated_at.server_default is not None
