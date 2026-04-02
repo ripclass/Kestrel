@@ -2,6 +2,8 @@ from datetime import UTC, datetime
 from decimal import Decimal
 from uuid import uuid4
 
+from sqlalchemy.dialects.postgresql import INET
+
 from app.auth import AuthenticatedUser
 from app.models.audit import AuditLog
 from app.models.str_report import STRReport
@@ -141,3 +143,7 @@ def test_audit_log_uses_server_default_timestamp() -> None:
 
 def test_timestamp_mixin_sets_server_default_for_updated_at() -> None:
     assert STRReport.__table__.c.updated_at.server_default is not None
+
+
+def test_audit_log_ip_uses_inet_type() -> None:
+    assert isinstance(AuditLog.__table__.c.ip.type, INET)
