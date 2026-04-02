@@ -1,9 +1,12 @@
+import time
 from dataclasses import dataclass
 from typing import Annotated
 
+import httpx
 from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
-from jose import JWTError, jwt
+from jose import JWTError, jwk, jwt
+from jose.utils import base64url_decode
 from sqlalchemy import text
 
 from app.database import SessionLocal
@@ -12,6 +15,8 @@ from app.config import get_settings
 
 settings = get_settings()
 bearer = HTTPBearer(auto_error=False)
+_JWKS_CACHE_TTL_SECONDS = 600
+_jwks_cache: dict[str, tuple[float, list[dict[str, object]]]] = {}
 
 
 @dataclass(slots=True)
@@ -104,7 +109,81 @@ async def _load_profile_context(user_id: str) -> dict[str, object] | None:
     return dict(row) if row else None
 
 
-def decode_access_token(token: str) -> dict[str, object]:
+async def _fetch_jwks(jwks_url: str) -> list[dict[str, object]]:
+    async with httpx.AsyncClient(timeout=10.0) as client:
+        response = await client.get(jwks_url)
+        response.raise_for_status()
+    payload = response.json()
+    keys = payload.get("keys")
+    if not isinstance(keys, list):
+        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="Supabase JWKS response is invalid.")
+    return [key for key in keys if isinstance(key, dict)]
+
+
+async def _get_jwks(force_refresh: bool = False) -> list[dict[str, object]]:
+    jwks_url = settings.resolved_supabase_jwks_url()
+    if not jwks_url:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Supabase JWKS URL is not configured.",
+        )
+
+    now = time.time()
+    cached = _jwks_cache.get(jwks_url)
+    if cached and not force_refresh and now - cached[0] < _JWKS_CACHE_TTL_SECONDS:
+        return cached[1]
+
+    try:
+        keys = await _fetch_jwks(jwks_url)
+    except Exception as exc:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=f"Unable to fetch Supabase JWKS: {exc}",
+        ) from exc
+
+    _jwks_cache[jwks_url] = (now, keys)
+    return keys
+
+
+def _validate_standard_claims(payload: dict[str, object]) -> None:
+    now = time.time()
+    issuer = settings.resolved_supabase_issuer()
+
+    exp = payload.get("exp")
+    if exp is not None and now >= float(exp):
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Token has expired")
+
+    nbf = payload.get("nbf")
+    if nbf is not None and now < float(nbf):
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Token is not yet valid")
+
+    if issuer and payload.get("iss") not in (issuer, None):
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token issuer")
+
+
+def _decode_with_jwk(token: str, jwk_payload: dict[str, object]) -> dict[str, object]:
+    try:
+        header = jwt.get_unverified_header(token)
+        segments = token.split(".")
+        if len(segments) != 3:
+            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token format")
+        signing_input = ".".join(segments[0:2]).encode("utf-8")
+        signature = base64url_decode(segments[2].encode("utf-8"))
+        key = jwk.construct(jwk_payload, algorithm=header.get("alg"))
+        if not key.verify(signing_input, signature):
+            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token signature")
+        payload = jwt.get_unverified_claims(token)
+        _validate_standard_claims(payload)
+        return payload
+    except HTTPException:
+        raise
+    except JWTError as exc:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token") from exc
+    except Exception as exc:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token") from exc
+
+
+async def decode_access_token(token: str) -> dict[str, object]:
     if not settings.has_complete_supabase_auth_config():
         if settings.demo_mode_enabled():
             return {
@@ -122,12 +201,33 @@ def decode_access_token(token: str) -> dict[str, object]:
             detail="Supabase JWT validation is not configured.",
         )
 
+    if settings.supabase_jwt_secret:
+        try:
+            payload = jwt.decode(
+                token,
+                settings.supabase_jwt_secret,
+                algorithms=["HS256"],
+                options={"verify_aud": False},
+            )
+        except JWTError as exc:
+            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token") from exc
+        return payload
+
     try:
-        payload = jwt.decode(token, settings.supabase_jwt_secret, algorithms=["HS256"])
+        header = jwt.get_unverified_header(token)
     except JWTError as exc:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token") from exc
+    kid = header.get("kid")
+    keys = await _get_jwks()
+    jwk_payload = next((candidate for candidate in keys if candidate.get("kid") == kid), None)
 
-    return payload
+    if jwk_payload is None:
+        keys = await _get_jwks(force_refresh=True)
+        jwk_payload = next((candidate for candidate in keys if candidate.get("kid") == kid), None)
+        if jwk_payload is None:
+            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="No matching Supabase signing key found")
+
+    return _decode_with_jwk(token, jwk_payload)
 
 
 async def resolve_authenticated_user(payload: dict[str, object]) -> AuthenticatedUser:
@@ -174,7 +274,7 @@ async def resolve_authenticated_user(payload: dict[str, object]) -> Authenticate
 
 
 async def authenticate_token(token: str) -> AuthenticatedUser:
-    payload = decode_access_token(token)
+    payload = await decode_access_token(token)
     if payload.get("sub") == _demo_user().user_id and settings.demo_mode_enabled():
         return _demo_user()
     return await resolve_authenticated_user(payload)

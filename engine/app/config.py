@@ -23,6 +23,7 @@ class Settings(BaseSettings):
     supabase_anon_key: str | None = None
     supabase_service_role_key: str | None = None
     supabase_jwt_secret: str | None = None
+    supabase_jwks_url: str | None = None
 
     storage_bucket_uploads: str = "kestrel-uploads"
     storage_bucket_exports: str = "kestrel-exports"
@@ -60,7 +61,19 @@ class Settings(BaseSettings):
         )
 
     def has_complete_supabase_auth_config(self) -> bool:
-        return bool(self.supabase_jwt_secret)
+        return bool(self.supabase_jwt_secret or self.supabase_url)
+
+    def resolved_supabase_jwks_url(self) -> str | None:
+        if self.supabase_jwks_url:
+            return self.supabase_jwks_url
+        if not self.supabase_url:
+            return None
+        return f"{self.supabase_url.rstrip('/')}/auth/v1/.well-known/jwks.json"
+
+    def resolved_supabase_issuer(self) -> str | None:
+        if not self.supabase_url:
+            return None
+        return f"{self.supabase_url.rstrip('/')}/auth/v1"
 
     def has_complete_storage_config(self) -> bool:
         return bool(
