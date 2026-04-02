@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useState, useTransition } from "react";
+import { useEffect, useState } from "react";
 
 import type { STRDraftPayload, STRListResponse, STRMutationResponse } from "@/types/api";
 import type { STRReportSummary, Viewer } from "@/types/domain";
@@ -38,7 +38,8 @@ export function STRReportList({ viewer }: { viewer: Viewer }) {
   const [reports, setReports] = useState<STRReportSummary[]>([]);
   const [draft, setDraft] = useState<STRDraftPayload>(emptyDraft);
   const [error, setError] = useState<string | null>(null);
-  const [isPending, startTransition] = useTransition();
+  const [notice, setNotice] = useState<string | null>(null);
+  const [isCreating, setIsCreating] = useState(false);
 
   useEffect(() => {
     void (async () => {
@@ -50,6 +51,7 @@ export function STRReportList({ viewer }: { viewer: Viewer }) {
           return;
         }
         setReports((payload as STRListResponse).reports);
+        setError(null);
       } catch (caughtError) {
         setError(caughtError instanceof Error ? caughtError.message : "Unable to load STR reports.");
       }
@@ -62,6 +64,8 @@ export function STRReportList({ viewer }: { viewer: Viewer }) {
 
   async function createDraft() {
     setError(null);
+    setNotice("Creating STR draft...");
+    setIsCreating(true);
     try {
       const response = await fetch("/api/str-reports", {
         method: "POST",
@@ -74,11 +78,16 @@ export function STRReportList({ viewer }: { viewer: Viewer }) {
       const payload = (await readResponsePayload<STRMutationResponse>(response)) as STRMutationResponse | { detail?: string };
       if (!response.ok) {
         setError(detailFromPayload(payload, "Unable to create STR draft."));
+        setNotice(null);
         return;
       }
+      setNotice("Draft created. Opening workspace...");
       router.push(`/strs/${(payload as STRMutationResponse).report.id}`);
     } catch (caughtError) {
       setError(caughtError instanceof Error ? caughtError.message : "Unable to create STR draft.");
+      setNotice(null);
+    } finally {
+      setIsCreating(false);
     }
   }
 
@@ -165,21 +174,24 @@ export function STRReportList({ viewer }: { viewer: Viewer }) {
           <div className="space-y-2">
             <label className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Initial narrative</label>
             <Textarea
+              disabled={isCreating}
               value={draft.narrative}
               onChange={(event) => updateField("narrative", event.target.value)}
               placeholder="Describe the suspicious pattern, counterparties, and why this requires filing."
             />
           </div>
           {error ? <p className="text-sm text-red-300">{error}</p> : null}
+          {notice ? <p className="text-sm text-primary/80">{notice}</p> : null}
           <div className="flex flex-wrap items-center justify-between gap-3">
             <p className="text-sm text-muted-foreground">
               Signed in as {viewer.fullName} at {viewer.orgName}.
             </p>
             <Button
-              disabled={isPending || !draft.subjectAccount}
-              onClick={() => startTransition(() => void createDraft())}
+              type="button"
+              disabled={isCreating || !draft.subjectAccount}
+              onClick={() => void createDraft()}
             >
-              {isPending ? "Opening draft..." : "Create STR draft"}
+              {isCreating ? "Creating draft..." : "Create STR draft"}
             </Button>
           </div>
         </CardContent>

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState, useTransition } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 import type { STRDraftPayload, STRMutationResponse, STRReviewPayload } from "@/types/api";
 import type { STRReportDetail, Viewer } from "@/types/domain";
@@ -45,7 +45,10 @@ export function STRReportWorkspace({
   const [reviewNote, setReviewNote] = useState("");
   const [assignee, setAssignee] = useState("");
   const [error, setError] = useState<string | null>(null);
-  const [isPending, startTransition] = useTransition();
+  const [notice, setNotice] = useState<string | null>(null);
+  const [pendingAction, setPendingAction] = useState<string | null>(null);
+  const [applyCount, setApplyCount] = useState(0);
+  const narrativeRef = useRef<HTMLTextAreaElement | null>(null);
 
   useEffect(() => {
     void (async () => {
@@ -58,6 +61,7 @@ export function STRReportWorkspace({
         }
         setReport(payload as STRReportDetail);
         setDraft(toDraftPayload(payload as STRReportDetail));
+        setError(null);
       } catch (caughtError) {
         setError(caughtError instanceof Error ? caughtError.message : "Unable to load STR report.");
       }
@@ -65,6 +69,7 @@ export function STRReportWorkspace({
   }, [reportId]);
 
   function updateDraft<K extends keyof STRDraftPayload>(field: K, value: STRDraftPayload[K]) {
+    setNotice(null);
     setDraft((current) => (current ? { ...current, [field]: value } : current));
   }
 
@@ -76,11 +81,20 @@ export function STRReportWorkspace({
   }, [report, viewer]);
 
   const canReview = useMemo(() => viewer.orgType === "regulator" && !!report, [viewer, report]);
+  const enrichmentAlreadyApplied = useMemo(() => {
+    if (!report?.enrichment) {
+      return false;
+    }
+    return (draft?.narrative ?? "").trim() === report.enrichment.draftNarrative.trim();
+  }, [draft?.narrative, report?.enrichment]);
 
   async function saveDraft() {
     if (!draft) {
       return;
     }
+    setPendingAction("save");
+    setError(null);
+    setNotice("Saving draft...");
     try {
       const response = await fetch(`/api/str-reports/${reportId}`, {
         method: "PATCH",
@@ -90,17 +104,24 @@ export function STRReportWorkspace({
       const payload = (await readResponsePayload<STRMutationResponse>(response)) as STRMutationResponse | { detail?: string };
       if (!response.ok) {
         setError(detailFromPayload(payload, "Unable to save STR draft."));
+        setNotice(null);
         return;
       }
       setReport((payload as STRMutationResponse).report);
       setDraft(toDraftPayload((payload as STRMutationResponse).report));
-      setError(null);
+      setNotice("Draft saved.");
     } catch (caughtError) {
       setError(caughtError instanceof Error ? caughtError.message : "Unable to save STR draft.");
+      setNotice(null);
+    } finally {
+      setPendingAction(null);
     }
   }
 
   async function submitDraft() {
+    setPendingAction("submit");
+    setError(null);
+    setNotice("Submitting STR...");
     try {
       const response = await fetch(`/api/str-reports/${reportId}/submit`, {
         method: "POST",
@@ -108,17 +129,24 @@ export function STRReportWorkspace({
       const payload = (await readResponsePayload<STRMutationResponse>(response)) as STRMutationResponse | { detail?: string };
       if (!response.ok) {
         setError(detailFromPayload(payload, "Unable to submit STR."));
+        setNotice(null);
         return;
       }
       setReport((payload as STRMutationResponse).report);
       setDraft(toDraftPayload((payload as STRMutationResponse).report));
-      setError(null);
+      setNotice("STR submitted for regulator review.");
     } catch (caughtError) {
       setError(caughtError instanceof Error ? caughtError.message : "Unable to submit STR.");
+      setNotice(null);
+    } finally {
+      setPendingAction(null);
     }
   }
 
   async function generateEnrichment() {
+    setPendingAction("enrich");
+    setError(null);
+    setNotice("Generating AI enrichment...");
     try {
       const response = await fetch(`/api/str-reports/${reportId}/enrich`, {
         method: "POST",
@@ -129,6 +157,7 @@ export function STRReportWorkspace({
       };
       if (!response.ok) {
         setError(detailFromPayload(payload, "Unable to generate enrichment."));
+        setNotice(null);
         return;
       }
       setReport(payload.report);
@@ -141,13 +170,23 @@ export function STRReportWorkspace({
           narrative: current.narrative || payload.report.enrichment.draftNarrative,
         };
       });
-      setError(null);
+      setNotice(
+        payload.report.enrichment
+          ? "AI enrichment is ready. Review the draft narrative below, then apply or edit it."
+          : "AI enrichment completed.",
+      );
     } catch (caughtError) {
       setError(caughtError instanceof Error ? caughtError.message : "Unable to generate enrichment.");
+      setNotice(null);
+    } finally {
+      setPendingAction(null);
     }
   }
 
   async function runReview(action: STRReviewPayload["action"]) {
+    setPendingAction(`review:${action}`);
+    setError(null);
+    setNotice(action === "assign" ? "Applying assignment..." : "Applying review action...");
     try {
       const response = await fetch(`/api/str-reports/${reportId}/review`, {
         method: "POST",
@@ -161,15 +200,44 @@ export function STRReportWorkspace({
       const payload = (await readResponsePayload<STRMutationResponse>(response)) as STRMutationResponse | { detail?: string };
       if (!response.ok) {
         setError(detailFromPayload(payload, "Unable to apply review action."));
+        setNotice(null);
         return;
       }
       setReport((payload as STRMutationResponse).report);
       setDraft(toDraftPayload((payload as STRMutationResponse).report));
       setReviewNote("");
-      setError(null);
+      setNotice(
+        action === "start_review"
+          ? "Review started."
+          : action === "assign"
+            ? "Assignment updated."
+            : action === "flag"
+              ? "STR flagged."
+              : action === "confirm"
+                ? "STR confirmed."
+                : "STR dismissed.",
+      );
     } catch (caughtError) {
       setError(caughtError instanceof Error ? caughtError.message : "Unable to apply review action.");
+      setNotice(null);
+    } finally {
+      setPendingAction(null);
     }
+  }
+
+  function applyDraftNarrative() {
+    if (!report?.enrichment) {
+      return;
+    }
+    updateDraft("narrative", report.enrichment.draftNarrative);
+    setApplyCount((current) => current + 1);
+    setError(null);
+    setNotice("AI draft copied into the narrative editor. Save draft to persist it.");
+
+    requestAnimationFrame(() => {
+      narrativeRef.current?.focus();
+      narrativeRef.current?.setSelectionRange(0, report.enrichment?.draftNarrative.length ?? 0);
+    });
   }
 
   if (!report || !draft) {
@@ -300,27 +368,30 @@ export function STRReportWorkspace({
           <div className="space-y-2">
             <label className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Narrative</label>
             <Textarea
+              ref={narrativeRef}
               disabled={!canEdit}
               value={draft.narrative}
               onChange={(event) => updateDraft("narrative", event.target.value)}
             />
           </div>
           {error ? <p className="text-sm text-red-300">{error}</p> : null}
+          {notice ? <p className="text-sm text-primary/80">{notice}</p> : null}
           <div className="flex flex-wrap gap-3">
             {canEdit ? (
               <>
-                <Button disabled={isPending} onClick={() => startTransition(() => void saveDraft())}>
-                  Save draft
+                <Button type="button" disabled={pendingAction !== null} onClick={() => void saveDraft()}>
+                  {pendingAction === "save" ? "Saving draft..." : "Save draft"}
                 </Button>
                 <Button
-                  disabled={isPending}
+                  type="button"
+                  disabled={pendingAction !== null}
                   variant="secondary"
-                  onClick={() => startTransition(() => void generateEnrichment())}
+                  onClick={() => void generateEnrichment()}
                 >
-                  Generate enrichment
+                  {pendingAction === "enrich" ? "Generating..." : "Generate enrichment"}
                 </Button>
-                <Button disabled={isPending} variant="outline" onClick={() => startTransition(() => void submitDraft())}>
-                  Submit STR
+                <Button type="button" disabled={pendingAction !== null} variant="outline" onClick={() => void submitDraft()}>
+                  {pendingAction === "submit" ? "Submitting..." : "Submit STR"}
                 </Button>
               </>
             ) : (
@@ -384,10 +455,12 @@ export function STRReportWorkspace({
             </div>
             {canEdit ? (
               <Button
+                type="button"
                 variant="ghost"
-                onClick={() => updateDraft("narrative", report.enrichment?.draftNarrative ?? draft.narrative)}
+                disabled={pendingAction !== null}
+                onClick={applyDraftNarrative}
               >
-                Apply draft narrative to editor
+                {enrichmentAlreadyApplied ? "AI narrative applied" : applyCount > 0 ? "Apply again" : "Apply draft narrative to editor"}
               </Button>
             ) : null}
           </CardContent>
@@ -438,20 +511,25 @@ export function STRReportWorkspace({
               </div>
             </div>
             <div className="flex flex-wrap gap-3">
-              <Button variant="secondary" disabled={isPending} onClick={() => startTransition(() => void runReview("start_review"))}>
-                Start review
+              <Button
+                type="button"
+                variant="secondary"
+                disabled={pendingAction !== null}
+                onClick={() => void runReview("start_review")}
+              >
+                {pendingAction === "review:start_review" ? "Starting..." : "Start review"}
               </Button>
-              <Button variant="ghost" disabled={isPending} onClick={() => startTransition(() => void runReview("assign"))}>
-                Assign
+              <Button type="button" variant="ghost" disabled={pendingAction !== null} onClick={() => void runReview("assign")}>
+                {pendingAction === "review:assign" ? "Assigning..." : "Assign"}
               </Button>
-              <Button variant="outline" disabled={isPending} onClick={() => startTransition(() => void runReview("flag"))}>
-                Flag
+              <Button type="button" variant="outline" disabled={pendingAction !== null} onClick={() => void runReview("flag")}>
+                {pendingAction === "review:flag" ? "Flagging..." : "Flag"}
               </Button>
-              <Button disabled={isPending} onClick={() => startTransition(() => void runReview("confirm"))}>
-                Confirm
+              <Button type="button" disabled={pendingAction !== null} onClick={() => void runReview("confirm")}>
+                {pendingAction === "review:confirm" ? "Confirming..." : "Confirm"}
               </Button>
-              <Button variant="destructive" disabled={isPending} onClick={() => startTransition(() => void runReview("dismiss"))}>
-                Dismiss
+              <Button type="button" variant="destructive" disabled={pendingAction !== null} onClick={() => void runReview("dismiss")}>
+                {pendingAction === "review:dismiss" ? "Dismissing..." : "Dismiss"}
               </Button>
             </div>
           </CardContent>
