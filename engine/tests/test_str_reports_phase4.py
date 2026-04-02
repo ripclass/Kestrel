@@ -3,6 +3,7 @@ from decimal import Decimal
 from uuid import uuid4
 
 from app.auth import AuthenticatedUser
+from app.models.audit import AuditLog
 from app.models.str_report import STRReport
 from app.services.str_reports import _append_lifecycle_event, build_str_enrichment_payload, serialize_report_detail
 
@@ -132,3 +133,7 @@ def test_serialize_report_detail_reads_embedded_review_and_enrichment() -> None:
     assert detail.enrichment is not None
     assert detail.enrichment.category_suggestion == "fraud"
     assert detail.enrichment.extracted_entities[0].entity_type == "phone"
+
+
+def test_audit_log_uses_server_default_timestamp() -> None:
+    assert AuditLog.__table__.c.created_at.server_default is not None
