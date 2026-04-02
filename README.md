@@ -1,6 +1,6 @@
 # Kestrel
 
-Kestrel is a financial crime intelligence platform for Bangladesh. It sits on top of goAML and adds the intelligence layer that goAML does not provide: cross-entity resolution, cross-bank matching, network analysis, risk scoring, proactive alerting, and national command reporting.
+Kestrel is a standalone financial crime intelligence platform for Bangladesh. It can interoperate with goAML where required, but it does not depend on goAML for its core product workflows.
 
 ## Repository Layout
 
@@ -24,6 +24,11 @@ kestrel/
 3. Apply `supabase/migrations/001_schema.sql` to the target Supabase project.
 4. Run the web app with `npm run dev` and the API with `uvicorn app.main:app --reload`.
 
+## Production Plan
+
+- The saved execution roadmap lives in [`docs/production-plan.md`](docs/production-plan.md).
+- Phase 1 establishes production-baseline wiring, readiness checks, and explicit demo-mode semantics.
+
 ## GitHub Actions
 
 - `.github/workflows/ci.yml` runs the branch-protection-safe checks for every PR and every push to `main`.
@@ -44,6 +49,7 @@ kestrel/
 - The Vercel production workflow uses `vercel pull`, `vercel build --prod`, and `vercel deploy --prebuilt --prod`.
 - The Render production workflow expects per-service deploy hooks from the Render dashboard for the web service and worker declared in [`engine/render.yaml`](engine/render.yaml).
 - If the required secrets are missing, the deployment workflows skip cleanly and leave a summary in the Actions run instead of failing.
+- Demo mode should be enabled explicitly in demo-only environments with `KESTREL_ENABLE_DEMO_MODE=true` and `NEXT_PUBLIC_ENABLE_DEMO_MODE=true`.
 
 ## Current Scaffold Scope
 

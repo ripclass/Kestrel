@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 
 import { DEMO_PERSONA_COOKIE, isPersona } from "@/lib/auth";
+import { isDemoModeConfigured } from "@/lib/runtime";
 
 export async function GET(
   request: NextRequest,
@@ -11,7 +12,7 @@ export async function GET(
   const redirectTarget =
     nextPath && nextPath.startsWith("/") ? nextPath : "/overview";
 
-  if (!isPersona(persona)) {
+  if (!isDemoModeConfigured() || !isPersona(persona)) {
     return NextResponse.redirect(new URL("/login", request.url));
   }
 

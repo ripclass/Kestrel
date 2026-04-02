@@ -2,6 +2,7 @@ import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 
 import { getViewerForPersona } from "@/lib/demo";
+import { isDemoModeConfigured } from "@/lib/runtime";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import type { Persona, Viewer } from "@/types/domain";
@@ -37,7 +38,7 @@ function inferPersona(rawPersona: unknown): Persona {
 }
 
 export function isDemoModeEnabled() {
-  return !process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+  return isDemoModeConfigured();
 }
 
 export async function getActiveDemoPersona(): Promise<Persona> {
@@ -51,6 +52,9 @@ export async function getCurrentViewer(): Promise<Viewer | null> {
   const supabase = await createSupabaseServerClient();
 
   if (!supabase) {
+    if (!isDemoModeEnabled()) {
+      return null;
+    }
     return getViewerForPersona(await getActiveDemoPersona());
   }
 

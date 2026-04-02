@@ -58,8 +58,13 @@ def _demo_user() -> AuthenticatedUser:
 
 
 def decode_access_token(token: str) -> AuthenticatedUser:
-    if not settings.supabase_jwt_secret:
-        return _demo_user()
+    if not settings.has_complete_supabase_auth_config():
+        if settings.demo_mode_enabled():
+            return _demo_user()
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Supabase JWT validation is not configured.",
+        )
 
     try:
         payload = jwt.decode(token, settings.supabase_jwt_secret, algorithms=["HS256"])
@@ -82,7 +87,9 @@ async def get_current_user(
     credentials: Annotated[HTTPAuthorizationCredentials | None, Depends(bearer)],
 ) -> AuthenticatedUser:
     if credentials is None:
-        return _demo_user()
+        if settings.demo_mode_enabled():
+            return _demo_user()
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Authentication required")
 
     return decode_access_token(credentials.credentials)
 
