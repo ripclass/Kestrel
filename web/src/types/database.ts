@@ -8,3 +8,12 @@ export interface DatabaseProfileRow {
   persona: Persona;
   designation: string | null;
 }
+
+export interface DatabaseOrganizationRow {
+  name: string;
+  org_type: "regulator" | "bank" | "mfs" | "nbfi";
+}
+
+export interface DatabaseProfileWithOrganizationRow extends DatabaseProfileRow {
+  organizations: DatabaseOrganizationRow | DatabaseOrganizationRow[] | null;
+}

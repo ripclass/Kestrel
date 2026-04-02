@@ -2,9 +2,8 @@ import Link from "next/link";
 
 import { getActiveDemoPersona, isDemoModeEnabled } from "@/lib/auth";
 import { demoPersonaOptions } from "@/lib/demo";
+import { LoginForm } from "@/components/auth/login-form";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
 export default async function LoginPage() {
@@ -49,13 +48,11 @@ export default async function LoginPage() {
         <CardHeader>
           <CardTitle>Log in to Kestrel</CardTitle>
           <CardDescription>
-            Supabase-backed session flows land here. In production, wire real project keys and organization-based auth.
+            Sign in with your provisioned Kestrel workspace credentials. Org, role, and persona are resolved from the linked Supabase profile.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          <Input placeholder="Email" type="email" />
-          <Input placeholder="Password" type="password" />
-          <Button className="w-full">Continue</Button>
+          <LoginForm />
           <div className="flex justify-between text-sm text-muted-foreground">
             <Link href="/forgot-password">Forgot password</Link>
             <Link href="/register">Register bank access</Link>

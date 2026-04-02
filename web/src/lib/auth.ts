@@ -3,8 +3,8 @@ import { redirect } from "next/navigation";
 
 import { getViewerForPersona } from "@/lib/demo";
 import { isDemoModeConfigured } from "@/lib/runtime";
-import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { fetchViewerFromSupabaseClient, type ProfileLookupClient } from "@/lib/viewer";
 import type { Persona, Viewer } from "@/types/domain";
 
 export const DEMO_PERSONA_COOKIE = "kestrel_demo_persona";
@@ -66,17 +66,7 @@ export async function getCurrentViewer(): Promise<Viewer | null> {
     return null;
   }
 
-  const persona = inferPersona(user.user_metadata.persona);
-  const fallback = getViewerForPersona(persona);
-
-  return {
-    ...fallback,
-    id: user.id,
-    email: user.email ?? fallback.email,
-    fullName: String(user.user_metadata.full_name ?? fallback.fullName),
-    orgId: String(user.user_metadata.org_id ?? fallback.orgId),
-    designation: String(user.user_metadata.designation ?? fallback.designation),
-  };
+  return fetchViewerFromSupabaseClient(supabase as unknown as ProfileLookupClient, user);
 }
 
 export async function requireViewer() {
@@ -87,14 +77,4 @@ export async function requireViewer() {
   }
 
   return viewer;
-}
-
-export async function signOutBrowser() {
-  const supabase = createSupabaseBrowserClient();
-
-  if (!supabase) {
-    return;
-  }
-
-  await supabase.auth.signOut();
 }
