@@ -1,6 +1,6 @@
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, Query, Request
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.auth import AuthenticatedUser, get_current_user, require_roles
@@ -26,6 +26,13 @@ from app.services.str_reports import (
 router = APIRouter()
 
 
+def _wrap_unexpected_str_error(action: str, error: Exception) -> HTTPException:
+    return HTTPException(
+        status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+        detail=f"STR {action} failed: {error.__class__.__name__}: {error}",
+    )
+
+
 @router.get("", response_model=STRListResponse)
 async def list_reports(
     user: Annotated[AuthenticatedUser, Depends(get_current_user)],
@@ -43,12 +50,17 @@ async def create_report(
     user: Annotated[AuthenticatedUser, Depends(require_roles("analyst", "manager", "admin", "superadmin"))],
     session: Annotated[AsyncSession, Depends(get_current_session)],
 ) -> STRMutationResponse:
-    return await create_str_report(
-        session,
-        user=user,
-        payload=body.model_dump(),
-        ip=request.client.host if request.client else None,
-    )
+    try:
+        return await create_str_report(
+            session,
+            user=user,
+            payload=body.model_dump(),
+            ip=request.client.host if request.client else None,
+        )
+    except HTTPException:
+        raise
+    except Exception as error:
+        raise _wrap_unexpected_str_error("create", error) from error
 
 
 @router.get("/{report_id}", response_model=STRReportDetail)
@@ -68,13 +80,18 @@ async def update_report(
     user: Annotated[AuthenticatedUser, Depends(require_roles("analyst", "manager", "admin", "superadmin"))],
     session: Annotated[AsyncSession, Depends(get_current_session)],
 ) -> STRMutationResponse:
-    return await update_str_report(
-        session,
-        report_id=report_id,
-        user=user,
-        payload=body.model_dump(),
-        ip=request.client.host if request.client else None,
-    )
+    try:
+        return await update_str_report(
+            session,
+            report_id=report_id,
+            user=user,
+            payload=body.model_dump(),
+            ip=request.client.host if request.client else None,
+        )
+    except HTTPException:
+        raise
+    except Exception as error:
+        raise _wrap_unexpected_str_error("update", error) from error
 
 
 @router.post("/{report_id}/submit", response_model=STRMutationResponse)
@@ -84,12 +101,17 @@ async def submit_report(
     user: Annotated[AuthenticatedUser, Depends(require_roles("analyst", "manager", "admin", "superadmin"))],
     session: Annotated[AsyncSession, Depends(get_current_session)],
 ) -> STRMutationResponse:
-    return await submit_str_report(
-        session,
-        report_id=report_id,
-        user=user,
-        ip=request.client.host if request.client else None,
-    )
+    try:
+        return await submit_str_report(
+            session,
+            report_id=report_id,
+            user=user,
+            ip=request.client.host if request.client else None,
+        )
+    except HTTPException:
+        raise
+    except Exception as error:
+        raise _wrap_unexpected_str_error("submit", error) from error
 
 
 @router.post("/{report_id}/review", response_model=STRMutationResponse)
@@ -100,13 +122,18 @@ async def review_report(
     user: Annotated[AuthenticatedUser, Depends(require_roles("analyst", "manager", "admin", "superadmin"))],
     session: Annotated[AsyncSession, Depends(get_current_session)],
 ) -> STRMutationResponse:
-    return await review_str_report(
-        session,
-        report_id=report_id,
-        user=user,
-        request=body,
-        ip=request.client.host if request.client else None,
-    )
+    try:
+        return await review_str_report(
+            session,
+            report_id=report_id,
+            user=user,
+            request=body,
+            ip=request.client.host if request.client else None,
+        )
+    except HTTPException:
+        raise
+    except Exception as error:
+        raise _wrap_unexpected_str_error("review", error) from error
 
 
 @router.post("/{report_id}/enrich", response_model=STREnrichmentResponse)
@@ -116,11 +143,16 @@ async def enrich_report(
     user: Annotated[AuthenticatedUser, Depends(require_roles("analyst", "manager", "admin", "superadmin"))],
     session: Annotated[AsyncSession, Depends(get_current_session)],
 ) -> STREnrichmentResponse:
-    enrichment = await enrich_str_report(
-        session,
-        report_id=report_id,
-        user=user,
-        ip=request.client.host if request.client else None,
-    )
-    report = await get_str_report(session, report_id)
-    return STREnrichmentResponse(report=report, enrichment=enrichment)
+    try:
+        enrichment = await enrich_str_report(
+            session,
+            report_id=report_id,
+            user=user,
+            ip=request.client.host if request.client else None,
+        )
+        report = await get_str_report(session, report_id)
+        return STREnrichmentResponse(report=report, enrichment=enrichment)
+    except HTTPException:
+        raise
+    except Exception as error:
+        raise _wrap_unexpected_str_error("enrich", error) from error
