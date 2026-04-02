@@ -23,4 +23,4 @@ class Transaction(TimestampMixin, Base):
     tx_type: Mapped[str | None] = mapped_column(String(32))
     description: Mapped[str | None] = mapped_column(String)
     balance_after: Mapped[float | None] = mapped_column(Numeric(18, 2))
-    metadata: Mapped[dict] = mapped_column(JSONB, default=dict)
+    metadata_json: Mapped[dict] = mapped_column("metadata", JSONB, default=dict)

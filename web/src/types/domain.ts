@@ -15,6 +15,13 @@ export type CaseStatus =
   | "pending_action"
   | "closed_confirmed"
   | "closed_false_positive";
+export type STRReportStatus =
+  | "draft"
+  | "submitted"
+  | "under_review"
+  | "flagged"
+  | "confirmed"
+  | "dismissed";
 
 export interface Viewer {
   id: string;
@@ -190,4 +197,77 @@ export interface ApiKeySummary {
   name: string;
   lastUsedAt: string;
   scope: string[];
+}
+
+export interface STRLifecycleEvent {
+  action: string;
+  actorUserId: string;
+  actorRole: string;
+  actorOrgType: string;
+  fromStatus?: string | null;
+  toStatus?: string | null;
+  note?: string | null;
+  occurredAt: string;
+}
+
+export interface STREnrichment {
+  draftNarrative: string;
+  missingFields: string[];
+  categorySuggestion: string;
+  severitySuggestion: string;
+  triggerFacts: string[];
+  extractedEntities: {
+    entityType: string;
+    value: string;
+    confidence: number;
+  }[];
+  generatedAt: string;
+}
+
+export interface STRReviewState {
+  assignedTo?: string | null;
+  notes: {
+    actorUserId: string;
+    actorRole: string;
+    note: string;
+    occurredAt: string;
+  }[];
+  statusHistory: STRLifecycleEvent[];
+}
+
+export interface STRReportSummary {
+  id: string;
+  orgId: string;
+  orgName: string;
+  reportRef: string;
+  status: STRReportStatus;
+  subjectName?: string | null;
+  subjectAccount: string;
+  subjectBank?: string | null;
+  totalAmount: number;
+  currency: string;
+  transactionCount: number;
+  primaryChannel?: string | null;
+  category: string;
+  autoRiskScore?: number | null;
+  crossBankHit: boolean;
+  reportedAt?: string | null;
+  createdAt: string;
+  updatedAt?: string | null;
+}
+
+export interface STRReportDetail extends STRReportSummary {
+  subjectPhone?: string | null;
+  subjectWallet?: string | null;
+  subjectNid?: string | null;
+  channels: string[];
+  dateRangeStart?: string | null;
+  dateRangeEnd?: string | null;
+  narrative?: string | null;
+  matchedEntityIds: string[];
+  submittedBy?: string | null;
+  reviewedBy?: string | null;
+  metadata: Record<string, unknown>;
+  enrichment?: STREnrichment | null;
+  review: STRReviewState;
 }

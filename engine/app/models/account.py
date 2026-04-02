@@ -17,4 +17,4 @@ class Account(TimestampMixin, Base):
     bank_code: Mapped[str | None] = mapped_column(String(32))
     account_type: Mapped[str | None] = mapped_column(String(32))
     risk_tier: Mapped[str] = mapped_column(String(32), default="normal")
-    metadata: Mapped[dict] = mapped_column(JSONB, default=dict)
+    metadata_json: Mapped[dict] = mapped_column("metadata", JSONB, default=dict)

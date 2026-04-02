@@ -22,6 +22,18 @@ from app.schemas.network import GraphEdge, GraphNode, NetworkGraph
 from app.schemas.overview import KpiStat, OverviewResponse
 from app.schemas.report import ComplianceScore, ComplianceScorecard
 from app.schemas.scan import DetectionRunSummary, FlaggedAccount, ScanQueueResponse
+from app.schemas.str_report import (
+    STREnrichmentResponse,
+    STRDraftUpsert,
+    STRLifecycleEvent,
+    STRListResponse,
+    STRMutationResponse,
+    STREnrichmentSnapshot,
+    STRReportDetail,
+    STRReportSummary,
+    STRReviewRequest,
+    STRReviewState,
+)
 from app.schemas.system import HealthResponse, ReadinessResponse, ServiceCheck
 
 __all__ = [
@@ -60,6 +72,16 @@ __all__ = [
     "ServiceCheck",
     "STRNarrativeRequest",
     "STRNarrativeResult",
+    "STRDraftUpsert",
+    "STREnrichmentResponse",
+    "STREnrichmentSnapshot",
+    "STRLifecycleEvent",
+    "STRListResponse",
+    "STRMutationResponse",
+    "STRReportDetail",
+    "STRReportSummary",
+    "STRReviewRequest",
+    "STRReviewState",
     "TypologySuggestionRequest",
     "TypologySuggestionResult",
     "TypologySummary",

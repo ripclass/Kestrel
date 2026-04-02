@@ -28,4 +28,4 @@ class Entity(TimestampMixin, Base):
     total_exposure: Mapped[float] = mapped_column(Numeric(18, 2), default=0)
     tags: Mapped[list[str]] = mapped_column(ARRAY(String), default=list)
     notes: Mapped[str | None] = mapped_column(String)
-    metadata: Mapped[dict] = mapped_column(JSONB, default=dict)
+    metadata_json: Mapped[dict] = mapped_column("metadata", JSONB, default=dict)

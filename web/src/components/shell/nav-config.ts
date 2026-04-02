@@ -12,6 +12,7 @@ const navItems: NavItem[] = [
   { section: "Overview", label: "Overview", href: "/overview" },
   { section: "Intelligence Tools", label: "Investigate", href: "/investigate" },
   { section: "Intelligence Tools", label: "Intelligence", href: "/intelligence/entities" },
+  { section: "Operations", label: "STRs", href: "/strs" },
   { section: "Operations", label: "Alerts", href: "/alerts" },
   { section: "Operations", label: "Cases", href: "/cases" },
   { section: "Operations", label: "Scan", href: "/scan", personas: ["bank_camlco"] },
