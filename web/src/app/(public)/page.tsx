@@ -2,6 +2,7 @@ import Link from "next/link";
 import { ArrowRight, ShieldCheck, Waypoints } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
+import { demoPersonaOptions } from "@/lib/demo";
 
 export default function LandingPage() {
   return (
@@ -41,6 +42,17 @@ export default function LandingPage() {
             <Link href="/pricing">
               <Button variant="outline" size="lg">Explore deployment model</Button>
             </Link>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            {demoPersonaOptions.map((option) => (
+              <Link
+                key={option.persona}
+                href={`/demo/${option.persona}?next=/overview`}
+                className="rounded-full border border-white/10 px-4 py-2 text-sm text-slate-300 transition hover:border-primary/40 hover:text-white"
+              >
+                Launch {option.title}
+              </Link>
+            ))}
           </div>
         </div>
         <div className="space-y-4">

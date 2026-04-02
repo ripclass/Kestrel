@@ -7,6 +7,7 @@ import type {
   EntityDossier,
   EntitySummary,
   MatchSummary,
+  Persona,
   TypologySummary,
   Viewer,
 } from "@/types/domain";
@@ -48,6 +49,32 @@ export const demoViewers: Record<string, Viewer> = {
     orgType: "regulator",
   },
 };
+
+export const demoPersonaOptions: Array<{
+  persona: Persona;
+  shortLabel: string;
+  title: string;
+  description: string;
+}> = [
+  {
+    persona: "bfiu_analyst",
+    shortLabel: "Analyst",
+    title: "BFIU Analyst",
+    description: "Alert-first investigation view with entity search, casework, and graph tracing.",
+  },
+  {
+    persona: "bfiu_director",
+    shortLabel: "Director",
+    title: "BFIU Director",
+    description: "Command dashboard focused on national threat posture, trend shifts, and compliance oversight.",
+  },
+  {
+    persona: "bank_camlco",
+    shortLabel: "Bank",
+    title: "Bank CAMLCO",
+    description: "Bank-side posture view for transaction scans, threat alerts, and reporting readiness.",
+  },
+];
 
 export const entities: EntitySummary[] = [
   {

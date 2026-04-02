@@ -1,3 +1,4 @@
+import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 
 import { getViewerForPersona } from "@/lib/demo";
@@ -5,24 +6,52 @@ import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import type { Persona, Viewer } from "@/types/domain";
 
-function inferPersona(rawPersona: unknown): Persona {
+export const DEMO_PERSONA_COOKIE = "kestrel_demo_persona";
+
+export function isPersona(rawPersona: unknown): rawPersona is Persona {
   if (
     rawPersona === "bfiu_analyst" ||
     rawPersona === "bank_camlco" ||
     rawPersona === "bfiu_director"
   ) {
+    return true;
+  }
+
+  return false;
+}
+
+function inferPersona(rawPersona: unknown): Persona {
+  if (isPersona(rawPersona)) {
     return rawPersona;
   }
 
-  return (process.env.KESTREL_DEMO_PERSONA as Persona | undefined) ?? "bfiu_analyst";
+  if (isPersona(process.env.KESTREL_DEMO_PERSONA)) {
+    return process.env.KESTREL_DEMO_PERSONA;
+  }
+
+  if (isPersona(process.env.NEXT_PUBLIC_DEMO_PERSONA)) {
+    return process.env.NEXT_PUBLIC_DEMO_PERSONA;
+  }
+
+  return "bfiu_analyst";
+}
+
+export function isDemoModeEnabled() {
+  return !process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+}
+
+export async function getActiveDemoPersona(): Promise<Persona> {
+  const cookieStore = await cookies();
+  const cookiePersona = cookieStore.get(DEMO_PERSONA_COOKIE)?.value;
+
+  return inferPersona(cookiePersona);
 }
 
 export async function getCurrentViewer(): Promise<Viewer | null> {
   const supabase = await createSupabaseServerClient();
 
   if (!supabase) {
-    const demoPersona = process.env.KESTREL_DEMO_PERSONA as Persona | undefined;
-    return demoPersona ? getViewerForPersona(demoPersona) : null;
+    return getViewerForPersona(await getActiveDemoPersona());
   }
 
   const {
