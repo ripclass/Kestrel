@@ -7,10 +7,13 @@ from dataclasses import asdict
 from datetime import UTC, datetime
 import json
 from pathlib import Path
+from urllib.parse import urlparse
 from uuid import UUID, uuid5
 
 from sqlalchemy import select
+from sqlalchemy.exc import SQLAlchemyError
 
+from app.config import get_settings
 from app.models.account import Account
 from app.models.alert import Alert
 from app.models.case import Case
@@ -60,6 +63,15 @@ def _parse_dt(value: str | None) -> datetime | None:
     if not value:
         return None
     return datetime.fromisoformat(value.replace("Z", "+00:00")).astimezone(UTC)
+
+
+def _database_target_hint() -> dict[str, object]:
+    parsed = urlparse(get_settings().database_url.replace("+asyncpg", ""))
+    return {
+        "host": parsed.hostname,
+        "port": parsed.port,
+        "database": parsed.path.lstrip("/"),
+    }
 
 
 async def _ensure_organizations(session, dataset_orgs: list[dict[str, object]]) -> dict[str, UUID]:
@@ -652,7 +664,16 @@ def main() -> None:
     args = parser.parse_args()
 
     if args.apply:
-        result = asyncio.run(apply_dataset(args.dataset_dir))
+        try:
+            result = asyncio.run(apply_dataset(args.dataset_dir))
+        except (ConnectionRefusedError, OSError, SQLAlchemyError) as exc:
+            target = _database_target_hint()
+            raise SystemExit(
+                "Cannot connect to the configured database for synthetic backfill. "
+                f"Target: host={target['host']} port={target['port']} database={target['database']}. "
+                "Start Postgres locally or point DATABASE_URL at the intended Supabase/Postgres instance, then rerun "
+                "`python -m seed.load_dbbl_synthetic --apply`."
+            ) from exc
         print(json.dumps(result, indent=2, default=str))
         return
 

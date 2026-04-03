@@ -442,7 +442,7 @@ def generate_dataset(
         )
 
     dataset = {
-        "generated_at": datetime.now(tz=UTC).isoformat(),
+        "dataset_version": 1,
         "source_dir": source_dir.name,
         "curated": curated,
         "max_pages": max_pages,
