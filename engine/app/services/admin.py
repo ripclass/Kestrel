@@ -23,6 +23,7 @@ from app.schemas.admin import (
     AdminIntegrationsResponse,
     AdminMaintenanceResponse,
     AdminRuleMutationRequest,
+    AdminRuleMutationResponse,
     AdminRuleSummary,
     AdminRulesResponse,
     AdminSettingsResponse,
