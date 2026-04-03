@@ -177,6 +177,29 @@ export interface DetectionRunSummary {
   accountsScanned: number;
   txCount: number;
   createdAt: string;
+  startedAt?: string;
+  completedAt?: string;
+}
+
+export interface FlaggedAccount {
+  entityId: string;
+  accountNumber: string;
+  accountName: string;
+  score: number;
+  severity: Severity;
+  summary: string;
+  matchedBanks: number;
+  totalExposure: number;
+  tags: string[];
+  linkedAlertId?: string;
+  linkedCaseId?: string;
+}
+
+export interface DetectionRunDetail extends DetectionRunSummary {
+  runType: string;
+  summary: string;
+  flaggedAccounts: FlaggedAccount[];
+  error?: string;
 }
 
 export interface CaseSummary {

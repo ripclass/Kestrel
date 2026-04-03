@@ -144,8 +144,30 @@ DETECTION_RUNS = [
 ]
 
 FLAGGED_ACCOUNTS = [
-    FlaggedAccount(label="Likely mule account", score=94),
-    FlaggedAccount(label="Secondary beneficiary cluster", score=82),
+    FlaggedAccount(
+        entity_id="ent-rizwana-account",
+        account_number="1781430000701",
+        account_name="Rizwana Enterprise",
+        score=94,
+        severity="critical",
+        summary="Large inbound RTGS cleared into multiple beneficiaries within minutes.",
+        matched_banks=3,
+        total_exposure=22_140_000,
+        tags=["rapid_cashout", "cross_bank"],
+        linked_alert_id="alert-rapid-cashout",
+        linked_case_id="case-001",
+    ),
+    FlaggedAccount(
+        entity_id="ent-beneficiary-a",
+        account_number="207810004901",
+        account_name="Beneficiary account",
+        score=82,
+        severity="high",
+        summary="Secondary beneficiary cluster received layered transfers after the initial cashout burst.",
+        matched_banks=2,
+        total_exposure=8_100_000,
+        tags=["fan_out", "beneficiary"],
+    ),
 ]
 
 CASES = [

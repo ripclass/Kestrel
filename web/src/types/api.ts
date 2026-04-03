@@ -4,7 +4,9 @@ import type {
   CaseWorkspace,
   CaseSummary,
   ComplianceScore,
+  DetectionRunDetail,
   DetectionRunSummary,
+  FlaggedAccount,
   EntityDossier,
   EntitySummary,
   MatchSummary,
@@ -96,6 +98,24 @@ export interface TypologyListResponse {
 
 export interface DetectionRunListResponse {
   runs: DetectionRunSummary[];
+}
+
+export interface DetectionRunDetailResponse {
+  run: DetectionRunDetail;
+}
+
+export interface DetectionRunResultsResponse {
+  results: FlaggedAccount[];
+}
+
+export interface ScanQueuePayload {
+  fileName?: string;
+  selectedRules: string[];
+}
+
+export interface ScanQueueResponse {
+  run: DetectionRunDetail;
+  message: string;
 }
 
 export interface ComplianceResponse {

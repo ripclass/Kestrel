@@ -1,5 +1,5 @@
 import { PageFrame } from "@/components/common/page-frame";
-import { ScanResults } from "@/components/scan/scan-results";
+import { ScanRunWorkspace } from "@/components/scan/scan-run-workspace";
 
 export default async function ScanRunPage({
   params,
@@ -14,7 +14,7 @@ export default async function ScanRunPage({
       title={`Scan run ${runId}`}
       description="Detailed detection output, account-level scoring, and explainable alert candidates."
     >
-      <ScanResults />
+      <ScanRunWorkspace runId={runId} />
     </PageFrame>
   );
 }
