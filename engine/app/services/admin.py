@@ -6,7 +6,7 @@ from pathlib import Path
 from uuid import UUID
 import uuid
 
-from sqlalchemy import select, text
+from sqlalchemy import or_, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.auth import AuthenticatedUser
@@ -121,6 +121,16 @@ async def _load_db_rules(session: AsyncSession) -> list[Rule]:
 
 async def _load_rule_variants(session: AsyncSession, code: str) -> list[Rule]:
     result = await session.execute(select(Rule).where(Rule.code == code))
+    return list(result.scalars().all())
+
+
+async def _load_rule_variants_for_org(session: AsyncSession, code: str, org_id: UUID) -> list[Rule]:
+    result = await session.execute(
+        select(Rule).where(
+            Rule.code == code,
+            or_(Rule.org_id == org_id, Rule.is_system.is_(True), Rule.org_id.is_(None)),
+        )
+    )
     return list(result.scalars().all())
 
 
@@ -430,16 +440,15 @@ async def update_team_member(
     )
 
 
-async def update_rule_configuration(
+async def _update_rule_configuration_in_session(
     session: AsyncSession,
     *,
-    user: AuthenticatedUser,
+    org_uuid: UUID,
     code: str,
     payload: AdminRuleMutationRequest,
+    yaml_rule: dict[str, object] | None,
+    variants: list[Rule],
 ) -> AdminRuleMutationResponse:
-    yaml_rule = _yaml_rule_map().get(code)
-    variants = await _load_rule_variants(session, code)
-    org_uuid = _as_uuid(user.org_id)
     org_rule = next((rule for rule in variants if rule.org_id == org_uuid), None)
     baseline_rule = next((rule for rule in variants if rule.org_id is None), None)
 
@@ -469,7 +478,6 @@ async def update_rule_configuration(
         await session.flush()
 
     changed = False
-
     fields_set = payload.model_fields_set
 
     if "is_active" in fields_set and payload.is_active is not None and org_rule.is_active != payload.is_active:
@@ -507,6 +515,39 @@ async def update_rule_configuration(
     return AdminRuleMutationResponse(
         rule=build_rule_summary(code=code, yaml_rule=yaml_rule, db_rule=org_rule)
     )
+
+
+async def update_rule_configuration(
+    session: AsyncSession,
+    *,
+    user: AuthenticatedUser,
+    code: str,
+    payload: AdminRuleMutationRequest,
+) -> AdminRuleMutationResponse:
+    yaml_rule = _yaml_rule_map().get(code)
+    org_uuid = _as_uuid(user.org_id)
+    try:
+        variants = await _load_rule_variants(session, code)
+        return await _update_rule_configuration_in_session(
+            session,
+            org_uuid=org_uuid,
+            code=code,
+            payload=payload,
+            yaml_rule=yaml_rule,
+            variants=variants,
+        )
+    except Exception:
+        await session.rollback()
+        async with SessionLocal() as fallback_session:
+            variants = await _load_rule_variants_for_org(fallback_session, code, org_uuid)
+            return await _update_rule_configuration_in_session(
+                fallback_session,
+                org_uuid=org_uuid,
+                code=code,
+                payload=payload,
+                yaml_rule=yaml_rule,
+                variants=variants,
+            )
 
 
 def build_synthetic_backfill_plan() -> SyntheticBackfillPlanResponse:
