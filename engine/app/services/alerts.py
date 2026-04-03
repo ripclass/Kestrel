@@ -57,7 +57,12 @@ def _normalize_reasons(value: object) -> list[dict[str, object]]:
     for item in payload:
         if not isinstance(item, dict):
             continue
-        reasons.append(AlertReason.model_validate(item).model_dump())
+        normalized = dict(item)
+        normalized["score"] = int(normalized.get("score") or 0)
+        normalized["weight"] = float(normalized.get("weight") or 1.0)
+        normalized["evidence"] = normalized.get("evidence") if isinstance(normalized.get("evidence"), dict) else {}
+        normalized["recommended_action"] = normalized.get("recommended_action")
+        reasons.append(AlertReason.model_validate(normalized).model_dump())
     return reasons
 
 

@@ -4,7 +4,7 @@ from uuid import uuid4
 
 from app.models.alert import Alert
 from app.models.case import Case
-from app.services.alerts import _serialize_alert_summary
+from app.services.alerts import _normalize_reasons, _serialize_alert_summary
 from app.services.case_mgmt import _serialize_case_notes, _serialize_case_summary, _serialize_case_timeline
 
 
@@ -92,3 +92,19 @@ def test_case_serializers_preserve_linked_alerts_notes_and_timeline_order() -> N
     assert notes[0]["note"] == "Requested KYC pack."
     assert timeline[0]["description"] == "Escalated for case review."
     assert timeline[1]["description"] == "Requested KYC pack."
+
+
+def test_normalize_reasons_backfills_legacy_seed_shape() -> None:
+    payload = _normalize_reasons(
+        [
+            {
+                "rule": "rapid_cashout",
+                "score": 28,
+                "explanation": "Peak same-day outflow reached 90% of inbound funds.",
+            }
+        ]
+    )
+
+    assert payload[0]["rule"] == "rapid_cashout"
+    assert payload[0]["weight"] == 1.0
+    assert payload[0]["evidence"] == {}
