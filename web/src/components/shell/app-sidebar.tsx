@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Shield, Workflow } from "lucide-react";
@@ -7,10 +8,53 @@ import { Shield, Workflow } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import { getNavigation } from "@/components/shell/nav-config";
+import { readResponsePayload } from "@/lib/http";
+import type { AlertListResponse, CaseListResponse } from "@/types/api";
 import type { Viewer } from "@/types/domain";
 
 export function AppSidebar({ viewer }: { viewer: Viewer }) {
   const pathname = usePathname();
+  const [counts, setCounts] = useState<{ alerts: number | null; cases: number | null }>({
+    alerts: null,
+    cases: null,
+  });
+
+  useEffect(() => {
+    const controller = new AbortController();
+
+    void (async () => {
+      try {
+        const [alertsResponse, casesResponse] = await Promise.all([
+          fetch("/api/alerts", { cache: "no-store", signal: controller.signal }),
+          fetch("/api/cases", { cache: "no-store", signal: controller.signal }),
+        ]);
+
+        const [alertsPayload, casesPayload] = await Promise.all([
+          readResponsePayload<AlertListResponse>(alertsResponse),
+          readResponsePayload<CaseListResponse>(casesResponse),
+        ]);
+
+        setCounts({
+          alerts:
+            alertsResponse.ok && "alerts" in alertsPayload && Array.isArray(alertsPayload.alerts)
+              ? alertsPayload.alerts.length
+              : null,
+          cases:
+            casesResponse.ok && "cases" in casesPayload && Array.isArray(casesPayload.cases)
+              ? casesPayload.cases.length
+              : null,
+        });
+      } catch (error) {
+        if ((error as Error).name === "AbortError") {
+          return;
+        }
+        setCounts({ alerts: null, cases: null });
+      }
+    })();
+
+    return () => controller.abort();
+  }, []);
+
   const groups = Object.entries(
     getNavigation(viewer).reduce<Record<string, ReturnType<typeof getNavigation>>>((acc, item) => {
       acc[item.section] ??= [];
@@ -39,6 +83,12 @@ export function AppSidebar({ viewer }: { viewer: Viewer }) {
             <div className="space-y-1">
               {items.map((item) => {
                 const active = pathname.startsWith(item.href);
+                const badgeValue =
+                  item.href === "/alerts"
+                    ? counts.alerts
+                    : item.href === "/cases"
+                      ? counts.cases
+                      : null;
                 return (
                   <Link
                     key={item.href}
@@ -51,7 +101,17 @@ export function AppSidebar({ viewer }: { viewer: Viewer }) {
                     )}
                   >
                     <span>{item.label}</span>
-                    {item.href === "/alerts" ? <Badge className="bg-red-500/20 text-red-200">18</Badge> : null}
+                    {badgeValue !== null ? (
+                      <Badge
+                        className={
+                          item.href === "/alerts"
+                            ? "bg-red-500/20 text-red-200"
+                            : "bg-amber-500/20 text-amber-200"
+                        }
+                      >
+                        {badgeValue}
+                      </Badge>
+                    ) : null}
                   </Link>
                 );
               })}
