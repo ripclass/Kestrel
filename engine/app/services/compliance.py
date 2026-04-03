@@ -1,5 +1,8 @@
-from seed.fixtures import COMPLIANCE
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.schemas.report import ComplianceScorecard
+from app.services.reporting import build_compliance_scorecard
 
 
-def get_scorecard() -> list[dict[str, object]]:
-    return [item.model_dump() for item in COMPLIANCE]
+async def get_scorecard(session: AsyncSession) -> ComplianceScorecard:
+    return await build_compliance_scorecard(session)

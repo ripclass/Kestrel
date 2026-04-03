@@ -1,25 +1,24 @@
+import { Currency } from "@/components/common/currency";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import type { ThreatMapRow } from "@/types/domain";
 
-const rows = [
-  ["MFS wallets", "Very high", "Merchant front networks and rapid beneficiary cashout"],
-  ["RTGS", "High", "Large-value clearing used as staging leg before wallet dispersion"],
-  ["NPSB", "Elevated", "Consumer account fan-out rings crossing peer banks"],
-];
-
-export function ThreatMap() {
+export function ThreatMap({ rows }: { rows: ThreatMapRow[] }) {
   return (
     <Card className="grid-surface">
       <CardHeader>
         <CardTitle>National threat heatmap</CardTitle>
       </CardHeader>
       <CardContent className="space-y-3">
-        {rows.map(([channel, level, detail]) => (
-          <div key={channel} className="rounded-xl border border-border/70 bg-background/50 p-4">
+        {rows.map((row) => (
+          <div key={row.channel} className="rounded-xl border border-border/70 bg-background/50 p-4">
             <div className="flex items-center justify-between gap-4">
-              <p className="font-medium">{channel}</p>
-              <span className="text-sm text-primary">{level}</span>
+              <p className="font-medium">{row.channel}</p>
+              <span className="text-sm text-primary">{row.level}</span>
             </div>
-            <p className="mt-2 text-sm text-muted-foreground">{detail}</p>
+            <p className="mt-2 text-sm text-muted-foreground">{row.detail}</p>
+            <p className="mt-2 text-xs uppercase tracking-[0.18em] text-muted-foreground">
+              {row.signalCount} signals · <Currency amount={row.totalExposure} />
+            </p>
           </div>
         ))}
       </CardContent>

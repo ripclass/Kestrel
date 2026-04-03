@@ -7,11 +7,14 @@ import type {
   DetectionRunDetail,
   DetectionRunSummary,
   FlaggedAccount,
+  KpiStat,
   EntityDossier,
   EntitySummary,
   MatchSummary,
+  ThreatMapRow,
   STRReportDetail,
   STRReportSummary,
+  TrendPoint,
   TypologySummary,
   Viewer,
 } from "@/types/domain";
@@ -28,6 +31,12 @@ export interface OverviewResponse {
       detail: string;
     }[];
   };
+}
+
+export interface LiveOverviewResponse {
+  headline: string;
+  operational: string[];
+  stats: KpiStat[];
 }
 
 export interface EntitySearchResponse {
@@ -120,6 +129,28 @@ export interface ScanQueueResponse {
 
 export interface ComplianceResponse {
   banks: ComplianceScore[];
+}
+
+export interface NationalReportResponse {
+  headline: string;
+  operational: string[];
+  stats: KpiStat[];
+  threatMap: ThreatMapRow[];
+}
+
+export interface TrendSeriesResponse {
+  series: TrendPoint[];
+}
+
+export interface ReportExportPayload {
+  reportType: string;
+}
+
+export interface ReportExportResponse {
+  reportType: string;
+  status: string;
+  message: string;
+  generatedAt: string;
 }
 
 export interface STRListResponse {

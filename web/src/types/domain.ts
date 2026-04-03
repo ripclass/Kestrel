@@ -42,6 +42,22 @@ export interface KpiStat {
   detail: string;
 }
 
+export interface ThreatMapRow {
+  channel: string;
+  level: string;
+  detail: string;
+  signalCount: number;
+  totalExposure: number;
+}
+
+export interface TrendPoint {
+  month: string;
+  alerts: number;
+  strReports: number;
+  cases: number;
+  scans: number;
+}
+
 export interface AlertReason {
   rule: string;
   score: number;

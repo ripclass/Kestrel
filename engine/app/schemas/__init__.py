@@ -20,7 +20,15 @@ from app.schemas.intelligence import CrossBankMatch, TypologySummary
 from app.schemas.investigate import ActivityEvent, EntityDossier, EntitySearchResult, ReportingHistoryItem
 from app.schemas.network import GraphEdge, GraphNode, NetworkGraph
 from app.schemas.overview import KpiStat, OverviewResponse
-from app.schemas.report import ComplianceScore, ComplianceScorecard
+from app.schemas.report import (
+    ComplianceScore,
+    ComplianceScorecard,
+    NationalReportResponse,
+    ReportExportResponse,
+    ThreatMapRow,
+    TrendPoint,
+    TrendSeriesResponse,
+)
 from app.schemas.scan import DetectionRunSummary, FlaggedAccount, ScanQueueResponse
 from app.schemas.str_report import (
     STREnrichmentResponse,
@@ -66,10 +74,15 @@ __all__ = [
     "KpiStat",
     "NetworkGraph",
     "OverviewResponse",
+    "NationalReportResponse",
     "ReadinessResponse",
     "ReportingHistoryItem",
     "ScanQueueResponse",
     "ServiceCheck",
+    "ThreatMapRow",
+    "TrendPoint",
+    "TrendSeriesResponse",
+    "ReportExportResponse",
     "STRNarrativeRequest",
     "STRNarrativeResult",
     "STRDraftUpsert",
