@@ -1,11 +1,21 @@
 from functools import lru_cache
+from pathlib import Path
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+ENGINE_ROOT = Path(__file__).resolve().parents[1]
+REPO_ROOT = Path(__file__).resolve().parents[2]
+DEFAULT_ENV_FILES = (
+    str(REPO_ROOT / ".env"),
+    str(REPO_ROOT / ".env.local"),
+    str(ENGINE_ROOT / ".env"),
+    str(ENGINE_ROOT / ".env.local"),
+)
 
 
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(
-        env_file=".env",
+        env_file=DEFAULT_ENV_FILES,
         env_file_encoding="utf-8",
         extra="ignore",
     )
