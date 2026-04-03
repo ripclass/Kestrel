@@ -114,3 +114,9 @@ class SyntheticBackfillResultResponse(BaseModel):
     alerts: int
     cases: int
     reporting_orgs: dict[str, int] = Field(default_factory=dict)
+
+
+class AdminMaintenanceResponse(BaseModel):
+    action: str
+    applied: bool
+    detail: str

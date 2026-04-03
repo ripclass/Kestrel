@@ -8,6 +8,7 @@ from app.auth import AuthenticatedUser, require_roles
 from app.config import get_settings
 from app.dependencies import get_current_session
 from app.schemas.admin import (
+    AdminMaintenanceResponse,
     AdminIntegrationsResponse,
     AdminRuleMutationRequest,
     AdminRuleMutationResponse,
@@ -21,6 +22,7 @@ from app.schemas.admin import (
     SyntheticBackfillResultResponse,
 )
 from app.services.admin import (
+    apply_rules_insert_policy_fix,
     build_admin_integrations,
     build_admin_settings,
     build_admin_summary,
@@ -139,4 +141,19 @@ async def apply_synthetic_backfill(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Synthetic backfill failed. Check engine logs for details.",
+        ) from exc
+
+
+@router.post("/maintenance/rules-policy-fix", response_model=AdminMaintenanceResponse)
+async def apply_rules_policy_fix(
+    user: Annotated[AuthenticatedUser, Depends(require_roles("admin", "superadmin"))],
+) -> AdminMaintenanceResponse:
+    _require_regulator_admin(user)
+    try:
+        return await apply_rules_insert_policy_fix()
+    except Exception as exc:
+        logger.exception("Rules policy fix failed.")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Rules policy fix failed. Check engine logs for details.",
         ) from exc

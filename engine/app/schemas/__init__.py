@@ -15,6 +15,7 @@ from app.schemas.ai import (
     TypologySuggestionResult,
 )
 from app.schemas.admin import (
+    AdminMaintenanceResponse,
     AdminIntegrationSummary,
     AdminIntegrationsResponse,
     AdminRuleMutationRequest,
@@ -65,6 +66,7 @@ __all__ = [
     "AIInvocationMeta",
     "AIResultEnvelope",
     "ActivityEvent",
+    "AdminMaintenanceResponse",
     "AdminIntegrationSummary",
     "AdminIntegrationsResponse",
     "AdminRuleMutationRequest",

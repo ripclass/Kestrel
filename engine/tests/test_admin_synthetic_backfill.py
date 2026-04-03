@@ -5,6 +5,7 @@ from fastapi import HTTPException
 
 from app.auth import AuthenticatedUser
 from app.routers import admin as admin_router
+from app.schemas.admin import AdminMaintenanceResponse
 from seed.dbbl_synthetic import OUTPUT_DIR_DEFAULT
 
 
@@ -58,3 +59,15 @@ def test_apply_synthetic_backfill_uses_default_dataset(monkeypatch) -> None:
 
     assert result.dataset_root == str(OUTPUT_DIR_DEFAULT)
     assert result.transactions == 547
+
+
+def test_apply_rules_policy_fix_uses_maintenance_helper(monkeypatch) -> None:
+    async def fake_apply_rules_insert_policy_fix():
+        return AdminMaintenanceResponse(action="rules_insert_policy_fix", applied=True, detail="ok")
+
+    monkeypatch.setattr(admin_router, "apply_rules_insert_policy_fix", fake_apply_rules_insert_policy_fix)
+
+    result = asyncio.run(admin_router.apply_rules_policy_fix(build_user()))
+
+    assert result.action == "rules_insert_policy_fix"
+    assert result.applied is True

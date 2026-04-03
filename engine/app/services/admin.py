@@ -6,10 +6,11 @@ from pathlib import Path
 from uuid import UUID
 import uuid
 
-from sqlalchemy import select
+from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.auth import AuthenticatedUser
+from app.database import SessionLocal
 from app.config import Settings, get_settings
 from app.core.detection.loader import load_rules
 from app.models.detection_run import DetectionRun
@@ -20,6 +21,7 @@ from app.models.str_report import STRReport
 from app.schemas.admin import (
     AdminIntegrationSummary,
     AdminIntegrationsResponse,
+    AdminMaintenanceResponse,
     AdminRuleMutationRequest,
     AdminRuleSummary,
     AdminRulesResponse,
@@ -528,4 +530,26 @@ def normalize_synthetic_backfill_result(payload: dict[str, object]) -> Synthetic
         alerts=int(payload["alerts"]),
         cases=int(payload["cases"]),
         reporting_orgs=normalized_reporting_orgs,
+    )
+
+
+async def apply_rules_insert_policy_fix() -> AdminMaintenanceResponse:
+    async with SessionLocal() as session:
+        await session.execute(text("drop policy if exists rules_org on rules"))
+        await session.execute(
+            text(
+                """
+                create policy rules_org on rules
+                  for all
+                  using (org_id = auth_org_id() or is_system = true)
+                  with check (org_id = auth_org_id() or is_system = true)
+                """
+            )
+        )
+        await session.commit()
+
+    return AdminMaintenanceResponse(
+        action="rules_insert_policy_fix",
+        applied=True,
+        detail="rules_org policy recreated with WITH CHECK for organization overlay inserts.",
     )
