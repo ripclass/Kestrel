@@ -17,6 +17,11 @@ kestrel/
 - `engine/` -> Render web service + Render worker + Render Redis
 - `supabase/` -> Supabase Postgres, Auth, and Storage
 
+## Runtime Pins
+
+- `web/package.json` pins Node.js `22.x` for local installs, CI, and Vercel.
+- `engine/.python-version` pins Python `3.12.8` so Render does not drift onto newer interpreter releases unexpectedly.
+
 ## Local Setup
 
 1. Copy `.env.example` to `.env` and fill the required values.
@@ -50,6 +55,7 @@ kestrel/
 - The Render production workflow expects per-service deploy hooks from the Render dashboard for the web service and worker declared in [`engine/render.yaml`](engine/render.yaml).
 - If the required secrets are missing, the deployment workflows skip cleanly and leave a summary in the Actions run instead of failing.
 - Demo mode should be enabled explicitly in demo-only environments with `KESTREL_ENABLE_DEMO_MODE=true` and `NEXT_PUBLIC_ENABLE_DEMO_MODE=true`.
+- The public landing and pricing pages now read the live engine readiness report from `/ready`, so deployment drift is visible without signing in.
 
 ## Current Scaffold Scope
 
@@ -84,3 +90,5 @@ python -m seed.load_dbbl_synthetic --apply
 ```
 
 The first command prints the load plan. The second performs the idempotent backfill into `organizations`, `accounts`, `transactions`, `entities`, `connections`, `str_reports`, `matches`, `alerts`, and lightweight `cases`.
+
+If you want to apply that dataset against the live Render/Supabase environment, run it from a Render shell or use the regulator-admin backfill endpoint. Running the command locally only uses the database URL available in your local shell or `.env`.

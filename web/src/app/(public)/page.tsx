@@ -1,10 +1,18 @@
 import Link from "next/link";
 import { ArrowRight, ShieldCheck, Waypoints } from "lucide-react";
 
+import { DeploymentReadinessPanel } from "@/components/public/deployment-readiness";
 import { Button } from "@/components/ui/button";
+import { fetchDeploymentReadiness } from "@/lib/system";
 import { demoPersonaOptions } from "@/lib/demo";
+import { isDemoModeConfigured } from "@/lib/runtime";
 
-export default function LandingPage() {
+export const dynamic = "force-dynamic";
+
+export default async function LandingPage() {
+  const readiness = await fetchDeploymentReadiness();
+  const demoModeEnabled = isDemoModeConfigured();
+
   return (
     <main className="grid-surface mx-auto flex min-h-screen w-full max-w-7xl flex-col px-6 py-10 lg:px-10">
       <header className="flex items-center justify-between py-4">
@@ -35,25 +43,27 @@ export default function LandingPage() {
           <div className="flex flex-wrap gap-3">
             <Link href="/login">
               <Button size="lg">
-                View platform scaffold
+                Enter Kestrel
                 <ArrowRight className="h-4 w-4" />
               </Button>
             </Link>
             <Link href="/pricing">
-              <Button variant="outline" size="lg">Explore deployment model</Button>
+              <Button variant="outline" size="lg">Review deployment model</Button>
             </Link>
           </div>
-          <div className="flex flex-wrap gap-2">
-            {demoPersonaOptions.map((option) => (
-              <Link
-                key={option.persona}
-                href={`/demo/${option.persona}?next=/overview`}
-                className="rounded-full border border-white/10 px-4 py-2 text-sm text-slate-300 transition hover:border-primary/40 hover:text-white"
-              >
-                Launch {option.title}
-              </Link>
-            ))}
-          </div>
+          {demoModeEnabled ? (
+            <div className="flex flex-wrap gap-2">
+              {demoPersonaOptions.map((option) => (
+                <Link
+                  key={option.persona}
+                  href={`/demo/${option.persona}?next=/overview`}
+                  className="rounded-full border border-white/10 px-4 py-2 text-sm text-slate-300 transition hover:border-primary/40 hover:text-white"
+                >
+                  Launch {option.title}
+                </Link>
+              ))}
+            </div>
+          ) : null}
         </div>
         <div className="space-y-4">
           {[
@@ -79,6 +89,16 @@ export default function LandingPage() {
             );
           })}
         </div>
+      </section>
+      <section className="space-y-6 pb-12">
+        <div className="flex flex-col gap-2">
+          <p className="text-xs uppercase tracking-[0.28em] text-primary">Live posture</p>
+          <h2 className="text-2xl font-semibold text-white">Cloud deployment health is visible from the front door.</h2>
+          <p className="max-w-3xl text-sm text-slate-300">
+            The public surface now reflects actual engine readiness across auth, database, storage, worker, and optional AI providers.
+          </p>
+        </div>
+        <DeploymentReadinessPanel readiness={readiness} compact />
       </section>
     </main>
   );

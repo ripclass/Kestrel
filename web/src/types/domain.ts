@@ -260,6 +260,81 @@ export interface ApiKeySummary {
   scope: string[];
 }
 
+export interface AdminSummary {
+  orgName: string;
+  orgType: OrgType;
+  plan: string;
+  teamMembers: number;
+  activeRules: number;
+  totalRules: number;
+  apiIntegrations: number;
+  crossBankHits: number;
+  detectionRuns: number;
+  syntheticBackfillAvailable: boolean;
+}
+
+export interface AdminSettings {
+  orgName: string;
+  orgType: OrgType;
+  plan: string;
+  bankCode?: string;
+  authConfigured: boolean;
+  storageConfigured: boolean;
+  demoModeEnabled: boolean;
+  goamlSyncEnabled: boolean;
+  goamlBaseUrlConfigured: boolean;
+  environment: string;
+  appVersion: string;
+  uploadsBucket: string;
+  exportsBucket: string;
+  syntheticBackfillAvailable: boolean;
+}
+
+export interface AdminTeamMember {
+  id: string;
+  fullName: string;
+  designation?: string;
+  role: Role;
+  persona: Persona;
+}
+
+export interface AdminRuleSummary {
+  code: string;
+  name: string;
+  description: string;
+  category: string;
+  source: string;
+  isActive: boolean;
+  isSystem: boolean;
+  weight: number;
+  version: number;
+  threshold?: number;
+}
+
+export interface AdminIntegration {
+  id: string;
+  name: string;
+  status: string;
+  detail: string;
+  scope: string[];
+  lastUsedAt?: string;
+}
+
+export interface DeploymentCheck {
+  name: string;
+  status: string;
+  required: boolean;
+  detail: string;
+  metadata: Record<string, unknown>;
+}
+
+export interface DeploymentReadiness {
+  status: "ready" | "not_ready";
+  version: string;
+  environment: string;
+  checks: DeploymentCheck[];
+}
+
 export interface STRLifecycleEvent {
   action: string;
   actorUserId: string;

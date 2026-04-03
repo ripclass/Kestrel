@@ -14,6 +14,16 @@ from app.schemas.ai import (
     TypologySuggestionRequest,
     TypologySuggestionResult,
 )
+from app.schemas.admin import (
+    AdminIntegrationSummary,
+    AdminIntegrationsResponse,
+    AdminRuleSummary,
+    AdminRulesResponse,
+    AdminSettingsResponse,
+    AdminSummaryResponse,
+    AdminTeamMember,
+    AdminTeamResponse,
+)
 from app.schemas.alert import AlertDetail, AlertReason, AlertSummary
 from app.schemas.case import CaseSummary, CaseWorkspace
 from app.schemas.intelligence import CrossBankMatch, TypologySummary
@@ -49,6 +59,14 @@ __all__ = [
     "AIInvocationMeta",
     "AIResultEnvelope",
     "ActivityEvent",
+    "AdminIntegrationSummary",
+    "AdminIntegrationsResponse",
+    "AdminRuleSummary",
+    "AdminRulesResponse",
+    "AdminSettingsResponse",
+    "AdminSummaryResponse",
+    "AdminTeamMember",
+    "AdminTeamResponse",
     "AlertDetail",
     "AlertExplanationResult",
     "AlertReason",

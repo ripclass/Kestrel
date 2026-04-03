@@ -1,9 +1,15 @@
 import type {
+  AdminIntegration,
+  AdminRuleSummary,
+  AdminSettings,
+  AdminSummary,
+  AdminTeamMember,
   AlertDetail,
   AlertSummary,
   CaseWorkspace,
   CaseSummary,
   ComplianceScore,
+  DeploymentReadiness,
   DetectionRunDetail,
   DetectionRunSummary,
   FlaggedAccount,
@@ -31,6 +37,30 @@ export interface OverviewResponse {
       detail: string;
     }[];
   };
+}
+
+export interface AdminSummaryResponse {
+  summary: AdminSummary;
+}
+
+export interface AdminSettingsResponse {
+  settings: AdminSettings;
+}
+
+export interface AdminTeamResponse {
+  members: AdminTeamMember[];
+}
+
+export interface AdminRulesResponse {
+  rules: AdminRuleSummary[];
+}
+
+export interface AdminIntegrationsResponse {
+  integrations: AdminIntegration[];
+}
+
+export interface DeploymentReadinessResponse {
+  readiness: DeploymentReadiness | null;
 }
 
 export interface LiveOverviewResponse {

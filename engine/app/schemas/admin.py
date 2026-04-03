@@ -1,0 +1,73 @@
+from pydantic import BaseModel, Field
+
+
+class AdminSummaryResponse(BaseModel):
+    org_name: str
+    org_type: str
+    plan: str
+    team_members: int
+    active_rules: int
+    total_rules: int
+    api_integrations: int
+    cross_bank_hits: int
+    detection_runs: int
+    synthetic_backfill_available: bool
+
+
+class AdminSettingsResponse(BaseModel):
+    org_name: str
+    org_type: str
+    plan: str
+    bank_code: str | None = None
+    auth_configured: bool
+    storage_configured: bool
+    demo_mode_enabled: bool
+    goaml_sync_enabled: bool
+    goaml_base_url_configured: bool
+    environment: str
+    app_version: str
+    uploads_bucket: str
+    exports_bucket: str
+    synthetic_backfill_available: bool
+
+
+class AdminTeamMember(BaseModel):
+    id: str
+    full_name: str
+    designation: str | None = None
+    role: str
+    persona: str
+
+
+class AdminTeamResponse(BaseModel):
+    members: list[AdminTeamMember] = Field(default_factory=list)
+
+
+class AdminRuleSummary(BaseModel):
+    code: str
+    name: str
+    description: str
+    category: str
+    source: str
+    is_active: bool
+    is_system: bool
+    weight: float
+    version: int
+    threshold: float | None = None
+
+
+class AdminRulesResponse(BaseModel):
+    rules: list[AdminRuleSummary] = Field(default_factory=list)
+
+
+class AdminIntegrationSummary(BaseModel):
+    id: str
+    name: str
+    status: str
+    detail: str
+    scope: list[str] = Field(default_factory=list)
+    last_used_at: str | None = None
+
+
+class AdminIntegrationsResponse(BaseModel):
+    integrations: list[AdminIntegrationSummary] = Field(default_factory=list)

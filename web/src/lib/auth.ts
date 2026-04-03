@@ -5,7 +5,7 @@ import { getViewerForPersona } from "@/lib/demo";
 import { isDemoModeConfigured } from "@/lib/runtime";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { fetchViewerFromSupabaseClient, type ProfileLookupClient } from "@/lib/viewer";
-import type { Persona, Viewer } from "@/types/domain";
+import type { Persona, Role, Viewer } from "@/types/domain";
 
 export const DEMO_PERSONA_COOKIE = "kestrel_demo_persona";
 
@@ -74,6 +74,16 @@ export async function requireViewer() {
 
   if (!viewer) {
     redirect("/login");
+  }
+
+  return viewer;
+}
+
+export async function requireRole(...roles: Role[]) {
+  const viewer = await requireViewer();
+
+  if (!roles.includes(viewer.role)) {
+    redirect("/overview");
   }
 
   return viewer;
