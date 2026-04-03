@@ -276,7 +276,10 @@ create policy transactions_org on transactions for all using (org_id = auth_org_
 create policy detection_runs_org on detection_runs for all using (org_id = auth_org_id() or is_regulator());
 create policy alerts_org on alerts for all using (org_id = auth_org_id() or is_regulator());
 create policy cases_org on cases for all using (org_id = auth_org_id() or is_regulator());
-create policy rules_org on rules for all using (org_id = auth_org_id() or is_system = true);
+create policy rules_org on rules
+  for all
+  using (org_id = auth_org_id() or is_system = true)
+  with check (org_id = auth_org_id() or is_system = true);
 create policy audit_org on audit_log for all using (org_id = auth_org_id());
 create policy shared_entities on entities for all using (auth.uid() is not null);
 create policy shared_connections on connections for all using (auth.uid() is not null);
