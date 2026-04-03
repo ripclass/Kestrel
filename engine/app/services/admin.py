@@ -4,6 +4,7 @@ import json
 from decimal import Decimal
 from pathlib import Path
 from uuid import UUID
+import uuid
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -19,17 +20,29 @@ from app.models.str_report import STRReport
 from app.schemas.admin import (
     AdminIntegrationSummary,
     AdminIntegrationsResponse,
+    AdminRuleMutationRequest,
     AdminRuleSummary,
     AdminRulesResponse,
     AdminSettingsResponse,
     AdminSummaryResponse,
     AdminTeamMember,
+    AdminTeamMutationResponse,
     AdminTeamResponse,
+    AdminTeamUpdateRequest,
+    SyntheticBackfillPlanResponse,
+    SyntheticBackfillResultResponse,
 )
 from seed.dbbl_synthetic import OUTPUT_DIR_DEFAULT
+from seed.load_dbbl_synthetic import build_load_plan
 
 RULES_DIR = Path(__file__).resolve().parents[1] / "core" / "detection" / "rules"
 SYNTHETIC_SUMMARY_PATH = OUTPUT_DIR_DEFAULT / "summary.json"
+VALID_PERSONAS_BY_ORG_TYPE = {
+    "regulator": {"bfiu_analyst", "bfiu_director"},
+    "bank": {"bank_camlco"},
+    "mfs": {"bank_camlco"},
+    "nbfi": {"bank_camlco"},
+}
 ROLE_ORDER = {
     "superadmin": 0,
     "admin": 1,
@@ -64,6 +77,22 @@ def _synthetic_generated_at() -> str | None:
     return str(generated_at) if isinstance(generated_at, str) else None
 
 
+def _yaml_rule_map() -> dict[str, dict[str, object]]:
+    payloads: dict[str, dict[str, object]] = {}
+    for rule_payload in load_rules(RULES_DIR):
+        code = str(rule_payload.get("code") or "").strip()
+        if code:
+            payloads[code] = rule_payload
+    return payloads
+
+
+def _normalize_text(value: str | None) -> str | None:
+    if value is None:
+        return None
+    normalized = value.strip()
+    return normalized or None
+
+
 async def _load_org(session: AsyncSession, user: AuthenticatedUser) -> Organization | None:
     result = await session.execute(select(Organization).where(Organization.id == _as_uuid(user.org_id)))
     return result.scalars().first()
@@ -86,6 +115,11 @@ async def _load_runs(session: AsyncSession) -> list[DetectionRun]:
 
 async def _load_db_rules(session: AsyncSession) -> list[Rule]:
     return list((await session.execute(select(Rule))).scalars().all())
+
+
+async def _load_rule_variants(session: AsyncSession, code: str) -> list[Rule]:
+    result = await session.execute(select(Rule).where(Rule.code == code))
+    return list(result.scalars().all())
 
 
 def _sort_profiles(profiles: list[Profile]) -> list[Profile]:
@@ -113,52 +147,76 @@ def _system_rule_description(rule_payload: dict[str, object]) -> str:
     return "Baseline system rule loaded from YAML."
 
 
+def _prefer_rule_variant(left: Rule, right: Rule) -> Rule:
+    left_priority = (0 if left.org_id else 1, 0 if not left.is_system else 1, left.version * -1)
+    right_priority = (0 if right.org_id else 1, 0 if not right.is_system else 1, right.version * -1)
+    return left if left_priority <= right_priority else right
+
+
+def _rule_source(db_rule: Rule | None, yaml_rule: dict[str, object] | None = None) -> str:
+    if db_rule is None:
+        return "system baseline"
+    if db_rule.org_id:
+        return "organization overlay" if yaml_rule is not None else "organization custom"
+    if db_rule.is_system:
+        return "system registry"
+    return "organization custom"
+
+
+def build_rule_summary(
+    *,
+    code: str,
+    yaml_rule: dict[str, object] | None,
+    db_rule: Rule | None,
+) -> AdminRuleSummary:
+    definition = db_rule.definition if db_rule and isinstance(db_rule.definition, dict) else {}
+    threshold = definition.get("threshold")
+    if threshold is None and yaml_rule is not None:
+        threshold = yaml_rule.get("threshold")
+
+    return AdminRuleSummary(
+        code=code,
+        name=db_rule.name if db_rule else _system_rule_name(yaml_rule or {"code": code}),
+        description=(
+            db_rule.description if db_rule and db_rule.description else _system_rule_description(yaml_rule or {"code": code})
+        ),
+        category=(
+            db_rule.category
+            if db_rule
+            else str((yaml_rule or {}).get("category") or "behavioral")
+        ),
+        source=_rule_source(db_rule, yaml_rule),
+        is_active=db_rule.is_active if db_rule else True,
+        is_system=db_rule.is_system if db_rule else True,
+        weight=_as_float(db_rule.weight if db_rule else (yaml_rule or {}).get("weight")),
+        version=db_rule.version if db_rule else 1,
+        threshold=float(threshold) if isinstance(threshold, (int, float)) else None,
+    )
+
+
 def build_rule_catalog_items(yaml_rules: list[dict[str, object]], db_rules: list[Rule]) -> list[AdminRuleSummary]:
-    db_rules_by_code = {rule.code: rule for rule in db_rules}
+    yaml_rules_by_code = {
+        str(rule_payload.get("code") or "").strip(): rule_payload
+        for rule_payload in yaml_rules
+        if str(rule_payload.get("code") or "").strip()
+    }
+    db_rules_by_code: dict[str, Rule] = {}
+    for rule in db_rules:
+        current = db_rules_by_code.get(rule.code)
+        db_rules_by_code[rule.code] = rule if current is None else _prefer_rule_variant(current, rule)
     catalog: list[AdminRuleSummary] = []
 
-    for rule_payload in yaml_rules:
-        code = str(rule_payload.get("code") or "").strip()
-        if not code:
-            continue
-        db_rule = db_rules_by_code.pop(code, None)
-        definition = db_rule.definition if db_rule and isinstance(db_rule.definition, dict) else {}
-        threshold = definition.get("threshold", rule_payload.get("threshold"))
+    for code, yaml_rule in yaml_rules_by_code.items():
         catalog.append(
-            AdminRuleSummary(
+            build_rule_summary(
                 code=code,
-                name=db_rule.name if db_rule else _system_rule_name(rule_payload),
-                description=db_rule.description or _system_rule_description(rule_payload) if db_rule else _system_rule_description(rule_payload),
-                category=db_rule.category if db_rule else "behavioral",
-                source="organization overlay" if db_rule and db_rule.org_id else "system baseline",
-                is_active=db_rule.is_active if db_rule else True,
-                is_system=db_rule.is_system if db_rule else True,
-                weight=_as_float(db_rule.weight if db_rule else rule_payload.get("weight")),
-                version=db_rule.version if db_rule else 1,
-                threshold=float(threshold) if isinstance(threshold, (int, float)) else None,
+                yaml_rule=yaml_rule,
+                db_rule=db_rules_by_code.pop(code, None),
             )
         )
 
-    for db_rule in db_rules_by_code.values():
-        threshold = None
-        if isinstance(db_rule.definition, dict):
-            raw_threshold = db_rule.definition.get("threshold")
-            if isinstance(raw_threshold, (int, float)):
-                threshold = float(raw_threshold)
-        catalog.append(
-            AdminRuleSummary(
-                code=db_rule.code,
-                name=db_rule.name,
-                description=db_rule.description or "Custom organization rule stored in the Kestrel rules registry.",
-                category=db_rule.category,
-                source="organization custom" if db_rule.org_id else "system registry",
-                is_active=db_rule.is_active,
-                is_system=db_rule.is_system,
-                weight=_as_float(db_rule.weight),
-                version=db_rule.version,
-                threshold=threshold,
-            )
-        )
+    for code, db_rule in db_rules_by_code.items():
+        catalog.append(build_rule_summary(code=code, yaml_rule=None, db_rule=db_rule))
 
     return sorted(
         catalog,
@@ -312,4 +370,162 @@ async def build_admin_integrations(
             settings=runtime_settings,
             include_synthetic=user.org_type == "regulator",
         )
+    )
+
+
+def _validate_requested_role(actor: AuthenticatedUser, requested_role: str) -> None:
+    if requested_role not in ROLE_ORDER:
+        raise ValueError("Requested role is invalid.")
+    if actor.role == "manager" and requested_role in {"admin", "superadmin"}:
+        raise PermissionError("Managers cannot assign admin roles.")
+    if actor.role == "admin" and requested_role == "superadmin":
+        raise PermissionError("Admins cannot assign superadmin.")
+
+
+def _validate_requested_persona(org_type: str, requested_persona: str) -> None:
+    allowed = VALID_PERSONAS_BY_ORG_TYPE.get(org_type, {"bank_camlco"})
+    if requested_persona not in allowed:
+        raise ValueError(f"Persona {requested_persona} is not valid for {org_type} organizations.")
+
+
+async def update_team_member(
+    session: AsyncSession,
+    *,
+    user: AuthenticatedUser,
+    member_id: str,
+    payload: AdminTeamUpdateRequest,
+) -> AdminTeamMutationResponse:
+    org = await _load_org(session, user)
+    if org is None:
+        raise LookupError("Organization context is unavailable.")
+
+    member = await session.get(Profile, _as_uuid(member_id))
+    if member is None or member.org_id != org.id:
+        raise LookupError("Team member not found for this organization.")
+
+    if payload.role is not None:
+        _validate_requested_role(user, payload.role)
+        member.role = payload.role
+
+    if payload.persona is not None:
+        _validate_requested_persona(org.org_type, payload.persona)
+        member.persona = payload.persona
+
+    if payload.designation is not None:
+        member.designation = _normalize_text(payload.designation)
+
+    await session.commit()
+    await session.refresh(member)
+
+    return AdminTeamMutationResponse(
+        member=AdminTeamMember(
+            id=str(member.id),
+            full_name=member.full_name,
+            designation=member.designation,
+            role=member.role,
+            persona=member.persona,
+        )
+    )
+
+
+async def update_rule_configuration(
+    session: AsyncSession,
+    *,
+    user: AuthenticatedUser,
+    code: str,
+    payload: AdminRuleMutationRequest,
+) -> AdminRuleMutationResponse:
+    yaml_rule = _yaml_rule_map().get(code)
+    variants = await _load_rule_variants(session, code)
+    org_uuid = _as_uuid(user.org_id)
+    org_rule = next((rule for rule in variants if rule.org_id == org_uuid), None)
+    baseline_rule = next((rule for rule in variants if rule.org_id is None), None)
+
+    if org_rule is None and yaml_rule is None and baseline_rule is None:
+        raise LookupError("Rule definition was not found.")
+
+    if org_rule is None:
+        org_rule = Rule(
+            id=uuid.uuid4(),
+            org_id=org_uuid,
+            code=code,
+            name=baseline_rule.name if baseline_rule else _system_rule_name(yaml_rule or {"code": code}),
+            description=baseline_rule.description if baseline_rule else _system_rule_description(yaml_rule or {"code": code}),
+            category=baseline_rule.category if baseline_rule else str((yaml_rule or {}).get("category") or "behavioral"),
+            is_active=True,
+            is_system=False,
+            weight=_as_float(baseline_rule.weight if baseline_rule else (yaml_rule or {}).get("weight")),
+            definition=dict(baseline_rule.definition or {}) if baseline_rule and isinstance(baseline_rule.definition, dict) else {},
+            version=1,
+        )
+        if "threshold" in (yaml_rule or {}):
+            org_rule.definition = {
+                **org_rule.definition,
+                "threshold": (yaml_rule or {}).get("threshold"),
+            }
+        session.add(org_rule)
+        await session.flush()
+
+    changed = False
+
+    fields_set = payload.model_fields_set
+
+    if "is_active" in fields_set and payload.is_active is not None and org_rule.is_active != payload.is_active:
+        org_rule.is_active = payload.is_active
+        changed = True
+
+    if "weight" in fields_set and payload.weight is not None and float(org_rule.weight) != payload.weight:
+        org_rule.weight = payload.weight
+        changed = True
+
+    if "description" in fields_set:
+        next_description = _normalize_text(payload.description)
+        if org_rule.description != next_description:
+            org_rule.description = next_description
+            changed = True
+
+    if "threshold" in fields_set:
+        definition = dict(org_rule.definition or {})
+        current_threshold = definition.get("threshold")
+        if payload.threshold is None:
+            if "threshold" in definition:
+                definition.pop("threshold", None)
+                changed = True
+        elif current_threshold != payload.threshold:
+            definition["threshold"] = payload.threshold
+            changed = True
+        org_rule.definition = definition
+
+    if changed:
+        org_rule.version += 1
+
+    await session.commit()
+    await session.refresh(org_rule)
+
+    return AdminRuleMutationResponse(
+        rule=build_rule_summary(code=code, yaml_rule=yaml_rule, db_rule=org_rule)
+    )
+
+
+def build_synthetic_backfill_plan() -> SyntheticBackfillPlanResponse:
+    return SyntheticBackfillPlanResponse.model_validate(build_load_plan(OUTPUT_DIR_DEFAULT))
+
+
+def normalize_synthetic_backfill_result(payload: dict[str, object]) -> SyntheticBackfillResultResponse:
+    reporting_orgs = payload.get("reporting_orgs")
+    normalized_reporting_orgs = {
+        str(key): int(value)
+        for key, value in dict(reporting_orgs or {}).items()
+    }
+    return SyntheticBackfillResultResponse(
+        dataset_root=str(payload["dataset_root"]),
+        organizations=int(payload["organizations"]),
+        entities=int(payload["entities"]),
+        connections=int(payload["connections"]),
+        matches=int(payload["matches"]),
+        transactions=int(payload["transactions"]),
+        str_reports=int(payload["str_reports"]),
+        alerts=int(payload["alerts"]),
+        cases=int(payload["cases"]),
+        reporting_orgs=normalized_reporting_orgs,
     )

@@ -60,6 +60,17 @@ class AdminRulesResponse(BaseModel):
     rules: list[AdminRuleSummary] = Field(default_factory=list)
 
 
+class AdminRuleMutationRequest(BaseModel):
+    is_active: bool | None = None
+    weight: float | None = Field(default=None, ge=0.1, le=100.0)
+    threshold: float | None = Field(default=None, ge=0.0, le=1000.0)
+    description: str | None = None
+
+
+class AdminRuleMutationResponse(BaseModel):
+    rule: AdminRuleSummary
+
+
 class AdminIntegrationSummary(BaseModel):
     id: str
     name: str
@@ -71,3 +82,35 @@ class AdminIntegrationSummary(BaseModel):
 
 class AdminIntegrationsResponse(BaseModel):
     integrations: list[AdminIntegrationSummary] = Field(default_factory=list)
+
+
+class AdminTeamUpdateRequest(BaseModel):
+    role: str | None = None
+    persona: str | None = None
+    designation: str | None = None
+
+
+class AdminTeamMutationResponse(BaseModel):
+    member: AdminTeamMember
+
+
+class SyntheticBackfillPlanResponse(BaseModel):
+    dataset_root: str
+    statements: int
+    entities: int
+    matches: int
+    transactions: int
+    connections: int
+
+
+class SyntheticBackfillResultResponse(BaseModel):
+    dataset_root: str
+    organizations: int
+    entities: int
+    connections: int
+    matches: int
+    transactions: int
+    str_reports: int
+    alerts: int
+    cases: int
+    reporting_orgs: dict[str, int] = Field(default_factory=dict)

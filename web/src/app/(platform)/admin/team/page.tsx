@@ -1,13 +1,12 @@
+import { TeamManagementTable } from "@/components/admin/team-management-table";
 import { PageFrame } from "@/components/common/page-frame";
-import { DataTable } from "@/components/common/data-table";
 import { EmptyState } from "@/components/common/empty-state";
 import { ErrorState } from "@/components/common/error-state";
 import { fetchAdminTeam } from "@/lib/admin";
 import { requireRole } from "@/lib/auth";
-import { Badge } from "@/components/ui/badge";
 
 export default async function TeamPage() {
-  await requireRole("manager", "admin", "superadmin");
+  const viewer = await requireRole("manager", "admin", "superadmin");
   let errorMessage: string | null = null;
   let members: Awaited<ReturnType<typeof fetchAdminTeam>> = [];
 
@@ -31,17 +30,7 @@ export default async function TeamPage() {
           description="Profiles will appear here once this organization provisions platform users."
         />
       ) : (
-        <DataTable
-          columns={["Name", "Designation", "Role", "Persona"]}
-          rows={members.map((member) => [
-            member.fullName,
-            member.designation ?? "Not specified",
-            <Badge key={`${member.id}-role`}>{member.role}</Badge>,
-            <Badge key={`${member.id}-persona`} className="border-primary/30 bg-primary/15 text-primary">
-              {member.persona}
-            </Badge>,
-          ])}
-        />
+        <TeamManagementTable initialMembers={members} orgType={viewer.orgType} />
       )}
     </PageFrame>
   );

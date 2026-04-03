@@ -6,6 +6,8 @@ import type {
   AdminSettings,
   AdminSummary,
   AdminTeamMember,
+  SyntheticBackfillPlan,
+  SyntheticBackfillResult,
 } from "@/types/domain";
 
 type RawAdminSummary = {
@@ -78,6 +80,28 @@ type RawAdminRulesResponse = {
 
 type RawAdminIntegrationsResponse = {
   integrations?: RawAdminIntegration[];
+};
+
+type RawSyntheticBackfillPlan = {
+  dataset_root: string;
+  statements: number;
+  entities: number;
+  matches: number;
+  transactions: number;
+  connections: number;
+};
+
+type RawSyntheticBackfillResult = {
+  dataset_root: string;
+  organizations: number;
+  entities: number;
+  connections: number;
+  matches: number;
+  transactions: number;
+  str_reports: number;
+  alerts: number;
+  cases: number;
+  reporting_orgs?: Record<string, number>;
 };
 
 async function fetchEngineJson<T>(path: string): Promise<T> {
@@ -161,6 +185,32 @@ export function normalizeAdminIntegration(integration: RawAdminIntegration): Adm
   };
 }
 
+export function normalizeSyntheticBackfillPlan(plan: RawSyntheticBackfillPlan): SyntheticBackfillPlan {
+  return {
+    datasetRoot: plan.dataset_root,
+    statements: plan.statements,
+    entities: plan.entities,
+    matches: plan.matches,
+    transactions: plan.transactions,
+    connections: plan.connections,
+  };
+}
+
+export function normalizeSyntheticBackfillResult(result: RawSyntheticBackfillResult): SyntheticBackfillResult {
+  return {
+    datasetRoot: result.dataset_root,
+    organizations: result.organizations,
+    entities: result.entities,
+    connections: result.connections,
+    matches: result.matches,
+    transactions: result.transactions,
+    strReports: result.str_reports,
+    alerts: result.alerts,
+    cases: result.cases,
+    reportingOrgs: result.reporting_orgs ?? {},
+  };
+}
+
 export async function fetchAdminSummary(): Promise<AdminSummary> {
   return normalizeAdminSummary(await fetchEngineJson<RawAdminSummary>("/admin/summary"));
 }
@@ -182,4 +232,10 @@ export async function fetchAdminRules(): Promise<AdminRuleSummary[]> {
 export async function fetchAdminIntegrations(): Promise<AdminIntegration[]> {
   const payload = await fetchEngineJson<RawAdminIntegrationsResponse>("/admin/api-keys");
   return (payload.integrations ?? []).map(normalizeAdminIntegration);
+}
+
+export async function fetchSyntheticBackfillPlan(): Promise<SyntheticBackfillPlan> {
+  return normalizeSyntheticBackfillPlan(
+    await fetchEngineJson<RawSyntheticBackfillPlan>("/admin/synthetic-backfill"),
+  );
 }

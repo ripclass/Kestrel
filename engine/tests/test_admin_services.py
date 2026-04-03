@@ -1,8 +1,14 @@
 from decimal import Decimal
 from uuid import uuid4
 
+from app.auth import AuthenticatedUser
 from app.models.rule import Rule
-from app.services.admin import build_api_integrations, build_rule_catalog_items
+from app.services.admin import (
+    _validate_requested_persona,
+    _validate_requested_role,
+    build_api_integrations,
+    build_rule_catalog_items,
+)
 
 
 def test_build_rule_catalog_items_merges_yaml_baselines_and_org_overrides() -> None:
@@ -50,6 +56,44 @@ def test_build_rule_catalog_items_merges_yaml_baselines_and_org_overrides() -> N
     assert wallet_chain.is_active is False
 
 
+def test_build_rule_catalog_items_prefers_org_specific_variant_over_system_registry() -> None:
+    yaml_rules = [{"code": "layering", "title": "Layering", "weight": 7.0, "threshold": 65}]
+    system_rule = Rule(
+        id=uuid4(),
+        org_id=None,
+        code="layering",
+        name="Layering system",
+        description="System registry rule",
+        category="network",
+        is_active=True,
+        is_system=True,
+        weight=Decimal("7.00"),
+        definition={"threshold": 65},
+        version=2,
+    )
+    org_rule = Rule(
+        id=uuid4(),
+        org_id=uuid4(),
+        code="layering",
+        name="Layering overlay",
+        description="Org-specific override",
+        category="network",
+        is_active=False,
+        is_system=False,
+        weight=Decimal("8.00"),
+        definition={"threshold": 72},
+        version=3,
+    )
+
+    catalog = build_rule_catalog_items(yaml_rules, [system_rule, org_rule])
+    layering = next(rule for rule in catalog if rule.code == "layering")
+
+    assert layering.name == "Layering overlay"
+    assert layering.source == "organization overlay"
+    assert layering.is_active is False
+    assert layering.threshold == 72.0
+
+
 def test_build_api_integrations_reflects_runtime_configuration() -> None:
     class StubSettings:
         goaml_sync_enabled = False
@@ -69,3 +113,31 @@ def test_build_api_integrations_reflects_runtime_configuration() -> None:
     assert {"goaml-adapter", "report-export-delivery", "synthetic-backfill"} <= ids
     assert statuses["goaml-adapter"] == "stubbed"
     assert statuses["report-export-delivery"] == "active"
+
+
+def test_validate_requested_role_rejects_unauthorized_promotions() -> None:
+    manager = AuthenticatedUser(
+        user_id=str(uuid4()),
+        email="manager@kestrel.test",
+        org_id=str(uuid4()),
+        org_type="bank",
+        role="manager",
+        persona="bank_camlco",
+        designation="Manager",
+    )
+
+    try:
+        _validate_requested_role(manager, "admin")
+    except PermissionError as exc:
+        assert "Managers cannot assign admin roles." in str(exc)
+    else:
+        raise AssertionError("Manager promotion restriction was not enforced.")
+
+
+def test_validate_requested_persona_rejects_invalid_org_persona_pairing() -> None:
+    try:
+        _validate_requested_persona("bank", "bfiu_director")
+    except ValueError as exc:
+        assert "is not valid" in str(exc)
+    else:
+        raise AssertionError("Invalid persona pairing was not rejected.")

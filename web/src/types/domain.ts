@@ -320,6 +320,28 @@ export interface AdminIntegration {
   lastUsedAt?: string;
 }
 
+export interface SyntheticBackfillPlan {
+  datasetRoot: string;
+  statements: number;
+  entities: number;
+  matches: number;
+  transactions: number;
+  connections: number;
+}
+
+export interface SyntheticBackfillResult {
+  datasetRoot: string;
+  organizations: number;
+  entities: number;
+  connections: number;
+  matches: number;
+  transactions: number;
+  strReports: number;
+  alerts: number;
+  cases: number;
+  reportingOrgs: Record<string, number>;
+}
+
 export interface DeploymentCheck {
   name: string;
   status: string;

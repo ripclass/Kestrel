@@ -32,18 +32,29 @@ def test_synthetic_backfill_plan_is_regulator_only() -> None:
 def test_synthetic_backfill_plan_reads_default_dataset() -> None:
     plan = asyncio.run(admin_router.synthetic_backfill_plan(build_user()))
 
-    assert plan["dataset_root"] == str(OUTPUT_DIR_DEFAULT)
-    assert plan["transactions"] >= 500
+    assert plan.dataset_root == str(OUTPUT_DIR_DEFAULT)
+    assert plan.transactions >= 500
 
 
 def test_apply_synthetic_backfill_uses_default_dataset(monkeypatch) -> None:
     async def fake_apply_dataset(dataset_root):
         assert dataset_root == OUTPUT_DIR_DEFAULT
-        return {"status": "ok", "transactions": 547}
+        return {
+            "dataset_root": str(dataset_root),
+            "organizations": 7,
+            "entities": 22,
+            "connections": 20,
+            "matches": 1,
+            "transactions": 547,
+            "str_reports": 7,
+            "alerts": 1,
+            "cases": 1,
+            "reporting_orgs": {"BFIU": 1},
+        }
 
     monkeypatch.setattr(admin_router, "apply_dataset", fake_apply_dataset)
 
     result = asyncio.run(admin_router.apply_synthetic_backfill(build_user()))
 
-    assert result["status"] == "ok"
-    assert result["transactions"] == 547
+    assert result.dataset_root == str(OUTPUT_DIR_DEFAULT)
+    assert result.transactions == 547

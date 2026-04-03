@@ -17,9 +17,13 @@ import type {
   EntityDossier,
   EntitySummary,
   MatchSummary,
+  Persona,
+  Role,
   ThreatMapRow,
   STRReportDetail,
   STRReportSummary,
+  SyntheticBackfillPlan,
+  SyntheticBackfillResult,
   TrendPoint,
   TypologySummary,
   Viewer,
@@ -61,6 +65,35 @@ export interface AdminIntegrationsResponse {
 
 export interface DeploymentReadinessResponse {
   readiness: DeploymentReadiness | null;
+}
+
+export interface AdminRuleMutationPayload {
+  isActive?: boolean;
+  weight?: number;
+  threshold?: number | null;
+  description?: string | null;
+}
+
+export interface AdminRuleMutationResponse {
+  rule: AdminRuleSummary;
+}
+
+export interface AdminTeamMutationPayload {
+  role?: Role;
+  persona?: Persona;
+  designation?: string | null;
+}
+
+export interface AdminTeamMutationResponse {
+  member: AdminTeamMember;
+}
+
+export interface SyntheticBackfillPlanResponse {
+  plan: SyntheticBackfillPlan;
+}
+
+export interface SyntheticBackfillApplyResponse {
+  result: SyntheticBackfillResult;
 }
 
 export interface LiveOverviewResponse {
