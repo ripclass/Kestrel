@@ -53,4 +53,10 @@ async def apply_synthetic_backfill(
     user: Annotated[AuthenticatedUser, Depends(require_roles("admin", "superadmin"))],
 ) -> dict[str, object]:
     _require_regulator_admin(user)
-    return await apply_dataset(OUTPUT_DIR_DEFAULT)
+    try:
+        return await apply_dataset(OUTPUT_DIR_DEFAULT)
+    except Exception as exc:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Synthetic backfill failed: {exc.__class__.__name__}: {exc}",
+        ) from exc
