@@ -1,12 +1,11 @@
 import Link from "next/link";
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { matches as demoMatches } from "@/lib/demo";
 import type { MatchSummary } from "@/types/domain";
 
 export function MatchList({
   compact = false,
-  matches = demoMatches,
+  matches = [],
 }: {
   compact?: boolean;
   matches?: MatchSummary[];
@@ -19,6 +18,11 @@ export function MatchList({
         <CardTitle>Cross-bank matches</CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
+        {list.length === 0 ? (
+          <div className="rounded-xl border border-dashed border-border/70 bg-background/40 p-4 text-sm text-muted-foreground">
+            No cross-bank overlaps are available for this view yet.
+          </div>
+        ) : null}
         {list.map((match) => (
           <Link
             key={match.id}

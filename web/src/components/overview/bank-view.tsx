@@ -1,6 +1,7 @@
 import { KpiCard } from "@/components/overview/kpi-card";
 import { MatchList } from "@/components/intelligence/match-list";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { fetchCrossBankMatches } from "@/lib/investigation";
 import type { KpiStat } from "@/types/domain";
 
 const stats: KpiStat[] = [
@@ -9,7 +10,9 @@ const stats: KpiStat[] = [
   { label: "Submission posture", value: "84/100", delta: "+4 month on month", detail: "above peer median" },
 ];
 
-export function BankView() {
+export async function BankView() {
+  const matches = await fetchCrossBankMatches();
+
   return (
     <div className="space-y-6">
       <div className="grid gap-4 xl:grid-cols-3">
@@ -18,7 +21,7 @@ export function BankView() {
         ))}
       </div>
       <div className="grid gap-6 xl:grid-cols-[1.3fr_0.9fr]">
-        <MatchList compact />
+        <MatchList compact matches={matches} />
         <Card>
           <CardHeader>
             <CardTitle>Network threat guidance</CardTitle>
