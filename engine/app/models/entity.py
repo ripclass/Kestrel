@@ -21,7 +21,7 @@ class Entity(TimestampMixin, Base):
     confidence: Mapped[float] = mapped_column(Numeric(3, 2), default=0.5)
     status: Mapped[str] = mapped_column(String(32), default="active")
     source: Mapped[str] = mapped_column(String(32), default="system")
-    reporting_orgs: Mapped[list[str]] = mapped_column(ARRAY(String), default=list)
+    reporting_orgs: Mapped[list[uuid.UUID]] = mapped_column(ARRAY(UUID(as_uuid=True)), default=list)
     report_count: Mapped[int] = mapped_column(Integer, default=0)
     first_seen: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     last_seen: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))

@@ -127,7 +127,7 @@ async def _upsert_entities(
 ) -> dict[str, UUID]:
     entity_ids: dict[str, UUID] = {}
     match_orgs = {
-        str(item["entity_id"]): [str(name_to_uuid[name]) for name in item.get("involved_orgs", []) if name in name_to_uuid]
+        str(item["entity_id"]): [name_to_uuid[name] for name in item.get("involved_orgs", []) if name in name_to_uuid]
         for item in matches_payload
     }
 
@@ -135,7 +135,7 @@ async def _upsert_entities(
         synthetic_id = str(row["id"])
         entity_uuid = _stable_uuid("entity", synthetic_id)
         reporting_orgs = match_orgs.get(synthetic_id) or [
-            str(name_to_uuid[name]) for name in row.get("reporting_orgs", []) if name in name_to_uuid
+            name_to_uuid[name] for name in row.get("reporting_orgs", []) if name in name_to_uuid
         ]
 
         existing = await session.get(Entity, entity_uuid)
@@ -350,7 +350,7 @@ async def _upsert_str_reports(
     transactions_payload: list[dict[str, object]],
     entity_ids: dict[str, UUID],
     name_to_uuid: dict[str, UUID],
-) -> tuple[list[UUID], int]:
+) -> tuple[dict[tuple[str, str], UUID], int]:
     entity_by_id = {str(row["id"]): row for row in entities_payload}
     match_by_entity = {str(row["entity_id"]): row for row in matches_payload}
     statement_channels: dict[str, Counter[str]] = {}
@@ -358,7 +358,7 @@ async def _upsert_str_reports(
         counter = statement_channels.setdefault(str(transaction["statement_id"]), Counter())
         counter[str(transaction.get("channel") or "other")] += 1
 
-    report_ids: list[UUID] = []
+    report_lookup: dict[tuple[str, str], UUID] = {}
     count = 0
 
     for statement in statements_payload:
@@ -424,11 +424,11 @@ async def _upsert_str_reports(
                 "reasons": reasons,
             }
             existing.reported_at = _parse_dt(str(statement["period_to"])) if statement.get("period_to") else datetime.now(tz=UTC)
-            report_ids.append(report_uuid)
+            report_lookup[(str(org_name), report_ref)] = report_uuid
             count += 1
 
     await session.flush()
-    return report_ids, count
+    return report_lookup, count
 
 
 async def _upsert_matches(
@@ -437,6 +437,7 @@ async def _upsert_matches(
     matches_payload: list[dict[str, object]],
     entity_ids: dict[str, UUID],
     name_to_uuid: dict[str, UUID],
+    report_lookup: dict[tuple[str, str], UUID],
 ) -> int:
     count = 0
     for row in matches_payload:
@@ -449,8 +450,14 @@ async def _upsert_matches(
         existing.entity_id = entity_ids[str(row["entity_id"])]
         existing.match_key = str(row["match_key"])
         existing.match_type = str(row["match_type"])
-        existing.involved_org_ids = [str(name_to_uuid[name]) for name in row.get("involved_orgs", []) if name in name_to_uuid]
-        existing.involved_str_ids = [str(value) for value in row.get("involved_str_ids", [])]
+        involved_org_names = [str(name) for name in row.get("involved_orgs", [])]
+        involved_refs = [str(value) for value in row.get("involved_str_ids", [])]
+        existing.involved_org_ids = [name_to_uuid[name] for name in involved_org_names if name in name_to_uuid]
+        existing.involved_str_ids = [
+            report_lookup[(org_name, report_ref)]
+            for org_name, report_ref in zip(involved_org_names, involved_refs)
+            if (org_name, report_ref) in report_lookup
+        ]
         existing.match_count = int(row.get("match_count") or len(existing.involved_org_ids))
         existing.total_exposure = float(row.get("total_exposure") or 0.0)
         existing.risk_score = int(row.get("risk_score") or 0)
@@ -550,8 +557,8 @@ async def _upsert_cases(
         existing.severity = str(statement.get("severity") or "medium")
         existing.status = "investigating"
         existing.assigned_to = None
-        existing.linked_alert_ids = [str(alert_uuid)]
-        existing.linked_entity_ids = [str(entity_ids[str(entity_row["id"])])]
+        existing.linked_alert_ids = [alert_uuid]
+        existing.linked_entity_ids = [entity_ids[str(entity_row["id"])]]
         existing.total_exposure = float(entity_row.get("total_exposure") or 0.0)
         existing.recovered = 0.0
         existing.timeline = [
@@ -608,7 +615,7 @@ async def apply_dataset(dataset_root: Path) -> dict[str, object]:
             entity_ids=entity_ids,
             dbbl_org_id=dbbl_org_id,
         )
-        _, str_report_count = await _upsert_str_reports(
+        report_lookup, str_report_count = await _upsert_str_reports(
             session,
             statements_payload=dataset["statements"],
             matches_payload=dataset["matches"],
@@ -622,6 +629,7 @@ async def apply_dataset(dataset_root: Path) -> dict[str, object]:
             matches_payload=dataset["matches"],
             entity_ids=entity_ids,
             name_to_uuid=name_to_uuid,
+            report_lookup=report_lookup,
         )
         alert_count = await _upsert_alerts(
             session,
