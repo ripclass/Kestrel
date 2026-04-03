@@ -104,10 +104,9 @@ async def update_rule(
     code: str,
     payload: AdminRuleMutationRequest,
     user: Annotated[AuthenticatedUser, Depends(require_roles("manager", "admin", "superadmin"))],
-    session: Annotated[AsyncSession, Depends(get_current_session)],
 ) -> AdminRuleMutationResponse:
     try:
-        return await update_rule_configuration(session, user=user, code=code, payload=payload)
+        return await update_rule_configuration(user=user, code=code, payload=payload)
     except LookupError as exc:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
     except ValueError as exc:

@@ -518,7 +518,6 @@ async def _update_rule_configuration_in_session(
 
 
 async def update_rule_configuration(
-    session: AsyncSession,
     *,
     user: AuthenticatedUser,
     code: str,
@@ -526,8 +525,8 @@ async def update_rule_configuration(
 ) -> AdminRuleMutationResponse:
     yaml_rule = _yaml_rule_map().get(code)
     org_uuid = _as_uuid(user.org_id)
-    try:
-        variants = await _load_rule_variants(session, code)
+    async with SessionLocal() as session:
+        variants = await _load_rule_variants_for_org(session, code, org_uuid)
         return await _update_rule_configuration_in_session(
             session,
             org_uuid=org_uuid,
@@ -536,18 +535,6 @@ async def update_rule_configuration(
             yaml_rule=yaml_rule,
             variants=variants,
         )
-    except Exception:
-        await session.rollback()
-        async with SessionLocal() as fallback_session:
-            variants = await _load_rule_variants_for_org(fallback_session, code, org_uuid)
-            return await _update_rule_configuration_in_session(
-                fallback_session,
-                org_uuid=org_uuid,
-                code=code,
-                payload=payload,
-                yaml_rule=yaml_rule,
-                variants=variants,
-            )
 
 
 def build_synthetic_backfill_plan() -> SyntheticBackfillPlanResponse:
