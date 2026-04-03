@@ -137,6 +137,13 @@ export interface AlertSummary {
   orgName: string;
   entityId: string;
   reasons: AlertReason[];
+  assignedTo?: string;
+  caseId?: string;
+}
+
+export interface AlertDetail extends AlertSummary {
+  graph: NetworkGraph;
+  entity?: EntitySummary;
 }
 
 export interface MatchSummary {
@@ -180,8 +187,23 @@ export interface CaseSummary {
   severity: Severity;
   status: CaseStatus;
   totalExposure: number;
-  assignedTo: string;
+  assignedTo?: string;
   linkedEntityIds: string[];
+  linkedAlertIds: string[];
+}
+
+export interface CaseNote {
+  actorUserId: string;
+  actorRole: string;
+  note: string;
+  occurredAt: string;
+}
+
+export interface CaseWorkspace extends CaseSummary {
+  timeline: ActivityEvent[];
+  evidenceEntities: EntitySummary[];
+  notes: CaseNote[];
+  graph?: NetworkGraph;
 }
 
 export interface ComplianceScore {

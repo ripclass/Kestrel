@@ -1,5 +1,7 @@
 import type {
+  AlertDetail,
   AlertSummary,
+  CaseWorkspace,
   CaseSummary,
   ComplianceScore,
   DetectionRunSummary,
@@ -39,12 +41,53 @@ export interface AlertListResponse {
   alerts: AlertSummary[];
 }
 
+export interface AlertDetailResponse {
+  alert: AlertDetail;
+}
+
+export interface AlertMutationPayload {
+  action:
+    | "start_review"
+    | "assign_to_me"
+    | "escalate"
+    | "mark_true_positive"
+    | "mark_false_positive"
+    | "create_case";
+  note?: string;
+  caseTitle?: string;
+}
+
+export interface AlertMutationResponse {
+  alert: AlertDetail;
+  case?: CaseSummary | null;
+}
+
 export interface MatchListResponse {
   matches: MatchSummary[];
 }
 
 export interface CaseListResponse {
   cases: CaseSummary[];
+}
+
+export interface CaseWorkspaceResponse {
+  case: CaseWorkspace;
+}
+
+export interface CaseMutationPayload {
+  action: "add_note" | "assign_to_me" | "update_status";
+  note?: string;
+  status?:
+    | "open"
+    | "investigating"
+    | "escalated"
+    | "pending_action"
+    | "closed_confirmed"
+    | "closed_false_positive";
+}
+
+export interface CaseMutationResponse {
+  case: CaseWorkspace;
 }
 
 export interface TypologyListResponse {

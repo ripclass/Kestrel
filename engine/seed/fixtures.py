@@ -1,7 +1,7 @@
 from copy import deepcopy
 
 from app.schemas.alert import AlertDetail, AlertReason, AlertSummary
-from app.schemas.case import CaseSummary, CaseWorkspace
+from app.schemas.case import CaseNote, CaseSummary, CaseWorkspace
 from app.schemas.intelligence import CrossBankMatch, TypologySummary
 from app.schemas.investigate import ActivityEvent, EntityDossier, EntitySearchResult, ReportingHistoryItem
 from app.schemas.network import GraphEdge, GraphNode, NetworkGraph
@@ -161,7 +161,21 @@ CASES = [
         linked_entity_ids=["ent-rizwana-account", "ent-rizwana-phone"],
         timeline=ENTITY_DOSSIER.timeline,
         evidence_entities=ENTITIES,
-        notes=["Counterparty KYC packet requested from Sonali Bank.", "Wallet beneficiary mapping suggests third-party collection activity."],
+        notes=[
+            CaseNote(
+                actor_user_id="Sadia Rahman",
+                actor_role="case_management",
+                note="Counterparty KYC packet requested from Sonali Bank.",
+                occurred_at="2026-04-01T16:40:00Z",
+            ),
+            CaseNote(
+                actor_user_id="Sadia Rahman",
+                actor_role="case_management",
+                note="Wallet beneficiary mapping suggests third-party collection activity.",
+                occurred_at="2026-04-01T18:10:00Z",
+            ),
+        ],
+        graph=GRAPH,
     )
 ]
 

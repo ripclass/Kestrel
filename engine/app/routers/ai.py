@@ -2,10 +2,12 @@ from typing import Annotated, TypeVar
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.ai.service import AIInvocationError, AIInvocationResult, AIOrchestrator
 from app.ai.types import AITaskName
 from app.auth import AuthenticatedUser, get_current_user
+from app.dependencies import get_current_session
 from app.schemas.ai import (
     AIInvocationAttempt,
     AIInvocationMeta,
@@ -21,8 +23,8 @@ from app.schemas.ai import (
     TypologySuggestionRequest,
     TypologySuggestionResult,
 )
+from app.services.alerts import get_alert_detail
 from app.services.case_mgmt import get_case_workspace
-from seed.fixtures import ALERTS
 
 router = APIRouter()
 
@@ -78,13 +80,6 @@ async def invoke_task(
         raise HTTPException(status_code=502, detail=str(exc)) from exc
 
     return build_envelope(invocation, output_model)
-
-
-def resolve_alert(alert_id: str) -> dict[str, object]:
-    for alert in ALERTS:
-        if alert.id == alert_id:
-            return alert.model_dump()
-    raise HTTPException(status_code=404, detail="Alert not found")
 
 
 @router.post(
@@ -175,9 +170,13 @@ async def alert_explanation(
     alert_id: str,
     request: Request,
     user: Annotated[AuthenticatedUser, Depends(get_current_user)],
+    session: Annotated[AsyncSession, Depends(get_current_session)],
     orchestrator: Annotated[AIOrchestrator, Depends(get_ai_orchestrator)],
 ) -> AIResultEnvelope[AlertExplanationResult]:
-    alert = resolve_alert(alert_id)
+    try:
+        alert = await get_alert_detail(session, user=user, alert_id=alert_id)
+    except HTTPException as exc:
+        raise HTTPException(status_code=exc.status_code, detail=exc.detail) from exc
     return await invoke_task(
         orchestrator=orchestrator,
         task=AITaskName.ALERT_EXPLANATION,
@@ -204,9 +203,10 @@ async def case_summary(
     case_id: str,
     request: Request,
     user: Annotated[AuthenticatedUser, Depends(get_current_user)],
+    session: Annotated[AsyncSession, Depends(get_current_session)],
     orchestrator: Annotated[AIOrchestrator, Depends(get_ai_orchestrator)],
 ) -> AIResultEnvelope[CaseSummaryResult]:
-    case = get_case_workspace(case_id)
+    case = await get_case_workspace(session, user=user, case_id=case_id)
     return await invoke_task(
         orchestrator=orchestrator,
         task=AITaskName.CASE_SUMMARY,

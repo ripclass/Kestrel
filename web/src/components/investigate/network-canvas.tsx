@@ -50,6 +50,19 @@ export function NetworkCanvas({ graph }: { graph: NetworkGraph }) {
 
   const activeNode = graph.nodes.find((node) => node.id === selectedNodeId) ?? graph.nodes[0];
 
+  if (!activeNode || nodes.length === 0) {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle>Network graph</CardTitle>
+        </CardHeader>
+        <CardContent className="text-sm text-muted-foreground">
+          No linked graph context is available for this record yet.
+        </CardContent>
+      </Card>
+    );
+  }
+
   return (
     <div className="grid gap-4 xl:grid-cols-[1.25fr_0.55fr]">
       <Card>

@@ -1,8 +1,7 @@
 import { AlertTicker } from "@/components/overview/alert-ticker";
 import { KpiCard } from "@/components/overview/kpi-card";
 import { AlertQueue } from "@/components/alerts/alert-queue";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { cases } from "@/lib/demo";
+import { CaseBoard } from "@/components/cases/case-board";
 import type { KpiStat } from "@/types/domain";
 
 const stats: KpiStat[] = [
@@ -22,20 +21,7 @@ export function AnalystView() {
       </div>
       <div className="grid gap-6 xl:grid-cols-[1.3fr_0.9fr]">
         <AlertQueue alertsToShow={3} />
-        <Card>
-          <CardHeader>
-            <CardTitle>Recent cases</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            {cases.map((item) => (
-              <div key={item.id} className="rounded-xl border border-border/70 bg-background/50 p-4">
-                <p className="font-medium">{item.caseRef}</p>
-                <p className="mt-1 text-sm">{item.title}</p>
-                <p className="mt-2 text-sm text-muted-foreground">{item.summary}</p>
-              </div>
-            ))}
-          </CardContent>
-        </Card>
+        <CaseBoard title="Recent cases" casesToShow={3} />
       </div>
     </div>
   );
