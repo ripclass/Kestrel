@@ -1,0 +1,302 @@
+[
+  {
+    "id": "dbbl-entity-001-edge-01",
+    "from_entity_id": "dbbl-entity-001",
+    "to_entity_id": "cp-cp-7174",
+    "relation": "transacted",
+    "weight": 9408000.0,
+    "counterparty": {
+      "id": "cp-cp-7174",
+      "entity_type": "account",
+      "display_value": "2022510502139",
+      "display_name": "Counterparty CP-7174",
+      "risk_score": 40,
+      "severity": "medium"
+    }
+  },
+  {
+    "id": "dbbl-entity-001-edge-02",
+    "from_entity_id": "dbbl-entity-001",
+    "to_entity_id": "cp-cp-9662",
+    "relation": "transacted",
+    "weight": 5551700.0,
+    "counterparty": {
+      "id": "cp-cp-9662",
+      "entity_type": "account",
+      "display_value": "3388671643965",
+      "display_name": "Counterparty CP-9662",
+      "risk_score": 40,
+      "severity": "medium"
+    }
+  },
+  {
+    "id": "dbbl-entity-001-edge-03",
+    "from_entity_id": "dbbl-entity-001",
+    "to_entity_id": "cp-cp-9490",
+    "relation": "transacted",
+    "weight": 3840000.0,
+    "counterparty": {
+      "id": "cp-cp-9490",
+      "entity_type": "account",
+      "display_value": "3862203714849",
+      "display_name": "Counterparty CP-9490",
+      "risk_score": 40,
+      "severity": "medium"
+    }
+  },
+  {
+    "id": "dbbl-entity-001-edge-04",
+    "from_entity_id": "dbbl-entity-001",
+    "to_entity_id": "cp-cp-7051",
+    "relation": "transacted",
+    "weight": 912000.0,
+    "counterparty": {
+      "id": "cp-cp-7051",
+      "entity_type": "account",
+      "display_value": "8369015513960",
+      "display_name": "Counterparty CP-7051",
+      "risk_score": 40,
+      "severity": "medium"
+    }
+  },
+  {
+    "id": "dbbl-entity-001-edge-05",
+    "from_entity_id": "dbbl-entity-001",
+    "to_entity_id": "cp-cp-9727",
+    "relation": "transacted",
+    "weight": 863900.0,
+    "counterparty": {
+      "id": "cp-cp-9727",
+      "entity_type": "account",
+      "display_value": "5563098916144",
+      "display_name": "Counterparty CP-9727",
+      "risk_score": 40,
+      "severity": "medium"
+    }
+  },
+  {
+    "id": "dbbl-entity-002-edge-01",
+    "from_entity_id": "dbbl-entity-002",
+    "to_entity_id": "cp-cp-3378",
+    "relation": "transacted",
+    "weight": 445000.0,
+    "counterparty": {
+      "id": "cp-cp-3378",
+      "entity_type": "account",
+      "display_value": "3106292141110",
+      "display_name": "Counterparty CP-3378",
+      "risk_score": 50,
+      "severity": "medium"
+    }
+  },
+  {
+    "id": "dbbl-entity-002-edge-02",
+    "from_entity_id": "dbbl-entity-002",
+    "to_entity_id": "cp-cp-9232",
+    "relation": "transacted",
+    "weight": 445000.0,
+    "counterparty": {
+      "id": "cp-cp-9232",
+      "entity_type": "account",
+      "display_value": "4052912032030",
+      "display_name": "Counterparty CP-9232",
+      "risk_score": 50,
+      "severity": "medium"
+    }
+  },
+  {
+    "id": "dbbl-entity-002-edge-03",
+    "from_entity_id": "dbbl-entity-002",
+    "to_entity_id": "cp-cp-3707",
+    "relation": "transacted",
+    "weight": 433400.0,
+    "counterparty": {
+      "id": "cp-cp-3707",
+      "entity_type": "account",
+      "display_value": "4014214615232",
+      "display_name": "Counterparty CP-3707",
+      "risk_score": 50,
+      "severity": "medium"
+    }
+  },
+  {
+    "id": "dbbl-entity-002-edge-04",
+    "from_entity_id": "dbbl-entity-002",
+    "to_entity_id": "cp-cp-9002",
+    "relation": "transacted",
+    "weight": 356000.0,
+    "counterparty": {
+      "id": "cp-cp-9002",
+      "entity_type": "account",
+      "display_value": "1361398364979",
+      "display_name": "Counterparty CP-9002",
+      "risk_score": 50,
+      "severity": "medium"
+    }
+  },
+  {
+    "id": "dbbl-entity-002-edge-05",
+    "from_entity_id": "dbbl-entity-002",
+    "to_entity_id": "cp-cp-3512",
+    "relation": "transacted",
+    "weight": 356000.0,
+    "counterparty": {
+      "id": "cp-cp-3512",
+      "entity_type": "account",
+      "display_value": "4475253586026",
+      "display_name": "Counterparty CP-3512",
+      "risk_score": 50,
+      "severity": "medium"
+    }
+  },
+  {
+    "id": "dbbl-entity-003-edge-01",
+    "from_entity_id": "dbbl-entity-003",
+    "to_entity_id": "cp-cp-4768",
+    "relation": "transacted",
+    "weight": 312000.0,
+    "counterparty": {
+      "id": "cp-cp-4768",
+      "entity_type": "account",
+      "display_value": "1050064634370",
+      "display_name": "Counterparty CP-4768",
+      "risk_score": 74,
+      "severity": "high"
+    }
+  },
+  {
+    "id": "dbbl-entity-003-edge-02",
+    "from_entity_id": "dbbl-entity-003",
+    "to_entity_id": "cp-cp-6700",
+    "relation": "transacted",
+    "weight": 312000.0,
+    "counterparty": {
+      "id": "cp-cp-6700",
+      "entity_type": "account",
+      "display_value": "2154564935540",
+      "display_name": "Counterparty CP-6700",
+      "risk_score": 74,
+      "severity": "high"
+    }
+  },
+  {
+    "id": "dbbl-entity-003-edge-03",
+    "from_entity_id": "dbbl-entity-003",
+    "to_entity_id": "cp-cp-1088",
+    "relation": "transacted",
+    "weight": 208000.0,
+    "counterparty": {
+      "id": "cp-cp-1088",
+      "entity_type": "account",
+      "display_value": "1008529156613",
+      "display_name": "Counterparty CP-1088",
+      "risk_score": 74,
+      "severity": "high"
+    }
+  },
+  {
+    "id": "dbbl-entity-003-edge-04",
+    "from_entity_id": "dbbl-entity-003",
+    "to_entity_id": "cp-cp-9967",
+    "relation": "transacted",
+    "weight": 187200.0,
+    "counterparty": {
+      "id": "cp-cp-9967",
+      "entity_type": "account",
+      "display_value": "1025306505231",
+      "display_name": "Counterparty CP-9967",
+      "risk_score": 74,
+      "severity": "high"
+    }
+  },
+  {
+    "id": "dbbl-entity-003-edge-05",
+    "from_entity_id": "dbbl-entity-003",
+    "to_entity_id": "cp-cp-8747",
+    "relation": "transacted",
+    "weight": 176800.0,
+    "counterparty": {
+      "id": "cp-cp-8747",
+      "entity_type": "account",
+      "display_value": "3615638200003",
+      "display_name": "Counterparty CP-8747",
+      "risk_score": 74,
+      "severity": "high"
+    }
+  },
+  {
+    "id": "dbbl-entity-004-edge-01",
+    "from_entity_id": "dbbl-entity-004",
+    "to_entity_id": "cp-cp-9662",
+    "relation": "transacted",
+    "weight": 12131800.0,
+    "counterparty": {
+      "id": "cp-cp-9662",
+      "entity_type": "account",
+      "display_value": "3388671643965",
+      "display_name": "Counterparty CP-9662",
+      "risk_score": 54,
+      "severity": "medium"
+    }
+  },
+  {
+    "id": "dbbl-entity-004-edge-02",
+    "from_entity_id": "dbbl-entity-004",
+    "to_entity_id": "cp-cp-9490",
+    "relation": "transacted",
+    "weight": 10818500.0,
+    "counterparty": {
+      "id": "cp-cp-9490",
+      "entity_type": "account",
+      "display_value": "3862203714849",
+      "display_name": "Counterparty CP-9490",
+      "risk_score": 54,
+      "severity": "medium"
+    }
+  },
+  {
+    "id": "dbbl-entity-004-edge-03",
+    "from_entity_id": "dbbl-entity-004",
+    "to_entity_id": "cp-cp-5431",
+    "relation": "transacted",
+    "weight": 6640200.0,
+    "counterparty": {
+      "id": "cp-cp-5431",
+      "entity_type": "account",
+      "display_value": "3846675484712",
+      "display_name": "Counterparty CP-5431",
+      "risk_score": 54,
+      "severity": "medium"
+    }
+  },
+  {
+    "id": "dbbl-entity-004-edge-04",
+    "from_entity_id": "dbbl-entity-004",
+    "to_entity_id": "cp-cp-4752",
+    "relation": "transacted",
+    "weight": 5515300.0,
+    "counterparty": {
+      "id": "cp-cp-4752",
+      "entity_type": "account",
+      "display_value": "4312568912222",
+      "display_name": "Counterparty CP-4752",
+      "risk_score": 54,
+      "severity": "medium"
+    }
+  },
+  {
+    "id": "dbbl-entity-004-edge-05",
+    "from_entity_id": "dbbl-entity-004",
+    "to_entity_id": "cp-cp-9139",
+    "relation": "transacted",
+    "weight": 2236700.0,
+    "counterparty": {
+      "id": "cp-cp-9139",
+      "entity_type": "account",
+      "display_value": "5310895446631",
+      "display_name": "Counterparty CP-9139",
+      "risk_score": 54,
+      "severity": "medium"
+    }
+  }
+]

@@ -63,3 +63,24 @@ This repository is a fresh Kestrel scaffold. The early differentiators are imple
 - alert explainability
 
 The remaining product areas are scaffolded with stable interfaces, representative UI, and demo data so they can be deepened without changing the public structure.
+
+## Synthetic Statement Seeds
+
+Raw bank statements should stay outside the repo. To derive sanitized synthetic fixtures from local DBBL scam statements, run:
+
+```bash
+cd engine
+python -m seed.dbbl_synthetic
+```
+
+The generator reads a curated subset from `F:\New Download\Scammers' Bank statement DBBL` by default and writes only synthetic JSON outputs under [`engine/seed/generated/dbbl_synthetic`](engine/seed/generated/dbbl_synthetic).
+
+To load those generated synthetic records into the configured Kestrel database:
+
+```bash
+cd engine
+python -m seed.load_dbbl_synthetic
+python -m seed.load_dbbl_synthetic --apply
+```
+
+The first command prints the load plan. The second performs the idempotent backfill into `organizations`, `accounts`, `transactions`, `entities`, `connections`, `str_reports`, `matches`, `alerts`, and lightweight `cases`.

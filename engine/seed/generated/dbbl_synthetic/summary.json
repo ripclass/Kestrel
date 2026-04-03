@@ -1,0 +1,14 @@
+{
+  "generated_at": "2026-04-03T04:29:06.774701+00:00",
+  "source_dir": "Scammers' Bank statement DBBL",
+  "curated": true,
+  "max_pages": 4,
+  "counts": {
+    "organizations": 7,
+    "statements": 4,
+    "entities": 4,
+    "matches": 1,
+    "transactions": 547,
+    "connections": 20
+  }
+}

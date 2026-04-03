@@ -1,0 +1,110 @@
+[
+  {
+    "id": "dbbl-statement-001",
+    "source_file_hash": "1c2f65cbe389c3ac",
+    "account_name": "Eastern Lantern Logistics",
+    "account_number": "3480123251160",
+    "source_bank": "Dutch-Bangla Bank PLC",
+    "currency": "BDT",
+    "period_from": "2026-01-06T00:00:00+00:00",
+    "period_to": "2026-03-20T00:00:00+00:00",
+    "transaction_count": 31,
+    "risk_score": 20,
+    "severity": "low",
+    "tags": [],
+    "reasons": []
+  },
+  {
+    "id": "dbbl-statement-002",
+    "source_file_hash": "0779c71e4bc4c980",
+    "account_name": "Summit Praxis Ventures",
+    "account_number": "1875457692731",
+    "source_bank": "Dutch-Bangla Bank PLC",
+    "currency": "BDT",
+    "period_from": "2025-10-24T00:00:00+00:00",
+    "period_to": "2026-02-22T00:00:00+00:00",
+    "transaction_count": 172,
+    "risk_score": 58,
+    "severity": "medium",
+    "tags": [
+      "high_turnover",
+      "rapid_cashout"
+    ],
+    "reasons": [
+      {
+        "rule": "rapid_cashout",
+        "score": 28,
+        "explanation": "Peak same-day outflow reached 151% of inbound funds."
+      },
+      {
+        "rule": "high_turnover",
+        "score": 10,
+        "explanation": "Outbound movement nearly exhausted inbound funds over the sampled period."
+      }
+    ]
+  },
+  {
+    "id": "dbbl-statement-003",
+    "source_file_hash": "665f846cf6006611",
+    "account_name": "Delta Anchor Partners",
+    "account_number": "3502735816440",
+    "source_bank": "Dutch-Bangla Bank PLC",
+    "currency": "BDT",
+    "period_from": "2026-03-20T00:00:00+00:00",
+    "period_to": "2026-03-24T00:00:00+00:00",
+    "transaction_count": 172,
+    "risk_score": 82,
+    "severity": "high",
+    "tags": [
+      "burst_activity",
+      "mfs_fanout",
+      "rapid_cashout"
+    ],
+    "reasons": [
+      {
+        "rule": "rapid_cashout",
+        "score": 28,
+        "explanation": "Peak same-day outflow reached 90% of inbound funds."
+      },
+      {
+        "rule": "mfs_fanout",
+        "score": 18,
+        "explanation": "85% of parsed transactions used bKash or Nagad channels."
+      },
+      {
+        "rule": "burst_activity",
+        "score": 16,
+        "explanation": "Peak daily velocity hit 167 transactions."
+      }
+    ]
+  },
+  {
+    "id": "dbbl-statement-004",
+    "source_file_hash": "b84b0c9dede4b24f",
+    "account_name": "Beacon Atlas Merchants",
+    "account_number": "7233281819973",
+    "source_bank": "Dutch-Bangla Bank PLC",
+    "currency": "BDT",
+    "period_from": "2025-09-27T00:00:00+00:00",
+    "period_to": "2026-03-18T00:00:00+00:00",
+    "transaction_count": 172,
+    "risk_score": 62,
+    "severity": "medium",
+    "tags": [
+      "cash_exit",
+      "rapid_cashout"
+    ],
+    "reasons": [
+      {
+        "rule": "rapid_cashout",
+        "score": 28,
+        "explanation": "Peak same-day outflow reached 850% of inbound funds."
+      },
+      {
+        "rule": "cash_exit",
+        "score": 14,
+        "explanation": "38% of activity flowed through cash deposit or withdrawal entries."
+      }
+    ]
+  }
+]

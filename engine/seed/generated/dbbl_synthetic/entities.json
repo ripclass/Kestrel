@@ -1,0 +1,95 @@
+[
+  {
+    "id": "dbbl-entity-001",
+    "entity_type": "account",
+    "display_value": "3480123251160",
+    "display_name": "Eastern Lantern Logistics",
+    "canonical_value": "3480123251160",
+    "risk_score": 20,
+    "severity": "low",
+    "confidence": 0.82,
+    "status": "active",
+    "report_count": 1,
+    "reporting_orgs": [
+      "Dutch-Bangla Bank PLC"
+    ],
+    "total_exposure": 21992600.0,
+    "tags": [],
+    "transaction_count": 31,
+    "source_bank": "Dutch-Bangla Bank PLC",
+    "product_name": "ISLAMIC CURRENT A/C - CITYGEM CHATTOGRAM"
+  },
+  {
+    "id": "dbbl-entity-002",
+    "entity_type": "account",
+    "display_value": "1875457692731",
+    "display_name": "Summit Praxis Ventures",
+    "canonical_value": "1875457692731",
+    "risk_score": 58,
+    "severity": "medium",
+    "confidence": 0.82,
+    "status": "active",
+    "report_count": 1,
+    "reporting_orgs": [
+      "Dutch-Bangla Bank PLC"
+    ],
+    "total_exposure": 11200700.0,
+    "tags": [
+      "high_turnover",
+      "rapid_cashout"
+    ],
+    "transaction_count": 172,
+    "source_bank": "Dutch-Bangla Bank PLC",
+    "product_name": "EASY PLUS CR ACCOUNT- BR NARSINGDI, BANGLADESH"
+  },
+  {
+    "id": "dbbl-entity-003",
+    "entity_type": "account",
+    "display_value": "3502735816440",
+    "display_name": "Delta Anchor Partners",
+    "canonical_value": "3502735816440",
+    "risk_score": 82,
+    "severity": "high",
+    "confidence": 0.82,
+    "status": "investigating",
+    "report_count": 4,
+    "reporting_orgs": [
+      "Dutch-Bangla Bank PLC",
+      "Sonali Bank PLC",
+      "BRAC Bank PLC",
+      "City Bank PLC"
+    ],
+    "total_exposure": 2715700.0,
+    "tags": [
+      "burst_activity",
+      "mfs_fanout",
+      "rapid_cashout"
+    ],
+    "transaction_count": 172,
+    "source_bank": "Dutch-Bangla Bank PLC",
+    "product_name": "EASY PLUS CR ACCOUNT- BR NARAYANGANJ, BANGLADESH"
+  },
+  {
+    "id": "dbbl-entity-004",
+    "entity_type": "account",
+    "display_value": "7233281819973",
+    "display_name": "Beacon Atlas Merchants",
+    "canonical_value": "7233281819973",
+    "risk_score": 62,
+    "severity": "medium",
+    "confidence": 0.82,
+    "status": "active",
+    "report_count": 1,
+    "reporting_orgs": [
+      "Dutch-Bangla Bank PLC"
+    ],
+    "total_exposure": 45325700.0,
+    "tags": [
+      "cash_exit",
+      "rapid_cashout"
+    ],
+    "transaction_count": 172,
+    "source_bank": "Dutch-Bangla Bank PLC",
+    "product_name": "CURRENT DEPOSIT-S CHATTOGRAM, BANGLADESH"
+  }
+]

@@ -1,0 +1,34 @@
+[
+  {
+    "statement_id": "dbbl-statement-001",
+    "source_file_hash": "1c2f65cbe389c3ac",
+    "source_pages_processed": 1,
+    "parsed_transactions": 31,
+    "synthetic_transactions": 31,
+    "risk_score": 20
+  },
+  {
+    "statement_id": "dbbl-statement-002",
+    "source_file_hash": "0779c71e4bc4c980",
+    "source_pages_processed": 4,
+    "parsed_transactions": 172,
+    "synthetic_transactions": 172,
+    "risk_score": 58
+  },
+  {
+    "statement_id": "dbbl-statement-003",
+    "source_file_hash": "665f846cf6006611",
+    "source_pages_processed": 4,
+    "parsed_transactions": 172,
+    "synthetic_transactions": 172,
+    "risk_score": 82
+  },
+  {
+    "statement_id": "dbbl-statement-004",
+    "source_file_hash": "b84b0c9dede4b24f",
+    "source_pages_processed": 4,
+    "parsed_transactions": 172,
+    "synthetic_transactions": 172,
+    "risk_score": 62
+  }
+]

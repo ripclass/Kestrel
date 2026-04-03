@@ -1,0 +1,24 @@
+[
+  {
+    "id": "match-dbbl-003",
+    "entity_id": "dbbl-entity-003",
+    "match_key": "3502735816440",
+    "match_type": "account",
+    "involved_orgs": [
+      "Dutch-Bangla Bank PLC",
+      "Sonali Bank PLC",
+      "BRAC Bank PLC",
+      "City Bank PLC"
+    ],
+    "involved_str_ids": [
+      "STR-2604-000003",
+      "STR-2603-000093",
+      "STR-2602-000183"
+    ],
+    "match_count": 4,
+    "total_exposure": 2715700.0,
+    "risk_score": 82,
+    "severity": "high",
+    "status": "investigating"
+  }
+]
