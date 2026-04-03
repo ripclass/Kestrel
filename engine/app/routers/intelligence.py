@@ -17,7 +17,7 @@ router = APIRouter()
 async def entities(
     user: Annotated[AuthenticatedUser, Depends(get_current_user)],
     session: Annotated[AsyncSession, Depends(get_current_session)],
-    query: Annotated[str, Query(default="")] = "",
+    query: str = Query(""),
 ) -> list[EntitySearchResult]:
     items = await search_entities(session, user=user, query=query)
     return [EntitySearchResult.model_validate(item) for item in items]
