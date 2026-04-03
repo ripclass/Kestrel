@@ -1,3 +1,4 @@
+import logging
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, status
@@ -7,6 +8,7 @@ from seed.dbbl_synthetic import OUTPUT_DIR_DEFAULT
 from seed.load_dbbl_synthetic import apply_dataset, build_load_plan
 
 router = APIRouter()
+logger = logging.getLogger(__name__)
 
 
 def _require_regulator_admin(user: AuthenticatedUser) -> AuthenticatedUser:
@@ -56,7 +58,8 @@ async def apply_synthetic_backfill(
     try:
         return await apply_dataset(OUTPUT_DIR_DEFAULT)
     except Exception as exc:
+        logger.exception("Synthetic backfill failed.")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Synthetic backfill failed: {exc.__class__.__name__}: {exc}",
+            detail="Synthetic backfill failed. Check engine logs for details.",
         ) from exc
