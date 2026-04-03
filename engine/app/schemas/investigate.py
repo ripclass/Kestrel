@@ -17,6 +17,8 @@ class EntitySearchResult(BaseModel):
     reporting_orgs: list[str]
     total_exposure: float
     tags: list[str]
+    first_seen: str | None = None
+    last_seen: str | None = None
 
 
 class ReportingHistoryItem(BaseModel):

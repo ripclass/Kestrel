@@ -8,7 +8,7 @@ interface GraphStore {
 }
 
 export const useGraphStore = create<GraphStore>((set) => ({
-  selectedNodeId: "ent-rizwana-account",
+  selectedNodeId: null,
   showSuspiciousOnly: false,
   setSelectedNodeId: (selectedNodeId) => set({ selectedNodeId }),
   toggleSuspiciousOnly: () =>

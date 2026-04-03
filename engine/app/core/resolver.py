@@ -1,24 +1,14 @@
-from difflib import SequenceMatcher
+from sqlalchemy.ext.asyncio import AsyncSession
 
-from seed.fixtures import ENTITIES
+from app.auth import AuthenticatedUser
+from app.services.investigation import search_entities
 
 
-def resolve_entity(query: str) -> dict[str, object]:
-    normalized = query.strip().lower()
-    exact = next(
-        (
-            item.model_dump()
-            for item in ENTITIES
-            if normalized in {item.display_value.lower(), item.canonical_value.lower()}
-        ),
-        None,
-    )
-    if exact:
-        return exact
-
-    ranked = sorted(
-        ENTITIES,
-        key=lambda item: SequenceMatcher(None, normalized, f"{item.display_value} {item.display_name or ''}".lower()).ratio(),
-        reverse=True,
-    )
-    return ranked[0].model_dump()
+async def resolve_entity(
+    session: AsyncSession,
+    *,
+    user: AuthenticatedUser,
+    query: str,
+) -> dict[str, object] | None:
+    results = await search_entities(session, user=user, query=query, limit=1)
+    return results[0] if results else None

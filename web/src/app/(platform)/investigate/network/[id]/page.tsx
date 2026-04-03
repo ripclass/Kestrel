@@ -1,6 +1,8 @@
+import { notFound } from "next/navigation";
+
 import { PageFrame } from "@/components/common/page-frame";
 import { NetworkCanvas } from "@/components/investigate/network-canvas";
-import { getEntityDossier } from "@/lib/demo";
+import { fetchEntityDossier } from "@/lib/investigation";
 
 export default async function NetworkPage({
   params,
@@ -8,7 +10,11 @@ export default async function NetworkPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  const dossier = getEntityDossier(id);
+  const dossier = await fetchEntityDossier(id);
+
+  if (!dossier) {
+    notFound();
+  }
 
   return (
     <PageFrame

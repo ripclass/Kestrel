@@ -2,9 +2,9 @@ import Link from "next/link";
 
 import { DataTable } from "@/components/common/data-table";
 import { RiskScore } from "@/components/common/risk-score";
-import { entities } from "@/lib/demo";
+import type { EntitySummary } from "@/types/domain";
 
-export function EntityTable() {
+export function EntityTable({ entities }: { entities: EntitySummary[] }) {
   return (
     <DataTable
       columns={["Entity", "Type", "Reporting orgs", "Risk"]}

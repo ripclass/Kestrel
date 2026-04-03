@@ -1,9 +1,16 @@
 import Link from "next/link";
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { matches } from "@/lib/demo";
+import { matches as demoMatches } from "@/lib/demo";
+import type { MatchSummary } from "@/types/domain";
 
-export function MatchList({ compact = false }: { compact?: boolean }) {
+export function MatchList({
+  compact = false,
+  matches = demoMatches,
+}: {
+  compact?: boolean;
+  matches?: MatchSummary[];
+}) {
   const list = compact ? matches.slice(0, 2) : matches;
 
   return (
@@ -15,7 +22,7 @@ export function MatchList({ compact = false }: { compact?: boolean }) {
         {list.map((match) => (
           <Link
             key={match.id}
-            href={`/investigate/entity/${match.entityId}`}
+            href={match.entityId ? `/investigate/entity/${match.entityId}` : "/intelligence/matches"}
             className="block rounded-xl border border-border/70 bg-background/50 p-4"
           >
             <div className="flex items-center justify-between gap-4">

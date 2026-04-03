@@ -110,8 +110,8 @@ export interface EntitySummary {
   reportCount: number;
   reportingOrgs: string[];
   totalExposure: number;
-  firstSeen: string;
-  lastSeen: string;
+  firstSeen?: string;
+  lastSeen?: string;
   tags: string[];
 }
 
