@@ -1,13 +1,14 @@
 import uuid
+from datetime import datetime
 
-from sqlalchemy import ForeignKey, String
+from sqlalchemy import DateTime, ForeignKey, String, func
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
-from app.models.base import Base, TimestampMixin
+from app.models.base import Base
 
 
-class Account(TimestampMixin, Base):
+class Account(Base):
     __tablename__ = "accounts"
 
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
@@ -18,3 +19,4 @@ class Account(TimestampMixin, Base):
     account_type: Mapped[str | None] = mapped_column(String(32))
     risk_tier: Mapped[str] = mapped_column(String(32), default="normal")
     metadata_json: Mapped[dict] = mapped_column("metadata", JSONB, default=dict)
+    created_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), server_default=func.now())
