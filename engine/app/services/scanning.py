@@ -272,8 +272,17 @@ async def queue_run(
     session.add(run)
     await session.flush()
 
+    scope_org_ids: list[UUID] | None = (
+        None if user.org_type == "regulator" else [org_uuid]
+    )
+
     try:
-        await run_scan_pipeline(session, run_id=run.id, org_id=org_uuid)
+        await run_scan_pipeline(
+            session,
+            run_id=run.id,
+            org_id=org_uuid,
+            scope_org_ids=scope_org_ids,
+        )
     except Exception as exc:
         run.status = "failed"
         run.error = str(exc)

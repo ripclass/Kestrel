@@ -95,13 +95,21 @@ async def run_str_pipeline(
 
 
 async def _load_accounts_and_transactions(
-    session: AsyncSession, *, org_id: uuid.UUID
+    session: AsyncSession, *, scope_org_ids: list[uuid.UUID] | None
 ) -> tuple[list[Account], list[Transaction]]:
-    accounts_stmt = select(Account).where(Account.org_id == org_id)
+    """Load accounts and transactions to scan.
+
+    ``scope_org_ids=None`` loads everything (regulator scope). A non-empty
+    list filters to those orgs (bank scope).
+    """
+    accounts_stmt = select(Account)
+    txns_stmt = select(Transaction)
+    if scope_org_ids:
+        accounts_stmt = accounts_stmt.where(Account.org_id.in_(scope_org_ids))
+        txns_stmt = txns_stmt.where(Transaction.org_id.in_(scope_org_ids))
+
     accounts_result = await session.execute(accounts_stmt)
     accounts = list(accounts_result.scalars().all())
-
-    txns_stmt = select(Transaction).where(Transaction.org_id == org_id)
     txns_result = await session.execute(txns_stmt)
     transactions = list(txns_result.scalars().all())
 
@@ -187,14 +195,20 @@ async def run_scan_pipeline(
     *,
     run_id: uuid.UUID,
     org_id: uuid.UUID,
+    scope_org_ids: list[uuid.UUID] | None = None,
 ) -> dict[str, Any]:
-    """Execute the full scan detection pipeline for an org.
+    """Execute the full scan detection pipeline.
 
-    Loads the org's accounts + transactions, builds the shared graph + flagged
-    set, runs every YAML rule via ``evaluate_accounts``. For each account whose
-    combined score meets the threshold, resolves the account as an Entity, runs
-    cross-bank matching, and writes a scan ``Alert`` row. Updates the
-    ``DetectionRun`` row with results summary.
+    - ``org_id`` is the *caller's* org (used for the DetectionRun row and
+      the audit log entry — i.e. who triggered the scan).
+    - ``scope_org_ids`` controls which accounts/transactions to evaluate.
+      ``None`` means scan everything (regulator scope). A list means filter
+      to those orgs.
+
+    For each flagged account, the resulting Entity and Alert are attributed
+    to the *bank that owns the account* (``account.org_id``), not to the
+    caller, so banks see their own alerts even when a regulator triggered
+    the scan.
     """
     run: DetectionRun | None = await session.get(DetectionRun, run_id)
     if run is None:
@@ -203,7 +217,9 @@ async def run_scan_pipeline(
     run.status = "processing"
     run.started_at = datetime.now(UTC)
 
-    accounts, transactions = await _load_accounts_and_transactions(session, org_id=org_id)
+    accounts, transactions = await _load_accounts_and_transactions(
+        session, scope_org_ids=scope_org_ids
+    )
     graph, flagged_entity_ids = await _load_graph_and_flagged(session)
 
     rules = _load_active_rules()
@@ -233,23 +249,27 @@ async def run_scan_pipeline(
         if score < _SCAN_SCORE_THRESHOLD:
             continue
 
+        # Attribute the Entity, Alert, and cross-bank match to the bank that
+        # owns the account, not to the user who triggered the scan.
+        owning_org_id = account.org_id or org_id
+
         entity = await _resolve_flagged_account_as_entity(
             session,
             account=account,
-            org_id=org_id,
+            org_id=owning_org_id,
             score=score,
             severity=severity,
             reasons=reasons,
         )
         cb_matches, cb_alerts = await run_cross_bank_matching(
-            session, entities=[entity], str_report=None, org_id=org_id
+            session, entities=[entity], str_report=None, org_id=owning_org_id
         )
         matches_touched.extend(cb_matches)
 
         alert = _build_scan_alert(
             entity=entity,
             account=account,
-            org_id=org_id,
+            org_id=owning_org_id,
             hits=account_hits,
             score=score,
             severity=severity,
