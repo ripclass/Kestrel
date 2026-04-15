@@ -9,6 +9,7 @@ from sqlalchemy import desc, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.auth import AuthenticatedUser
+from app.core.pipeline import run_scan_pipeline
 from app.models.alert import Alert
 from app.models.case import Case
 from app.models.detection_run import DetectionRun
@@ -244,48 +245,48 @@ async def queue_run(
     user: AuthenticatedUser,
     request: ScanQueueRequest,
 ) -> ScanQueueResponse:
-    candidates = await _select_candidate_entities(session, user=user)
-    entity_ids = [entity.id for entity in candidates]
-    match_map = await _fetch_match_map(session, entity_ids)
-    alert_map = await _fetch_alert_map(session, entity_ids)
-    case_map = await _fetch_case_map(session, entity_ids)
+    org_uuid = _as_uuid(user.org_id)
+    if org_uuid is None:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid organization id.")
 
-    flagged_accounts = [
-        _serialize_flagged_account(
-            entity,
-            match=match_map.get(str(entity.id)),
-            alert=alert_map.get(str(entity.id)),
-            linked_case=case_map.get(str(entity.id)),
-        )
-        for entity in candidates
-    ]
-
-    tx_count = sum(_safe_int((entity.metadata_json or {}).get("transaction_count")) for entity in candidates)
     now = datetime.now(UTC)
     run = DetectionRun(
-        org_id=_as_uuid(user.org_id),
+        org_id=org_uuid,
         run_type="upload",
-        status="completed",
+        status="pending",
         file_name=(request.file_name or f"{user.org_type}-network-scan-{now:%Y%m%d-%H%M%S}.csv").strip(),
         file_url=None,
-        tx_count=tx_count,
-        accounts_scanned=len(candidates),
-        alerts_generated=len(flagged_accounts),
+        tx_count=0,
+        accounts_scanned=0,
+        alerts_generated=0,
         results={
-            "summary": _results_summary(flagged_accounts),
+            "summary": "queued",
             "selected_rules": list(request.selected_rules),
-            "flagged_accounts": flagged_accounts,
+            "flagged_accounts": [],
         },
         triggered_by=_as_uuid(user.user_id),
-        started_at=now,
-        completed_at=now,
+        started_at=None,
+        completed_at=None,
         error=None,
     )
     session.add(run)
+    await session.flush()
+
+    try:
+        await run_scan_pipeline(session, run_id=run.id, org_id=org_uuid)
+    except Exception as exc:
+        run.status = "failed"
+        run.error = str(exc)
+        run.completed_at = datetime.now(UTC)
+
     await session.commit()
     await session.refresh(run)
 
     return ScanQueueResponse(
         run=DetectionRunDetail.model_validate(_serialize_run_detail(run)),
-        message="Detection run completed using the current shared-intelligence snapshot.",
+        message=(
+            "Detection pipeline executed over current transactions."
+            if run.status == "completed"
+            else f"Detection run ended with status {run.status}."
+        ),
     )

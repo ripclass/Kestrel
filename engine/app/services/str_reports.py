@@ -11,6 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.ai.service import AIInvocationResult, AIOrchestrator
 from app.ai.types import AITaskName
 from app.auth import AuthenticatedUser
+from app.core.pipeline import run_str_pipeline
 from app.models.audit import AuditLog
 from app.models.org import Organization
 from app.models.str_report import STRReport
@@ -391,12 +392,26 @@ async def submit_str_report(
         from_status=previous_status,
         to_status=report.status,
     )
+
+    org_uuid = _require_uuid(user.org_id, "Authenticated user is missing a valid organization id.")
+    try:
+        pipeline_result = await run_str_pipeline(
+            session, str_report=report, org_id=org_uuid
+        )
+    except Exception as exc:
+        pipeline_result = {"entities": [], "matches": [], "alerts": [], "error": str(exc)}
+
     await _record_audit(
         session,
         report=report,
         user=user,
         action="str_report.submitted",
-        details={"from_status": previous_status, "to_status": report.status},
+        details={
+            "from_status": previous_status,
+            "to_status": report.status,
+            "entities_resolved": len(pipeline_result.get("entities", [])),
+            "cross_bank_matches": len(pipeline_result.get("matches", [])),
+        },
         ip=ip,
     )
     await session.commit()
