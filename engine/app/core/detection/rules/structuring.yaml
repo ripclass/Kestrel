@@ -1,4 +1,40 @@
 code: structuring
 title: Structuring
+category: pattern
 weight: 5.0
-threshold: 55
+description: >
+  Multiple transactions just under the CTR reporting threshold (10 lakh BDT)
+  within a short period, suggesting deliberate avoidance of reporting.
+
+conditions:
+  trigger: sub_threshold_clustering
+  params:
+    threshold_amount: 1000000
+    margin_pct: 5
+    min_count: 3
+    time_window_hours: 24
+
+scoring:
+  base: 45
+  modifiers:
+    - when: count > 5
+      add: 15
+      reason: "More than 5 sub-threshold transactions"
+    - when: same_channel == true
+      add: 10
+      reason: "All transactions through same channel"
+    - when: amounts_tightly_clustered == true
+      add: 10
+      reason: "Amounts clustered within 2% of threshold"
+    - when: same_day == true
+      add: 10
+      reason: "All transactions on same day"
+
+severity:
+  critical: 90
+  high: 70
+  medium: 50
+
+alert_template:
+  title: "Structuring suspected: {account_name}"
+  description: "{count} transactions averaging BDT {avg_amount} (just under 10 lakh threshold) within {hours} hours"

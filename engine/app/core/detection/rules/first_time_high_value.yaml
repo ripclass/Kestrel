@@ -1,4 +1,38 @@
 code: first_time_high_value
 title: First-time high value
+category: behavioral
 weight: 4.0
-threshold: 50
+description: >
+  Large transfer to a new beneficiary from a relatively new account.
+
+conditions:
+  trigger: new_beneficiary_high_value
+  params:
+    min_amount: 500000
+    max_account_age_days: 90
+    no_prior_transactions_to_beneficiary: true
+
+scoring:
+  base: 50
+  modifiers:
+    - when: amount > 1000000
+      add: 20
+      reason: "Amount exceeds 10 lakh BDT"
+    - when: beneficiary_at_different_bank == true
+      add: 10
+      reason: "Beneficiary is at a different bank"
+    - when: account_age_days < 30
+      add: 10
+      reason: "Sender account is less than 30 days old"
+    - when: beneficiary_is_flagged == true
+      add: 15
+      reason: "Beneficiary is a known flagged entity"
+
+severity:
+  critical: 90
+  high: 70
+  medium: 50
+
+alert_template:
+  title: "First-time high value: {account_name}"
+  description: "BDT {amount} sent to new beneficiary {beneficiary_name} (account age {account_age} days)"

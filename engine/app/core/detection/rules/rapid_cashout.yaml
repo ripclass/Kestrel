@@ -1,4 +1,42 @@
 code: rapid_cashout
-title: Rapid cashout
+title: Rapid cash-out
+category: velocity
 weight: 8.0
-threshold: 75
+description: >
+  Flags accounts that receive credit and transfer out >=80% within 60 minutes.
+  Classic mule account behavior - money lands and exits immediately.
+
+conditions:
+  trigger: credit_then_debit_percentage
+  params:
+    debit_pct_min: 80
+    time_window_minutes: 60
+    min_credit_amount: 50000
+
+scoring:
+  base: 60
+  modifiers:
+    - when: time_gap_minutes < 30
+      add: 20
+      reason: "Cash-out completed in under 30 minutes"
+    - when: total_credit > 1000000
+      add: 15
+      reason: "Credit exceeds 10 lakh BDT"
+    - when: account_age_days < 90
+      add: 10
+      reason: "Account opened less than 90 days ago"
+    - when: cross_bank_debit == true
+      add: 10
+      reason: "Debits sent to accounts at different banks"
+    - when: proximity_to_flagged <= 2
+      add: 15
+      reason: "Within 2 hops of a known flagged entity"
+
+severity:
+  critical: 90
+  high: 70
+  medium: 50
+
+alert_template:
+  title: "Rapid cash-out: {account_name}"
+  description: "{debit_pct}% of BDT {credit_amount} debited within {time_gap} minutes via {debit_channel}"

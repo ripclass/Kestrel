@@ -1,4 +1,39 @@
 code: fan_out_burst
 title: Fan-out burst
+category: velocity
 weight: 6.0
-threshold: 60
+description: >
+  One account sends to multiple distinct recipients within a short window.
+  Indicates fund distribution or layering through multiple accounts.
+
+conditions:
+  trigger: unique_recipients_from_sender
+  params:
+    min_unique_recipients: 5
+    time_window_minutes: 30
+    min_total_amount: 100000
+
+scoring:
+  base: 50
+  modifiers:
+    - when: unique_recipients > 8
+      add: 15
+      reason: "More than 8 unique recipients"
+    - when: all_similar_amounts == true
+      add: 10
+      reason: "All outgoing amounts are suspiciously similar (within 10%)"
+    - when: recipients_at_different_banks == true
+      add: 10
+      reason: "Recipients span multiple banks"
+    - when: total_amount > 2000000
+      add: 10
+      reason: "Total outflow exceeds 20 lakh BDT"
+
+severity:
+  critical: 90
+  high: 70
+  medium: 50
+
+alert_template:
+  title: "Fan-out burst: {account_name}"
+  description: "{unique_recipients} recipients received BDT {total_amount} within {time_window} minutes"
