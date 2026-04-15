@@ -200,7 +200,7 @@ async def run_scan_pipeline(
     if run is None:
         raise ValueError(f"DetectionRun {run_id} not found")
 
-    run.status = "running"
+    run.status = "processing"
     run.started_at = datetime.now(UTC)
 
     accounts, transactions = await _load_accounts_and_transactions(session, org_id=org_id)
