@@ -36,6 +36,7 @@ def calculate_risk_score(rule_hits: list[RuleHit]) -> tuple[int, str, list[dict[
     else:
         severity = "low"
 
+    total_weighted = weighted_sum if weighted_sum > 0 else 1.0
     reasons: list[dict[str, Any]] = []
     for hit in sorted(rule_hits, key=lambda h: h.score * h.weight, reverse=True):
         reasons.append(
@@ -43,7 +44,7 @@ def calculate_risk_score(rule_hits: list[RuleHit]) -> tuple[int, str, list[dict[
                 "rule": hit.rule_code,
                 "score": hit.score,
                 "weight": hit.weight,
-                "weighted_contribution": round(hit.score * hit.weight / weight_sum * 100, 1),
+                "weighted_contribution": round(hit.score * hit.weight / total_weighted * 100, 1),
                 "reasons": hit.reasons,
                 "evidence": hit.evidence,
                 "explanation": hit.alert_description,

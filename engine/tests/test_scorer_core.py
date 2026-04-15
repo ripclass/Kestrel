@@ -33,6 +33,15 @@ def test_weighted_average_with_two_rules() -> None:
     assert severity == "high"
     assert reasons[0]["rule"] == "rapid_cashout"
     assert reasons[0]["weighted_contribution"] > reasons[1]["weighted_contribution"]
+    # Contributions are percentages of the total weighted score and sum to ~100.
+    total = sum(r["weighted_contribution"] for r in reasons)
+    assert 99.5 <= total <= 100.5
+    assert all(0 <= r["weighted_contribution"] <= 100 for r in reasons)
+
+
+def test_single_hit_is_full_contribution() -> None:
+    _, _, reasons = calculate_risk_score([hit("layering", 80, 7.0)])
+    assert reasons[0]["weighted_contribution"] == 100.0
 
 
 def test_score_clamped_at_100() -> None:

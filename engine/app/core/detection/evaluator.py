@@ -217,10 +217,13 @@ def evaluate_rapid_cashout(
             "cross_bank_debit == true": cross_bank_debit,
             "proximity_to_flagged <= 2": False,
         }
+        # Display debit_pct is capped at 100. The raw value can exceed 100 when
+        # the account has unrelated outflows in the same window; the trigger
+        # still fires correctly above, the cap is just a UI safeguard.
         evidence = {
             "account_name": getattr(account, "account_name", None) or getattr(account, "account_number", ""),
             "credit_amount": f"{credit_amount:,.0f}",
-            "debit_pct": f"{debit_pct:.0f}",
+            "debit_pct": f"{min(debit_pct, 100):.0f}",
             "time_gap": f"{time_gap_minutes:.0f}",
             "debit_channel": getattr(following_debits[0], "channel", None) or "transfer",
             "time_gap_minutes": time_gap_minutes,
