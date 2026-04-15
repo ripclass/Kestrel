@@ -8,28 +8,33 @@ Kestrel is a standalone financial crime intelligence platform for Bangladesh. It
 
 Phase 1 (infrastructure baseline) and Phase 3 (real auth and tenancy) from `docs/production-plan.md` are largely complete. Phases 4–9 have real database-backed implementations that already query the schema in `supabase/migrations/001_schema.sql`; they are no longer fixture-only. Phase 2 (AI platform) has a full internal subsystem scaffolded in `engine/app/ai/` with providers, prompts, routing, redaction, audit, and a heuristic fallback provider. Phase 10 (production hardening) has not started.
 
+**As of 2026-04-15 the intelligence core (Phases 5 + 7) is real and verified live on prod.** The `feature/intelligence-core` branch was merged to main at commit `53797d1`; follow-up fixes in `d55aa90`, `0d35525`, `7aed54f`. End-to-end verification on `https://kestrel-engine.onrender.com` against the live DBBL synthetic dataset produced 10 flagged accounts + 11 alerts (10 scan + 1 cross-bank) from 377 accounts and 547 transactions. See `docs/superpowers/plans/2026-04-15-intelligence-core.md` for the implementation plan and `2026-04-15-intelligence-core-verification.md` for the verification log.
+
 What works end-to-end (with real DB data):
 - Supabase Auth → JWT → engine JWKS/HS256 validation → profile lookup → role/persona/org resolution (`engine/app/auth.py`).
 - Universal entity search, dossier with reporting history/alerts/cases/timeline, two-hop network graph via networkx (`engine/app/services/investigation.py`).
 - Alerts list/detail with audit-logged mutations including alert→case escalation (`engine/app/services/alerts.py`).
 - Cases list/detail with audit-logged mutations (`engine/app/services/case_mgmt.py`).
-- STR reports native lifecycle: create/update/submit/review/enrich (`engine/app/services/str_reports.py`).
+- STR reports native lifecycle: create/update/submit/review/enrich (`engine/app/services/str_reports.py`). **Submission now invokes `run_str_pipeline` which resolves identifiers + runs cross-bank matching.**
+- **Pattern scan pipeline (`engine/app/services/scanning.py::queue_run` → `engine/app/core/pipeline.py::run_scan_pipeline`).** Loads accounts + transactions for the org scope, runs all 8 YAML rules via `evaluate_accounts`, scores via `calculate_risk_score`, resolves flagged accounts as entities, runs cross-bank matching, writes scan + cross_bank alerts, updates the `detection_runs` row. Detection runs synchronously in the request path — no Celery.
 - Overview (persona-aware KPIs + operational notes), compliance scorecard, national threat dashboard, trend series — all computed from real rows (`engine/app/services/reporting.py`).
 - Admin surfaces: tenant summary/settings, team directory with mutations, rule catalog with mutations, synthetic backfill plan and apply (`engine/app/services/admin.py`, `engine/app/routers/admin.py`).
 - AI invocation surface: entity extraction, STR narrative drafting, typology suggestion, executive briefing, alert explanation, case summary (`engine/app/routers/ai.py`).
 - Readiness probe covering auth/db/redis/storage/worker/AI providers at `GET /ready` (`engine/app/services/readiness.py`). The public landing page consumes this report live.
 
 What is scaffolded but NOT wired the way the plan implies:
-- **Detection engine core is a placeholder.** `engine/app/core/pipeline.py`, `core/resolver.py`, `core/matcher.py`, and `core/alerter.py` are 5–15 line stubs that delegate back to the investigation/matches services or return fixture alerts from `seed/fixtures.py`. `core/detection/evaluator.py` is a toy function that scores on transaction count alone; `core/detection/scorer.py` averages those scores. Only `core/graph/builder.py` and `core/graph/analyzer.py` contain real networkx logic.
-- **Detection rule YAMLs are metadata only.** `engine/app/core/detection/rules/*.yaml` (rapid_cashout, fan_in_burst, fan_out_burst, dormant_spike, layering, proximity_to_bad, structuring, first_time_high_value) contain just `code`, `title`, `weight`, `threshold`. There is no rule-DSL and no expression logic.
-- **Scan pipeline has no file upload path.** `POST /scan/runs` in `engine/app/services/scanning.py::queue_run` ignores the uploaded file, selects the top candidate entities from the `entities` table, and writes a `DetectionRun` row synchronously. There is no Supabase Storage upload, no parser invocation, and no Celery queueing in the request path despite the Celery app being declared.
-- **Celery worker has one ping task.** `engine/app/tasks/*` defines `celery_app` and a `worker.ping` task and nothing else. `scan_tasks.py`, `export_tasks.py`, `str_tasks.py` exist as modules but are not hooked into any flow.
+- **Scan pipeline has no file upload path.** `POST /scan/runs` accepts the request body but ignores any uploaded file. Detection runs against whatever transactions are already in the `transactions` table (loaded via the synthetic seeder or future ingest). There is no Supabase Storage upload and no parser invocation in the request path.
+- **Celery worker has one ping task.** `engine/app/tasks/*` defines `celery_app` and a `worker.ping` task and nothing else. `scan_tasks.py`, `export_tasks.py`, `str_tasks.py` exist as modules but are not hooked into any flow. The new pipelines run inline in the FastAPI request, not via Celery.
+- **`engine/app/core/alerter.py` is orphaned.** Not imported by any production path after the merge. Left in place to avoid scope creep — do not delete blindly without checking imports.
+- **Many detection modifier conditions are hardcoded `False`** — see "Detection engine" section below for the full list.
 - **goAML adapter is a stub.** `engine/app/adapters/goaml.py` and related config exist; no sync is implemented.
 
 What is missing entirely:
 - Real file upload → parse → persist → alert pipeline for bank analysts.
-- Scheduled detection rule execution against persisted transactions.
-- Rule DSL and rule evaluation engine.
+- Scheduled detection rule execution (currently only on-demand via `POST /scan/runs`).
+- A real rule expression DSL — current evaluator uses dict-keyed lookup of modifier strings, not parsed expressions.
+- SAR/CTR report types (Tasks 8–9 from the original intelligence-core spec — deferred).
+- Real WeasyPrint PDF case pack export (`engine/app/services/pdf_export.py` is a placeholder).
 - Production observability (structured logs, failure taxonomy, runbooks).
 - Red team / AI eval harness beyond the scaffolding in `engine/app/ai/evaluations.py`.
 
@@ -124,7 +129,7 @@ All routers live in `engine/app/routers/` and are mounted in `engine/app/main.py
 - `/overview` — `GET /overview` → real, persona-aware KPIs from DB (`services.reporting.build_overview`).
 - `/investigate` — `GET /investigate/search`, `GET /investigate/entity/{entity_id}` → real SQLAlchemy queries, trigram-ish ILIKE search (`services.investigation`).
 - `/network` — `GET /network/entity/{entity_id}` → real two-hop graph built with `core.graph.builder.build_graph`.
-- `/scan` — `GET /scan/runs`, `POST /scan/runs`, `GET /scan/runs/{id}`, `GET /scan/runs/{id}/results`. Read paths are real. `POST /scan/runs` is **synchronous stub-grade**: it selects candidate entities from the `entities` table, persists a `DetectionRun`, returns. No file upload, no parsing, no Celery dispatch.
+- `/scan` — `GET /scan/runs`, `POST /scan/runs`, `GET /scan/runs/{id}`, `GET /scan/runs/{id}/results`. All paths real. `POST /scan/runs` creates a `pending` `DetectionRun`, calls `run_scan_pipeline` synchronously, and returns the completed (or failed) run. Still no file upload — the pipeline scans whatever transactions are already in the DB. Regulator callers scan all banks; bank callers scan only their own org.
 - `/str-reports` — full CRUD + `/submit`, `/review`, `/enrich`. Real service implementation.
 - `/alerts` — `GET /alerts`, `GET /alerts/{id}`, `POST /alerts/{id}/actions`. Real, audit-logged, supports alert→case promotion.
 - `/cases` — `GET /cases`, `GET /cases/{id}`, `POST /cases/{id}/actions`. Real, audit-logged.
@@ -158,7 +163,7 @@ Platform (all inside `(platform)` shell with sidebar + topbar, `requireViewer`-g
 - `alerts/page.tsx`, `alerts/[id]/page.tsx` — `AlertQueue` + detail both fetch `/api/alerts`. Real.
 - `cases/page.tsx`, `cases/[id]/page.tsx` — real.
 - `strs/page.tsx`, `strs/[id]/page.tsx` — real.
-- `scan/page.tsx` — `ScanWorkbench` fetches `/api/scan/runs`. Read is real; queue submission persists a run from entity snapshot (see "Known issues").
+- `scan/page.tsx` — `ScanWorkbench` fetches `/api/scan/runs`. Both list and queue submission run the real pipeline against persisted transactions.
 - `scan/history/page.tsx`, `scan/[runId]/page.tsx` — real.
 - `reports/national/page.tsx`, `compliance/page.tsx`, `trends/page.tsx`, `export/page.tsx` — real.
 - `admin/page.tsx` — server-side `fetchAdminSummary()` + `fetchAdminSettings()` + conditional `fetchSyntheticBackfillPlan()`. Real.
@@ -167,26 +172,55 @@ Platform (all inside `(platform)` shell with sidebar + topbar, `requireViewer`-g
 
 ## Detection engine
 
-`engine/app/core/` is the phase-5/phase-7 placeholder. It is **not** where production detection logic currently lives.
+`engine/app/core/` is the production detection layer as of the 2026-04-15 intelligence-core merge. Sync execution on the FastAPI request path. No Celery.
 
-What exists and works:
-- `core/graph/builder.py` — builds a `networkx.DiGraph` from `Entity` and `Connection` rows with labels, risk scores, and amount-aware edges.
-- `core/graph/analyzer.py` — computes `node_count`, `edge_count`, `max_depth`, and a `suspicious_paths` count gated on `risk_score >= 70`.
-- `core/graph/pathfinder.py`, `core/graph/export.py` — graph export helpers used by `services.investigation.get_network_graph`.
+**Layered architecture:**
 
-What is a stub:
-- `core/pipeline.py` — 22 lines. `run_pipeline` calls `resolve_entity` → `match_entity` → `build_alerts`. Used nowhere in production paths.
-- `core/resolver.py` — 1-call shim to `services.investigation.search_entities`.
-- `core/matcher.py` — filters the output of `services.investigation.list_matches` by `entity_id`.
-- `core/alerter.py` — returns fixture alerts from `seed/fixtures.py::ALERTS`.
-- `core/detection/evaluator.py` — `evaluate_transactions(transaction_count)` returns hardcoded rule dicts based on integer thresholds.
-- `core/detection/scorer.py` — averages the scores from `evaluator`.
-- `core/detection/loader.py` — `load_rules(path)` reads YAML files into dicts. The loaded values are never used by any rule-execution code.
+1. **YAML rule definitions** — `core/detection/rules/*.yaml`. Each rule has `code`, `title`, `category`, `weight`, `description`, `conditions{trigger,params}`, `scoring{base,modifiers}`, `severity{critical,high,medium}`, and `alert_template{title,description}`. Loader: `core/detection/loader.py` validates the schema on load.
 
-Rule files in `core/detection/rules/` contain only `code`, `title`, `weight`, `threshold`:
-- `rapid_cashout.yaml`, `fan_in_burst.yaml`, `fan_out_burst.yaml`, `dormant_spike.yaml`, `layering.yaml`, `proximity_to_bad.yaml`, `structuring.yaml`, `first_time_high_value.yaml`.
+2. **Per-rule evaluators** — `core/detection/evaluator.py`. One pure-Python function per rule, dispatched by `conditions.trigger`:
+   - `evaluate_rapid_cashout` (`credit_then_debit_percentage`)
+   - `evaluate_fan_in_burst` (`unique_senders_to_recipient`)
+   - `evaluate_fan_out_burst` (`unique_recipients_from_sender`)
+   - `evaluate_structuring` (`sub_threshold_clustering`)
+   - `evaluate_layering` (`structured_similar_transfers`)
+   - `evaluate_first_time_high_value` (`new_beneficiary_high_value`)
+   - `evaluate_dormant_spike` (`balance_spike_after_dormancy`)
+   - `evaluate_proximity_to_bad` (`graph_proximity` — needs the entity graph + flagged set)
+   - Top-level `evaluate_accounts(accounts, transactions, rules, graph, flagged_entity_ids)` runs all rules over all accounts and returns a flat `list[RuleHit]`.
+   - Each `RuleHit` (defined in `core/detection/rule_hit.py`) carries `account_id`, `rule_code`, `score`, `weight`, `reasons`, `evidence`, `alert_title`, `alert_description`.
 
-Real alert records in the database come from `engine/seed/load_dbbl_synthetic.py::_upsert_alerts`, which writes `source_type="str_enrichment"` alerts whose `reasons` JSON is derived from the synthetic statement risk profile.
+3. **Scorer** — `core/detection/scorer.py::calculate_risk_score(rule_hits)` returns `(score, severity, reasons)`. Score is the weighted average of per-hit scores, clamped 0–100. Severity bands: critical ≥90, high ≥70, medium ≥50, else low. `reasons` are sorted by weighted contribution. **Note:** `weighted_contribution` is a percentage of total weighted score, summing to ~100 (not score-magnitude). Single-hit alerts read 100.0.
+
+4. **Resolver** — `core/resolver.py`. `normalize_identifier(entity_type, raw)` for account/wallet/phone/nid/person/business. `resolve_identifier()` does exact match on `(entity_type, canonical_value)`, then `pg_trgm` fuzzy match on `display_name` for person/business types. `resolve_identifiers_from_str(session, str_report, org_id)` extracts subjects from an STR and emits pairwise `same_owner` directed connections between non-person entities. New entities are added with `source`-derived initial confidence (`str_cross_ref: 0.7`, `manual: 0.8`, `pattern_scan: 0.6`, `system: 0.5`). Existing entities have `last_seen`, `report_count`, `reporting_orgs` updated in place.
+
+5. **Cross-bank matcher** — `core/matcher.py::run_cross_bank_matching(entities, str_report, org_id)`. For each entity with ≥2 distinct `reporting_orgs`, upserts a row in `matches` keyed on `(match_type, match_key)`, computes risk score `min(100, 50 + 10×match_count + (20 if exposure > 1 crore))`, derives severity, and emits a `cross_bank` alert when the match is new or the severity rank increases. Returns `(matches, alerts)`.
+
+6. **Pipelines** — `core/pipeline.py`:
+   - `run_str_pipeline(session, *, str_report, org_id)` — called from `services.str_reports.submit_str_report`. Resolves identifiers, runs cross-bank matching, mutates the STR with `matched_entity_ids`, `cross_bank_hit`, and `auto_risk_score`. Writes a `pipeline.str.completed` audit log entry.
+   - `run_scan_pipeline(session, *, run_id, org_id, scope_org_ids=None)` — called from `services.scanning.queue_run`. `scope_org_ids=None` scans every bank's accounts (regulator scope); a list filters to those orgs. For each account whose combined score ≥ `_SCAN_SCORE_THRESHOLD` (50), resolves the account as an Entity (via `resolve_identifier`), runs cross-bank matching, writes a scan `Alert`, and appends the account to `flagged_accounts_out`. **Per-account writes (Entity, Match, Alert) attribute to `account.org_id` (the bank that owns the account), not the caller — so banks see their own alerts even when a regulator triggered the scan.** Updates the `DetectionRun` row with `status='completed'`, `accounts_scanned`, `tx_count`, `alerts_generated`, and `results.flagged_accounts`. Writes `pipeline.scan.completed` audit log entry.
+
+7. **Graph** (unchanged from before the merge):
+   - `core/graph/builder.py` — builds a `networkx.DiGraph` from `Entity` and `Connection` rows with labels, risk scores, and amount-aware edges.
+   - `core/graph/analyzer.py` — computes `node_count`, `edge_count`, `max_depth`, and a `suspicious_paths` count gated on `risk_score >= 70`.
+   - `core/graph/pathfinder.py`, `core/graph/export.py` — graph export helpers used by `services.investigation.get_network_graph`.
+
+**`core/alerter.py` is orphaned** after the merge — not imported by any production path. Left in place to avoid touching `seed/fixtures.py` references; safe to delete in a follow-up but not now.
+
+**Modifier conditions hardcoded to `False` in the evaluator** (will become functional once richer transaction metadata or cross-bank graph lookups are wired in):
+- `cross_bank_debit == true`, `proximity_to_flagged <= 2` (rapid_cashout)
+- `senders_from_multiple_banks == true` (fan_in_burst)
+- `recipients_at_different_banks == true` (fan_out_burst)
+- `multiple_npsb_sources == true`, `immediate_outflow == true` (dormant_spike)
+- `involves_multiple_banks == true`, `circular_flow_detected == true` (layering)
+- `target_confidence > 0.8` (proximity_to_bad)
+- `beneficiary_at_different_bank == true`, `beneficiary_is_flagged == true` (first_time_high_value)
+
+**`proximity_to_bad` warm-up:** the rule needs `account.metadata_json["entity_id"]` to look up the account's node in the graph. The scan pipeline assigns this when it resolves a flagged account, so proximity has a one-scan warm-up before it starts firing on subsequent runs.
+
+**Live verification baseline (2026-04-15, BFIU director scan against DBBL synthetic):** 377 accounts, 547 transactions, 10 flagged accounts, 11 alerts (3× `rapid_cashout` high, 6× `first_time_high_value`, 1× `fan_in_burst` medium, 1× `cross_bank_match` critical for entity `3502735816440` reported by 4 banks). If a future scan's numbers diverge wildly from these without an obvious cause, look for a regression in the evaluator or scorer.
+
+**Real alert records pre-merge** came from `engine/seed/load_dbbl_synthetic.py::_upsert_alerts`, which writes `source_type="str_enrichment"` alerts. Those still exist in prod. New scan alerts have `source_type="scan"` and new cross-bank alerts have `source_type="cross_bank"` — all three shapes coexist.
 
 ## Seed data
 
@@ -247,25 +281,18 @@ Intentionally omitted from `.env.example` (hardcoded defaults in `config.py`): `
 
 ## What to work on next
 
-Priority order to reach "a BFIU director's boss watches a 3-minute demo and says 'who built this?'" The premise of the demo is: upload a CSV of bank transactions, Kestrel produces explainable alerts and a cross-bank match, analyst escalates to a case, director sees the new signal on the command view, STR is drafted with AI assistance, and submitted.
+Priority order to reach "a BFIU director's boss watches a 3-minute demo and says 'who built this?'" Tasks 2–5 from the previous version of this section are now **done** (intelligence-core merge). Updated list:
 
-1. **Verify live Supabase has the synthetic dataset.** Read `organizations`, `entities`, `alerts`, `matches` counts; if the table is empty, run `POST /admin/synthetic-backfill` from a regulator admin login. Without this, every platform page renders empty states.
-2. **Real scan upload path.** Replace the stub in `engine/app/services/scanning.py::queue_run`:
-   - Accept multipart upload in `POST /scan/runs` (FastAPI `UploadFile`), validate by extension (`.csv`, `.xlsx`, `.pdf`).
-   - Store the raw file in Supabase Storage (`kestrel-uploads` bucket) using `SUPABASE_SERVICE_ROLE_KEY`.
-   - Create a `DetectionRun` row with `status="pending"`.
-   - Enqueue a Celery task in `engine/app/tasks/scan_tasks.py` that downloads the file, parses via `engine/app/parsers/csv.py` / `xlsx.py` / `statement_pdf.py`, persists `Transaction` rows against the caller's `org_id`, runs the detection pass, writes `flagged_accounts` into `results`, and flips status to `completed`.
-   - Return the run id immediately; the frontend already polls `/scan/runs/{id}` and `/scan/runs/{id}/results`.
-3. **Real rule evaluation.** The YAML files in `engine/app/core/detection/rules/` are metadata. Pick a rule DSL (recommend: SQLAlchemy-backed Python predicates in `engine/app/core/detection/rules.py` keyed by `code`, loaded alongside the YAML metadata). Implement at minimum `rapid_cashout`, `structuring`, `fan_in_burst`, `proximity_to_bad`. Have them return `(score, reasons, evidence)` triples. Wire the scan task above to run them on the freshly persisted transactions for the run's accounts.
-4. **Alert creation from scan.** When a transaction-level rule fires above its threshold, write an `Alert` row with `source_type="scan"`, the rule code in `alert_type`, full `reasons` JSON, and `entity_id` pointing at the account entity. The alert queue + alert detail pages will pick it up automatically.
-5. **Cross-bank match detection on new entities.** When scanning inserts a new account/phone/wallet entity, check for existing `entities` rows with the same `canonical_value` reported by a different org and upsert a `matches` row. `services.investigation.list_matches` already surfaces these. The "cross-bank hit" wow moment depends on this.
-6. **Alert explanation AI on by default.** `POST /ai/alerts/{alert_id}/explanation` is wired. Call it from `AlertDetail` automatically when an alert is opened and cache the result in the alert's `metadata`. Director and analyst demos both need the "why" panel populated without a click.
-7. **STR narrative drafting from an alert.** Add a "Draft STR" action on `AlertDetail` that POSTs to `/ai/str-narrative` with the alert context, then POSTs the result to `/str-reports` as a draft. The lifecycle pages already handle drafts.
-8. **Live command view polish.** The director overview runs on real data but `CommandView` should gain: a top-3 lagging-banks list (already in `ComplianceScore` rows), a typology spark (already in `TrendSeriesResponse`), and a "new this hour" cross-bank match ticker. All three can be assembled from existing endpoints without new engine code.
-9. **Remove the `typologies` fixture fallback.** `engine/app/routers/intelligence.py::typologies` still returns `seed.fixtures.TYPOLOGIES`. Replace with a DB-backed view or a per-org typology table before the director demo.
-10. **Seed verification in production.** Before any demo, run `GET /ready` against the live engine and confirm `auth=ok`, `database=ok`, `redis=ok`, `storage=ok`, `worker=ok`. `worker` will fail today because no Celery worker is doing real work — start the Render worker service and confirm `worker.ping` responds.
-11. **Celery worker hookup.** Even without real tasks, `celery -A app.tasks.celery_app.celery_app worker` must be running for the readiness probe to pass. Confirm the Render worker service is deployed.
-12. **Phase 10 hardening (do after the demo):** structured logs with request ids, failure taxonomy, runbooks, backup checks, AI eval harness wiring, red-team prompt cases, release controls.
+1. **SAR/CTR report types (Task 8 from intelligence-core spec).** Add `report_type` column to `str_reports` and a separate `cash_transaction_reports` table per the spec at `KESTREL-INTELLIGENCE-CORE-PROMPT.md`. The endpoints + schemas + UI lists need to filter and group by report type. CTR endpoint needs a bulk import path.
+2. **Real PDF case pack export (Task 9 from intelligence-core spec).** Replace the placeholder `engine/app/services/pdf_export.py::generate_case_pdf` with a WeasyPrint-backed implementation rendering case header, summary, linked entities, alerts, STRs, timeline, and the "Confidential — BFIU" watermark.
+3. **Real scan upload path.** `queue_run` still ignores any uploaded file — detection runs against whatever transactions are already in the DB. Add multipart `UploadFile` handling, store the raw file in `kestrel-uploads` (Supabase Storage), parse via `engine/app/parsers/csv.py` / `xlsx.py` / `statement_pdf.py`, persist `Transaction` rows tagged with `run_id`, and only THEN run the pipeline. Bonus: move execution to a Celery task in `engine/app/tasks/scan_tasks.py` so the request returns immediately.
+4. **Wire the AI alert explanation by default.** `POST /ai/alerts/{alert_id}/explanation` is implemented but not auto-called. Call it from `AlertDetail` when an alert opens and cache the result in the alert's `metadata`. Director and analyst demos both need the "why" panel populated without a click.
+5. **STR narrative drafting from an alert.** Add a "Draft STR" action on `AlertDetail` that POSTs to `/ai/str-narrative` with the alert context, then POSTs the result to `/str-reports` as a draft. The lifecycle pages already handle drafts.
+6. **Wire the parked modifier conditions.** Several rule modifiers (`cross_bank_debit`, `senders_from_multiple_banks`, `recipients_at_different_banks`, `beneficiary_at_different_bank`, `beneficiary_is_flagged`, `circular_flow_detected`, `multiple_npsb_sources`, `immediate_outflow`, `target_confidence > 0.8`) are hardcoded `False` in the evaluator. They become functional once each transaction carries the right metadata (counterparty bank code) or a graph lookup is added.
+7. **Incremental scan scope.** Today `run_scan_pipeline` re-evaluates all transactions in scope on every invocation. For the demo this is fine; for any real ingest path it needs `run_id`-tagged or time-windowed filtering.
+8. **Live command view polish.** The director overview runs on real data but `CommandView` should gain a top-3 lagging-banks list, a typology spark, and a "new this hour" cross-bank match ticker. All three can be assembled from existing endpoints.
+9. **Remove the `typologies` fixture fallback.** `engine/app/routers/intelligence.py::typologies` still returns `seed.fixtures.TYPOLOGIES`. Replace with a DB-backed view or a per-org typology table.
+10. **Phase 10 hardening:** structured logs with request ids, failure taxonomy, runbooks, backup checks, AI eval harness wiring, red-team prompt cases, release controls.
 
 ## Code conventions
 
@@ -329,16 +356,18 @@ From the actual files:
 
 Verified by reading the code, not guessed:
 
-1. **`POST /scan/runs` does not use the uploaded file.** It picks candidate entities from the `entities` table and persists a run row synchronously. Demo will look suspicious if anyone watches the network request. See `engine/app/services/scanning.py::queue_run` and `_select_candidate_entities`.
-2. **Celery has no real tasks.** `engine/app/tasks/celery_app.py` only exposes `worker.ping`. The modules `scan_tasks.py`, `export_tasks.py`, `str_tasks.py` exist but do nothing hooked up. If the Render worker isn't running, `/ready` reports `worker=error` which bubbles up into a 503.
-3. **Detection rule YAMLs are metadata-only.** No rule logic is executed against transactions.
-4. **`core/alerter.py` returns fixtures.** The only caller is `core/pipeline.py`, which itself is unused in production paths — but any future wiring into `pipeline.run_pipeline` will get fixture alerts, not DB alerts.
+1. **`POST /scan/runs` ignores any uploaded file.** Detection runs against whatever transactions are already in the DB. Acceptable for the synthetic dataset but the upload → parse → persist path is still missing. See `engine/app/services/scanning.py::queue_run`.
+2. **Celery has no real tasks.** `engine/app/tasks/celery_app.py` only exposes `worker.ping`. The modules `scan_tasks.py`, `export_tasks.py`, `str_tasks.py` exist but do nothing hooked up. The new pipelines run inline in the FastAPI request, not via Celery. If the Render worker isn't running, `/ready` reports `worker=error` which bubbles up into a 503.
+3. **Several rule modifiers hardcoded to `False`.** See "Detection engine" → "Modifier conditions hardcoded to False". The trigger logic itself is real; only certain bonus modifiers are inert until richer transaction metadata is wired in.
+4. **`core/alerter.py` is orphaned.** Not imported by any production path after the intelligence-core merge. Used to return fixtures; safe to delete in a follow-up but currently kept around to avoid touching `seed/fixtures.py` references.
 5. **`/intelligence/typologies` returns fixtures.** `engine/app/routers/intelligence.py` imports from `seed.fixtures`. See item 9 in "What to work on next".
-6. **Demo viewer fallback is silent in the web layer.** `web/src/lib/auth.ts::getCurrentViewer` returns a demo viewer when `createSupabaseServerClient()` returns null. The production plan says demo mode must not silently activate — confirm `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_ANON_KEY` are set in production, or the app will quietly serve demo content.
-7. **`engine/app/services/scanning.py` references `entity.metadata_json`** in `_select_candidate_entities` for tx count. If the entity's `metadata` JSON is empty (default), the scan will report `tx_count=0` and look broken. The synthetic loader writes `metadata_json.transaction_count` — other paths may not.
-8. **Report export is a placeholder.** `services.pdf_export.build_report_export(report_type)` exists; the router accepts `report_type` as a query param with no validation. If you call it with anything other than what the function handles, expect a raw exception.
-9. **`typologies` router dependency imports from `seed.fixtures`.** Removing `seed/fixtures.py` breaks imports in `core/alerter.py` and `routers/intelligence.py`; any refactor needs to handle both.
+6. **Demo viewer fallback is silent in the web layer.** `web/src/lib/auth.ts::getCurrentViewer` returns a demo viewer when `createSupabaseServerClient()` returns null. Confirm `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_ANON_KEY` are set in production, or the app will quietly serve demo content. (Note: production has these set — the live Vercel deployment authenticates against real Supabase.)
+7. **`detection_runs.status` CHECK constraint** allows only `pending|processing|completed|failed`. NOT `running`. The intelligence-core merge had to ship a follow-up fix (`d55aa90`) for this — don't reintroduce `running` anywhere.
+8. **Report export PDF is a placeholder.** `services.pdf_export.build_report_export(report_type)` exists; the router accepts `report_type` as a query param with no validation. Real WeasyPrint case pack is Task 9 from the intelligence-core spec, deferred.
+9. **`typologies` router dependency imports from `seed.fixtures`.** Removing `seed/fixtures.py` would also need to handle `core/alerter.py` (orphan, see #4).
 10. **Rule RLS policy history.** Commits `76b76f8`, `ef93d26`, `8592e8e`, `d01f184`, `2113e4b`, `4e1af27` are a fix-and-follow-up chain for admin rule mutations hitting RLS. The fix is the `scoped system session` pattern in `services.admin.update_rule_configuration` and the maintenance endpoint at `POST /admin/maintenance/rules-policy-fix`. Don't simplify this pattern away without understanding why the direct session didn't work.
 11. **`_load_profile_context` swallows DB errors.** `engine/app/auth.py` catches `Exception` from the profile query and returns `None`, which then falls back to JWT claims or demo mode. A broken database will look like "not provisioned for this user" instead of 500.
 12. **Two `supabase` clients.** `web/src/lib/supabase/` (folder) and `web/src/lib/supabase.ts` (if present in imports) co-exist. Check `web/src/lib/supabase/` before adding new client helpers.
 13. **`proxy.ts` is the Next middleware.** Named `proxy.ts` (not `middleware.ts`) and exports a `proxy` function. Next.js still picks it up due to the repo's custom convention. Don't rename it — there is probably tooling that depends on the name.
+14. **Vercel SSR `/scan` may briefly 500 during a Render redeploy.** The page itself is minimal but during the engine's drain/restart window, transient SSR fetches can fail. Reload after the engine reports `Application startup complete` in `render logs`. Not a code bug.
+15. **`weighted_contribution` was a real bug, fixed in `7aed54f`.** The pre-fix formula multiplied by 100 unnecessarily, producing values like 8000.0 instead of percentages. If you see contribution values above 100, you've reintroduced the bug.
