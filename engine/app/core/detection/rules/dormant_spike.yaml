@@ -1,4 +1,39 @@
 code: dormant_spike
-title: Dormant spike
+title: Dormant account spike
+category: pattern
 weight: 5.0
-threshold: 55
+description: >
+  Account with near-zero balance suddenly receives large credits.
+  Rented or hijacked accounts often show this pattern.
+
+conditions:
+  trigger: balance_spike_after_dormancy
+  params:
+    dormant_days: 30
+    max_prior_balance: 10000
+    min_spike_amount: 5000000
+
+scoring:
+  base: 65
+  modifiers:
+    - when: spike_amount > 10000000
+      add: 15
+      reason: "Spike exceeds 1 crore BDT"
+    - when: multiple_npsb_sources == true
+      add: 10
+      reason: "Credits arrived from multiple banks via NPSB"
+    - when: dormant_days > 90
+      add: 10
+      reason: "Account dormant for over 90 days before spike"
+    - when: immediate_outflow == true
+      add: 15
+      reason: "Significant outflow began within hours of spike"
+
+severity:
+  critical: 90
+  high: 70
+  medium: 50
+
+alert_template:
+  title: "Dormant spike: {account_name}"
+  description: "Account dormant {dormant_days} days, then received BDT {spike_amount} from {source_count} sources"

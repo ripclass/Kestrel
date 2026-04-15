@@ -1,4 +1,39 @@
 code: fan_in_burst
 title: Fan-in burst
+category: velocity
 weight: 6.0
-threshold: 60
+description: >
+  Multiple unique senders transfer to the same recipient within a short window.
+  Indicates pooled fund collection typical of mule account operations.
+
+conditions:
+  trigger: unique_senders_to_recipient
+  params:
+    min_unique_senders: 5
+    time_window_minutes: 30
+    min_total_amount: 100000
+
+scoring:
+  base: 55
+  modifiers:
+    - when: unique_senders > 10
+      add: 15
+      reason: "More than 10 unique senders"
+    - when: total_amount > 2000000
+      add: 10
+      reason: "Total inflow exceeds 20 lakh BDT"
+    - when: senders_from_multiple_banks == true
+      add: 10
+      reason: "Senders span multiple banks (NPSB transfers)"
+    - when: all_similar_amounts == true
+      add: 10
+      reason: "All incoming amounts are suspiciously similar (within 10%)"
+
+severity:
+  critical: 90
+  high: 70
+  medium: 50
+
+alert_template:
+  title: "Fan-in burst: {account_name}"
+  description: "{unique_senders} unique senders transferred BDT {total_amount} within {time_window} minutes"

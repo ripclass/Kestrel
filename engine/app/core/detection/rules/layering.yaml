@@ -1,4 +1,40 @@
 code: layering
 title: Layering
+category: pattern
 weight: 7.0
-threshold: 65
+description: >
+  Multiple structured transfers of similar amounts within a short period,
+  designed to obscure the money trail through layers of transactions.
+
+conditions:
+  trigger: structured_similar_transfers
+  params:
+    min_transfer_count: 5
+    amount_variance_pct: 10
+    time_window_hours: 48
+    min_total_amount: 200000
+
+scoring:
+  base: 55
+  modifiers:
+    - when: transfer_count > 10
+      add: 15
+      reason: "More than 10 structured transfers"
+    - when: involves_multiple_banks == true
+      add: 10
+      reason: "Transfers span multiple banks"
+    - when: amount_variance_pct < 5
+      add: 10
+      reason: "Amounts are nearly identical (variance under 5%)"
+    - when: circular_flow_detected == true
+      add: 15
+      reason: "Circular flow detected - funds return to origin path"
+
+severity:
+  critical: 90
+  high: 70
+  medium: 50
+
+alert_template:
+  title: "Layering detected: {account_name}"
+  description: "{transfer_count} transfers averaging BDT {avg_amount} (within {variance}%) over {time_window} hours"

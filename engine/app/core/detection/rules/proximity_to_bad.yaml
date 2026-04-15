@@ -1,4 +1,37 @@
 code: proximity_to_bad
-title: Proximity to bad
+title: Proximity to flagged entity
+category: graph
 weight: 5.0
-threshold: 55
+description: >
+  Account or entity is within 2 transaction hops of a known flagged entity.
+
+conditions:
+  trigger: graph_proximity
+  params:
+    max_hops: 2
+    target_entity_status:
+      - active
+      - confirmed
+    min_target_confidence: 0.6
+
+scoring:
+  base: 40
+  modifiers:
+    - when: hop_distance == 1
+      add: 25
+      reason: "Direct transaction with flagged entity"
+    - when: target_confidence > 0.8
+      add: 10
+      reason: "Connected entity has high confidence score"
+    - when: multiple_flagged_neighbors == true
+      add: 15
+      reason: "Connected to multiple flagged entities"
+
+severity:
+  critical: 90
+  high: 70
+  medium: 50
+
+alert_template:
+  title: "Proximity alert: {account_name}"
+  description: "{hop_distance} hop(s) from flagged entity {flagged_entity_name} (confidence {confidence})"
