@@ -83,6 +83,7 @@ def _serialize_report(report: STRReport, org_name: str) -> STRReportSummary:
         org_id=str(report.org_id),
         org_name=org_name,
         report_ref=report.report_ref,
+        report_type=report.report_type or "str",
         status=report.status,
         subject_name=report.subject_name,
         subject_account=report.subject_account,
@@ -256,7 +257,12 @@ def _ensure_submission_ready(report: STRReport) -> None:
         )
 
 
-async def list_str_reports(session: AsyncSession, *, status_filter: str | None = None) -> list[STRReportSummary]:
+async def list_str_reports(
+    session: AsyncSession,
+    *,
+    status_filter: str | None = None,
+    report_type: str | None = None,
+) -> list[STRReportSummary]:
     stmt = (
         select(STRReport, Organization.name.label("org_name"))
         .join(Organization, Organization.id == STRReport.org_id)
@@ -264,6 +270,8 @@ async def list_str_reports(session: AsyncSession, *, status_filter: str | None =
     )
     if status_filter:
         stmt = stmt.where(STRReport.status == status_filter)
+    if report_type:
+        stmt = stmt.where(STRReport.report_type == report_type)
     result = await session.execute(stmt)
     return [_serialize_report(report, str(org_name)) for report, org_name in result.all()]
 
@@ -283,6 +291,7 @@ async def create_str_report(
     report = STRReport(
         org_id=_require_uuid(user.org_id, "Authenticated user is missing a valid organization id."),
         report_ref="",
+        report_type=payload.get("report_type", "str"),
         status="draft",
         subject_name=payload.get("subject_name"),
         subject_account=payload["subject_account"],

@@ -399,11 +399,14 @@ export interface STRReviewState {
   statusHistory: STRLifecycleEvent[];
 }
 
+export type ReportType = "str" | "sar" | "ctr";
+
 export interface STRReportSummary {
   id: string;
   orgId: string;
   orgName: string;
   reportRef: string;
+  reportType: ReportType;
   status: STRReportStatus;
   subjectName?: string | null;
   subjectAccount: string;

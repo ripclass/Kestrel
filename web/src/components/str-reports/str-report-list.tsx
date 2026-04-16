@@ -15,6 +15,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { detailFromPayload, readResponsePayload } from "@/lib/http";
 
 const emptyDraft: STRDraftPayload = {
+  reportType: "str",
   subjectAccount: "",
   subjectName: "",
   subjectBank: "",
@@ -33,6 +34,20 @@ const emptyDraft: STRDraftPayload = {
   metadata: {},
 };
 
+type ReportTypeFilter = "all" | "str" | "sar" | "ctr";
+
+const reportTypeLabel: Record<string, string> = {
+  str: "STR",
+  sar: "SAR",
+  ctr: "CTR",
+};
+
+const reportTypeBadgeClass: Record<string, string> = {
+  str: "bg-blue-500/20 text-blue-300 border-blue-500/30",
+  sar: "bg-purple-500/20 text-purple-300 border-purple-500/30",
+  ctr: "bg-emerald-500/20 text-emerald-300 border-emerald-500/30",
+};
+
 export function STRReportList({ viewer }: { viewer: Viewer }) {
   const router = useRouter();
   const [reports, setReports] = useState<STRReportSummary[]>([]);
@@ -40,11 +55,13 @@ export function STRReportList({ viewer }: { viewer: Viewer }) {
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [isCreating, setIsCreating] = useState(false);
+  const [filter, setFilter] = useState<ReportTypeFilter>("all");
 
   useEffect(() => {
     void (async () => {
       try {
-        const response = await fetch("/api/str-reports", { cache: "no-store" });
+        const url = filter === "all" ? "/api/str-reports" : `/api/str-reports?report_type=${filter}`;
+        const response = await fetch(url, { cache: "no-store" });
         const payload = (await readResponsePayload<STRListResponse>(response)) as STRListResponse | { detail?: string };
         if (!response.ok) {
           setError(detailFromPayload(payload, "Unable to load STR reports."));
@@ -56,7 +73,7 @@ export function STRReportList({ viewer }: { viewer: Viewer }) {
         setError(caughtError instanceof Error ? caughtError.message : "Unable to load STR reports.");
       }
     })();
-  }, []);
+  }, [filter]);
 
   function updateField<K extends keyof STRDraftPayload>(field: K, value: STRDraftPayload[K]) {
     setDraft((current) => ({ ...current, [field]: value }));
@@ -103,6 +120,18 @@ export function STRReportList({ viewer }: { viewer: Viewer }) {
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+            <div className="space-y-2">
+              <label className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Report type</label>
+              <select
+                className="h-11 w-full rounded-xl border border-input bg-background/60 px-4 text-sm outline-none focus:border-primary"
+                value={draft.reportType ?? "str"}
+                onChange={(event) => updateField("reportType", event.target.value)}
+              >
+                <option value="str">STR — Suspicious Transaction</option>
+                <option value="sar">SAR — Suspicious Activity</option>
+                <option value="ctr">CTR — Cash Transaction</option>
+              </select>
+            </div>
             <div className="space-y-2">
               <label className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Subject account</label>
               <Input
@@ -199,12 +228,28 @@ export function STRReportList({ viewer }: { viewer: Viewer }) {
 
       <Card>
         <CardHeader>
-          <CardTitle>Current STR lifecycle</CardTitle>
+          <CardTitle>Current report lifecycle</CardTitle>
           <CardDescription>Every draft, submitted filing, and regulator review action lands here.</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
+          <div className="flex flex-wrap gap-2">
+            {(["all", "str", "sar", "ctr"] as ReportTypeFilter[]).map((type) => (
+              <button
+                key={type}
+                type="button"
+                onClick={() => setFilter(type)}
+                className={`rounded-full border px-3 py-1 text-xs font-medium transition ${
+                  filter === type
+                    ? "border-primary bg-primary/15 text-primary"
+                    : "border-border text-muted-foreground hover:border-primary/40"
+                }`}
+              >
+                {type === "all" ? "All reports" : reportTypeLabel[type]}
+              </button>
+            ))}
+          </div>
           {reports.length === 0 ? (
-            <p className="text-sm text-muted-foreground">No STRs yet. Create the first draft above.</p>
+            <p className="text-sm text-muted-foreground">No reports yet. Create the first draft above.</p>
           ) : (
             reports.map((report) => (
               <Link
@@ -216,6 +261,13 @@ export function STRReportList({ viewer }: { viewer: Viewer }) {
                   <div className="space-y-2">
                     <div className="flex flex-wrap items-center gap-3">
                       <h3 className="text-base font-semibold">{report.reportRef}</h3>
+                      <span
+                        className={`inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-semibold tracking-widest ${
+                          reportTypeBadgeClass[report.reportType] ?? "bg-muted text-muted-foreground border-border"
+                        }`}
+                      >
+                        {reportTypeLabel[report.reportType] ?? report.reportType.toUpperCase()}
+                      </span>
                       <StatusBadge status={report.status} />
                     </div>
                     <p className="text-sm text-muted-foreground">

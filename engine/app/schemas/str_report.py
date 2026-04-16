@@ -40,6 +40,7 @@ class STRReportSummary(BaseModel):
     org_id: str
     org_name: str
     report_ref: str
+    report_type: str = "str"
     status: str
     subject_name: str | None = None
     subject_account: str
@@ -73,6 +74,7 @@ class STRReportDetail(STRReportSummary):
 
 
 class STRDraftUpsert(BaseModel):
+    report_type: str = "str"
     subject_name: str | None = None
     subject_account: str
     subject_bank: str | None = None

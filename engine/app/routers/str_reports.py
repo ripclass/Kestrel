@@ -31,8 +31,9 @@ async def list_reports(
     user: Annotated[AuthenticatedUser, Depends(get_current_user)],
     session: Annotated[AsyncSession, Depends(get_current_session)],
     status_filter: Annotated[str | None, Query(alias="status")] = None,
+    report_type: Annotated[str | None, Query(alias="report_type")] = None,
 ) -> STRListResponse:
-    reports = await list_str_reports(session, status_filter=status_filter)
+    reports = await list_str_reports(session, status_filter=status_filter, report_type=report_type)
     return STRListResponse(reports=reports)
 
 

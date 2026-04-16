@@ -41,6 +41,7 @@ type RawSummary = {
   org_id: string;
   org_name: string;
   report_ref: string;
+  report_type?: string;
   status: STRReportSummary["status"];
   subject_name?: string | null;
   subject_account: string;
@@ -79,6 +80,7 @@ function normalizeSummary(report: RawSummary): STRReportSummary {
     orgId: report.org_id,
     orgName: report.org_name,
     reportRef: report.report_ref,
+    reportType: (report.report_type ?? "str") as STRReportSummary["reportType"],
     status: report.status,
     subjectName: report.subject_name,
     subjectAccount: report.subject_account,
