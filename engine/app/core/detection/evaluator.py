@@ -160,6 +160,7 @@ def evaluate_rapid_cashout(
     account: Any,
     account_txns: list[Any],
     rule_config: dict[str, Any],
+    accounts_by_id: dict[uuid.UUID, Any] | None = None,
 ) -> RuleHit | None:
     """Fire when a credit is followed by >=X% in debits within the time window."""
     params = rule_config["conditions"]["params"]
@@ -203,10 +204,17 @@ def evaluate_rapid_cashout(
         account_bank = getattr(account, "bank_code", None)
         debit_bank_hints: set[str | None] = set()
         for t in following_debits:
-            bank = getattr(t, "dst_account_bank_code", None)
+            bank = None
+            if accounts_by_id and t.dst_account_id is not None:
+                dst = accounts_by_id.get(t.dst_account_id)
+                if dst is not None:
+                    bank = getattr(dst, "bank_code", None)
             if bank is None:
-                meta = getattr(t, "metadata_json", None) or {}
-                bank = meta.get("dst_bank_code") if isinstance(meta, dict) else None
+                # Fallback: explicit hint on the transaction (set by CSV ingest)
+                bank = getattr(t, "dst_account_bank_code", None)
+                if bank is None:
+                    meta = getattr(t, "metadata_json", None) or {}
+                    bank = meta.get("dst_bank_code") if isinstance(meta, dict) else None
             debit_bank_hints.add(bank)
         cross_bank_debit = any(b and b != account_bank for b in debit_bank_hints)
 
@@ -247,6 +255,7 @@ def evaluate_fan_in_burst(
     account: Any,
     account_txns: list[Any],
     rule_config: dict[str, Any],
+    accounts_by_id: dict[uuid.UUID, Any] | None = None,
 ) -> RuleHit | None:
     """Fire when N+ unique senders transfer to this account inside the window."""
     params = rule_config["conditions"]["params"]
@@ -263,10 +272,18 @@ def evaluate_fan_in_burst(
         if len(unique_senders) < min_senders or total_amount < min_total:
             continue
         amounts = [_as_float(t.amount) for t in group]
+        sender_banks: set[str] = set()
+        if accounts_by_id:
+            for t in group:
+                if t.src_account_id is not None:
+                    src = accounts_by_id.get(t.src_account_id)
+                    if src is not None and getattr(src, "bank_code", None):
+                        sender_banks.add(src.bank_code)
+        senders_from_multiple_banks = len(sender_banks) >= 2
         modifier_map = {
             "unique_senders > 10": len(unique_senders) > 10,
             "total_amount > 2000000": total_amount > 2_000_000,
-            "senders_from_multiple_banks == true": False,
+            "senders_from_multiple_banks == true": senders_from_multiple_banks,
             "all_similar_amounts == true": _amounts_similar(amounts),
         }
         evidence = {
@@ -291,6 +308,7 @@ def evaluate_fan_out_burst(
     account: Any,
     account_txns: list[Any],
     rule_config: dict[str, Any],
+    accounts_by_id: dict[uuid.UUID, Any] | None = None,
 ) -> RuleHit | None:
     """Fire when N+ unique recipients receive from this account inside the window."""
     params = rule_config["conditions"]["params"]
@@ -307,10 +325,18 @@ def evaluate_fan_out_burst(
         if len(unique) < min_recipients or total_amount < min_total:
             continue
         amounts = [_as_float(t.amount) for t in group]
+        recipient_banks: set[str] = set()
+        if accounts_by_id:
+            for t in group:
+                if t.dst_account_id is not None:
+                    dst = accounts_by_id.get(t.dst_account_id)
+                    if dst is not None and getattr(dst, "bank_code", None):
+                        recipient_banks.add(dst.bank_code)
+        recipients_at_different_banks = len(recipient_banks) >= 2
         modifier_map = {
             "unique_recipients > 8": len(unique) > 8,
             "total_amount > 2000000": total_amount > 2_000_000,
-            "recipients_at_different_banks == true": False,
+            "recipients_at_different_banks == true": recipients_at_different_banks,
             "all_similar_amounts == true": _amounts_similar(amounts),
         }
         evidence = {
@@ -439,6 +465,8 @@ def evaluate_first_time_high_value(
     account: Any,
     account_txns: list[Any],
     rule_config: dict[str, Any],
+    accounts_by_id: dict[uuid.UUID, Any] | None = None,
+    flagged_entity_ids: set[str] | None = None,
 ) -> RuleHit | None:
     """Fire on a large first-time transfer from a new account."""
     params = rule_config["conditions"]["params"]
@@ -465,11 +493,27 @@ def evaluate_first_time_high_value(
         if age > max_age:
             continue
 
+        beneficiary_at_different_bank = False
+        beneficiary_is_flagged = False
+        if beneficiary is not None and accounts_by_id:
+            dst = accounts_by_id.get(beneficiary)
+            if dst is not None:
+                src_bank = getattr(account, "bank_code", None)
+                dst_bank = getattr(dst, "bank_code", None)
+                if src_bank and dst_bank and src_bank != dst_bank:
+                    beneficiary_at_different_bank = True
+                dst_meta = getattr(dst, "metadata_json", None) or {}
+                entity_id = (
+                    dst_meta.get("entity_id") if isinstance(dst_meta, dict) else None
+                )
+                if entity_id and flagged_entity_ids and str(entity_id) in flagged_entity_ids:
+                    beneficiary_is_flagged = True
+
         modifier_map = {
             "amount > 1000000": amount > 1_000_000,
-            "beneficiary_at_different_bank == true": False,
+            "beneficiary_at_different_bank == true": beneficiary_at_different_bank,
             "account_age_days < 30": age < 30,
-            "beneficiary_is_flagged == true": False,
+            "beneficiary_is_flagged == true": beneficiary_is_flagged,
         }
         evidence = {
             "account_name": getattr(account, "account_name", None) or getattr(account, "account_number", ""),
@@ -493,6 +537,7 @@ def evaluate_dormant_spike(
     account: Any,
     account_txns: list[Any],
     rule_config: dict[str, Any],
+    accounts_by_id: dict[uuid.UUID, Any] | None = None,
 ) -> RuleHit | None:
     """Fire when a large credit arrives after a dormant period."""
     params = rule_config["conditions"]["params"]
@@ -518,11 +563,30 @@ def evaluate_dormant_spike(
         if gap_days < dormant_days:
             continue
 
+        # immediate_outflow: was there a debit from this account within 6
+        # hours after the spike credit landed?
+        immediate_outflow_window = _txn_dt(spike) + timedelta(hours=6)
+        immediate_outflow = any(
+            t for t in account_txns
+            if t.src_account_id == account.id
+            and _txn_dt(t) > _txn_dt(spike)
+            and _txn_dt(t) <= immediate_outflow_window
+        )
+        # multiple_npsb_sources: >=2 distinct src accounts delivered NPSB
+        # credits into this account across the full observed history.
+        npsb_src = {
+            t.src_account_id
+            for t in credits
+            if t.src_account_id is not None
+            and (getattr(t, "channel", None) or "").upper() == "NPSB"
+        }
+        multiple_npsb_sources = len(npsb_src) >= 2
+
         modifier_map = {
             "spike_amount > 10000000": spike_amount > 10_000_000,
-            "multiple_npsb_sources == true": False,
+            "multiple_npsb_sources == true": multiple_npsb_sources,
             "dormant_days > 90": gap_days > 90,
-            "immediate_outflow == true": False,
+            "immediate_outflow == true": immediate_outflow,
         }
         evidence = {
             "account_name": getattr(account, "account_name", None) or getattr(account, "account_number", ""),
@@ -627,6 +691,7 @@ def evaluate_accounts(
     (typically ``pipeline.run_scan_pipeline``) group by account for scoring.
     """
     grouped = _group_transactions_by_account(transactions)
+    accounts_by_id: dict[uuid.UUID, Any] = {a.id: a for a in accounts}
     hits: list[RuleHit] = []
     for account in accounts:
         account_txns = grouped.get(account.id, [])
@@ -642,6 +707,26 @@ def evaluate_accounts(
                     rule_config=rule,
                     graph=graph,
                     flagged_entity_ids=flagged_entity_ids,
+                )
+            elif trigger == "new_beneficiary_high_value":
+                hit = evaluator(
+                    account=account,
+                    account_txns=account_txns,
+                    rule_config=rule,
+                    accounts_by_id=accounts_by_id,
+                    flagged_entity_ids=flagged_entity_ids,
+                )
+            elif trigger in {
+                "credit_then_debit_percentage",
+                "unique_senders_to_recipient",
+                "unique_recipients_from_sender",
+                "balance_spike_after_dormancy",
+            }:
+                hit = evaluator(
+                    account=account,
+                    account_txns=account_txns,
+                    rule_config=rule,
+                    accounts_by_id=accounts_by_id,
                 )
             else:
                 hit = evaluator(
