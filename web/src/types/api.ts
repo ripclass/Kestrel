@@ -248,3 +248,40 @@ export interface STRReviewPayload {
   note?: string;
   assignedTo?: string;
 }
+
+export interface AiExplanationResponse {
+  meta: {
+    task: string;
+    provider: string;
+    model: string;
+    fallbackUsed: boolean;
+  };
+  result: {
+    summary: string;
+    whyItMatters: string;
+    recommendedActions: string[];
+  };
+}
+
+export interface AiStrNarrativePayload {
+  subjectName?: string;
+  subjectAccount?: string;
+  totalAmount?: number;
+  category?: string;
+  triggerFacts: string[];
+}
+
+export interface AiStrNarrativeResponse {
+  meta: {
+    task: string;
+    provider: string;
+    model: string;
+    fallbackUsed: boolean;
+  };
+  result: {
+    narrative: string;
+    missingFields: string[];
+    categorySuggestion: string;
+    severitySuggestion: string;
+  };
+}
