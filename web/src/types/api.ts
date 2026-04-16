@@ -225,6 +225,7 @@ export interface STRMutationResponse {
 }
 
 export interface STRDraftPayload {
+  reportType?: string;
   subjectName?: string;
   subjectAccount: string;
   subjectBank?: string;

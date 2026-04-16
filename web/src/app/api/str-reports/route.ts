@@ -28,6 +28,7 @@ export async function POST(request: NextRequest) {
   const response = await proxyEngineRequest("/str-reports", {
     method: "POST",
     body: JSON.stringify({
+      report_type: body.reportType ?? "str",
       subject_name: body.subjectName,
       subject_account: body.subjectAccount,
       subject_bank: body.subjectBank,
