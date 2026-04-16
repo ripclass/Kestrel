@@ -8,7 +8,6 @@ import type {
   EntitySummary,
   MatchSummary,
   Persona,
-  TypologySummary,
   Viewer,
 } from "@/types/domain";
 
@@ -259,25 +258,6 @@ export const matches: MatchSummary[] = [
     riskScore: 84,
     severity: "high",
     status: "new",
-  },
-];
-
-export const typologies: TypologySummary[] = [
-  {
-    id: "typology-merchant",
-    title: "Merchant front with rapid MFS exit",
-    category: "fraud",
-    channels: ["RTGS", "MFS"],
-    indicators: ["Rapid outbound after inbound settlement", "Shared phone across multiple beneficiary wallets", "Narrative mismatch with business profile"],
-    narrative: "Commercial accounts receive high-value settlements and immediately disperse funds into consumer wallets and layered beneficiaries.",
-  },
-  {
-    id: "typology-layering",
-    title: "Cross-bank layering ring",
-    category: "money_laundering",
-    channels: ["NPSB", "BEFTN", "RTGS"],
-    indicators: ["Fan-out burst", "Repeated peer-bank overlap", "Two-hop proximity to known bad"],
-    narrative: "Funds are routed across several banks in rapid succession to break attribution and frustrate manual review.",
   },
 ];
 
