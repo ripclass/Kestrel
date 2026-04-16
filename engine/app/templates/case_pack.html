@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Case Pack — {{ case.case_ref }}</title>
+</head>
+<body>
+  <div class="watermark">CONFIDENTIAL — BFIU</div>
+
+  <header class="case-header">
+    <div class="ref-block">
+      <div class="label">Case reference</div>
+      <div class="ref">{{ case.case_ref }}</div>
+    </div>
+    <div class="meta-block">
+      <div class="badges">
+        <span class="badge badge-severity badge-{{ case.severity }}">{{ case.severity|upper }}</span>
+        <span class="badge badge-status">{{ case.status|replace("_", " ")|upper }}</span>
+      </div>
+      <div class="generated">Generated {{ generated_at }}</div>
+    </div>
+  </header>
+
+  <h1 class="case-title">{{ case.title }}</h1>
+
+  <section class="summary">
+    <h2>Summary</h2>
+    <p>{{ case.summary or "No summary recorded." }}</p>
+    <dl class="meta-grid">
+      <dt>Total exposure</dt>
+      <dd>BDT {{ "{:,.2f}".format(case.total_exposure or 0) }}</dd>
+      <dt>Assigned to</dt>
+      <dd>{{ case.assigned_to or "Unassigned" }}</dd>
+      <dt>Linked entities</dt>
+      <dd>{{ case.linked_entity_ids|length }}</dd>
+      <dt>Linked alerts</dt>
+      <dd>{{ case.linked_alert_ids|length }}</dd>
+    </dl>
+  </section>
+
+  <section class="entities">
+    <h2>Evidence entities ({{ evidence_entities|length }})</h2>
+    {% if evidence_entities %}
+    <table>
+      <thead>
+        <tr><th>Type</th><th>Identifier</th><th>Name</th><th>Risk</th><th>Reports</th><th>Exposure</th></tr>
+      </thead>
+      <tbody>
+        {% for e in evidence_entities %}
+        <tr>
+          <td>{{ e.entity_type }}</td>
+          <td>{{ e.canonical_value }}</td>
+          <td>{{ e.display_name or "—" }}</td>
+          <td><span class="badge badge-{{ e.severity }}">{{ e.risk_score }}</span></td>
+          <td>{{ e.report_count }}</td>
+          <td>BDT {{ "{:,.0f}".format(e.total_exposure or 0) }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% else %}
+    <p class="empty">No linked entities.</p>
+    {% endif %}
+  </section>
+
+  <section class="alerts">
+    <h2>Linked alerts ({{ alerts|length }})</h2>
+    {% if alerts %}
+    <table>
+      <thead>
+        <tr><th>Severity</th><th>Risk</th><th>Title</th><th>Rule / Source</th></tr>
+      </thead>
+      <tbody>
+        {% for a in alerts %}
+        <tr>
+          <td><span class="badge badge-{{ a.severity }}">{{ a.severity|upper }}</span></td>
+          <td>{{ a.risk_score }}</td>
+          <td>
+            <div class="alert-title">{{ a.title }}</div>
+            <div class="alert-desc">{{ a.description or "" }}</div>
+          </td>
+          <td>{{ a.alert_type }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% else %}
+    <p class="empty">No alerts linked to this case.</p>
+    {% endif %}
+  </section>
+
+  <section class="strs">
+    <h2>Linked reports ({{ str_reports|length }})</h2>
+    {% if str_reports %}
+    <table>
+      <thead>
+        <tr><th>Ref</th><th>Type</th><th>Status</th><th>Subject</th><th>Category</th><th>Exposure</th></tr>
+      </thead>
+      <tbody>
+        {% for r in str_reports %}
+        <tr>
+          <td>{{ r.report_ref }}</td>
+          <td>{{ r.report_type|upper }}</td>
+          <td>{{ r.status|replace("_", " ")|upper }}</td>
+          <td>
+            <div>{{ r.subject_name or "—" }}</div>
+            <div class="muted">{{ r.subject_account }}</div>
+          </td>
+          <td>{{ r.category|replace("_", " ") }}</td>
+          <td>BDT {{ "{:,.0f}".format(r.total_amount or 0) }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% else %}
+    <p class="empty">No reports linked to this case.</p>
+    {% endif %}
+  </section>
+
+  <section class="timeline">
+    <h2>Timeline</h2>
+    {% if timeline %}
+    <ul>
+      {% for event in timeline[:20] %}
+      <li>
+        <div class="t-time">{{ event.occurred_at }}</div>
+        <div class="t-title">{{ event.title }}</div>
+        {% if event.description %}<div class="t-desc">{{ event.description }}</div>{% endif %}
+        <div class="t-actor">by {{ event.actor or "system" }}</div>
+      </li>
+      {% endfor %}
+    </ul>
+    {% else %}
+    <p class="empty">No timeline events recorded.</p>
+    {% endif %}
+  </section>
+
+  <footer class="case-footer">
+    <div>CONFIDENTIAL — BFIU · Not for distribution outside the regulator and reporting entities.</div>
+    <div>Kestrel · {{ generated_at }}</div>
+  </footer>
+</body>
+</html>
