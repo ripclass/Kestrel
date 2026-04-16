@@ -83,7 +83,7 @@ def _serialize_report(report: STRReport, org_name: str) -> STRReportSummary:
         org_id=str(report.org_id),
         org_name=org_name,
         report_ref=report.report_ref,
-        report_type=report.report_type,
+        report_type=report.report_type or "str",
         status=report.status,
         subject_name=report.subject_name,
         subject_account=report.subject_account,
