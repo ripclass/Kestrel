@@ -13,6 +13,7 @@ Two entry points:
 
 from __future__ import annotations
 
+import logging
 import uuid
 from datetime import UTC, datetime
 from pathlib import Path
@@ -20,6 +21,8 @@ from typing import Any
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
+
+logger = logging.getLogger("kestrel.pipeline")
 
 from app.core.detection.evaluator import evaluate_accounts
 from app.core.detection.loader import load_rules
@@ -71,6 +74,17 @@ async def run_str_pipeline(
     str_report.cross_bank_hit = len(matches) > 0
     if matches:
         str_report.auto_risk_score = max(int(m.risk_score or 0) for m in matches)
+
+    logger.info(
+        "pipeline.str.complete",
+        extra={
+            "str_id": str(str_report.id),
+            "org_id": str(org_id),
+            "entities_resolved": len(entities),
+            "cross_bank_matches": len(matches),
+            "new_alerts": len(alerts),
+        },
+    )
 
     session.add(
         AuditLog(
@@ -243,6 +257,15 @@ async def run_scan_pipeline(
 
     run.status = "processing"
     run.started_at = datetime.now(UTC)
+    logger.info(
+        "pipeline.scan.start",
+        extra={
+            "run_id": str(run_id),
+            "org_id": str(org_id),
+            "source_run_id": str(source_run_id) if source_run_id else None,
+            "scope_org_ids": [str(s) for s in scope_org_ids] if scope_org_ids else None,
+        },
+    )
 
     accounts, transactions = await _load_accounts_and_transactions(
         session, scope_org_ids=scope_org_ids, source_run_id=source_run_id
@@ -327,6 +350,20 @@ async def run_scan_pipeline(
     run.accounts_scanned = len(accounts)
     run.tx_count = len(transactions)
     run.alerts_generated = len(alerts_created)
+    logger.info(
+        "pipeline.scan.complete",
+        extra={
+            "run_id": str(run_id),
+            "org_id": str(org_id),
+            "accounts_scanned": len(accounts),
+            "tx_count": len(transactions),
+            "alerts_generated": len(alerts_created),
+            "flagged_count": len(flagged_accounts_out),
+            "duration_ms": round(
+                (datetime.now(UTC) - run.started_at).total_seconds() * 1000, 2
+            ) if run.started_at else None,
+        },
+    )
     run.results = {
         "summary": (
             f"{len(flagged_accounts_out)} account candidate(s) flagged from "

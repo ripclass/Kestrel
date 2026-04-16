@@ -1,16 +1,52 @@
-from fastapi import FastAPI
+import logging
+import time
+
+from fastapi import FastAPI, HTTPException, Request
+from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 
 from app.config import get_settings
+from app.observability import RequestIDMiddleware, configure_logging, current_request_id
 from app.routers import admin, ai, alerts, cases, ctr, intelligence, investigate, network, overview, reports, scan, str_reports, system
 
 settings = get_settings()
+configure_logging()
+logger = logging.getLogger("kestrel.error")
 
 app = FastAPI(
     title=settings.app_name,
     version=settings.app_version,
     description="Kestrel intelligence engine",
 )
+
+
+def _error_envelope(status_code: int, detail: object) -> JSONResponse:
+    body = {
+        "detail": detail,
+        "request_id": current_request_id() or None,
+        "timestamp": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+    }
+    return JSONResponse(body, status_code=status_code)
+
+
+@app.exception_handler(HTTPException)
+async def handle_http_exception(_: Request, exc: HTTPException) -> JSONResponse:
+    return _error_envelope(exc.status_code, exc.detail)
+
+
+@app.exception_handler(RequestValidationError)
+async def handle_validation_error(_: Request, exc: RequestValidationError) -> JSONResponse:
+    return _error_envelope(422, exc.errors())
+
+
+@app.exception_handler(Exception)
+async def handle_unhandled(_: Request, exc: Exception) -> JSONResponse:
+    logger.exception("unhandled_exception", extra={"exc_type": type(exc).__name__})
+    return _error_envelope(500, "Internal server error.")
+
+# Request ID middleware runs first so every log line + response carries the ID.
+app.add_middleware(RequestIDMiddleware)
 
 app.add_middleware(
     CORSMiddleware,
