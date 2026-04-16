@@ -2,7 +2,7 @@ from copy import deepcopy
 
 from app.schemas.alert import AlertDetail, AlertReason, AlertSummary
 from app.schemas.case import CaseNote, CaseSummary, CaseWorkspace
-from app.schemas.intelligence import CrossBankMatch, TypologySummary
+from app.schemas.intelligence import CrossBankMatch
 from app.schemas.investigate import ActivityEvent, EntityDossier, EntitySearchResult, ReportingHistoryItem
 from app.schemas.network import GraphEdge, GraphNode, NetworkGraph
 from app.schemas.report import ComplianceScore
@@ -124,17 +124,6 @@ MATCHES = [
         risk_score=92,
         severity="critical",
         status="investigating",
-    )
-]
-
-TYPOLOGIES = [
-    TypologySummary(
-        id="typology-merchant",
-        title="Merchant front with rapid MFS exit",
-        category="fraud",
-        channels=["RTGS", "MFS"],
-        indicators=["Rapid outbound after settlement", "Shared phone across multiple wallets"],
-        narrative="Commercial accounts receive high-value settlements and immediately disperse funds into consumer wallets.",
     )
 ]
 
