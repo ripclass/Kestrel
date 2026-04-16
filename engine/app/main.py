@@ -5,6 +5,7 @@ from fastapi import FastAPI, HTTPException, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from app.config import get_settings
 from app.observability import RequestIDMiddleware, configure_logging, current_request_id
@@ -32,6 +33,12 @@ def _error_envelope(status_code: int, detail: object) -> JSONResponse:
 
 @app.exception_handler(HTTPException)
 async def handle_http_exception(_: Request, exc: HTTPException) -> JSONResponse:
+    return _error_envelope(exc.status_code, exc.detail)
+
+
+@app.exception_handler(StarletteHTTPException)
+async def handle_starlette_http_exception(_: Request, exc: StarletteHTTPException) -> JSONResponse:
+    # Catches 404 from unknown paths and a handful of other Starlette-raised errors.
     return _error_envelope(exc.status_code, exc.detail)
 
 
