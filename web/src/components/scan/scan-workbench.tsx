@@ -31,6 +31,7 @@ async function fetchRunDetail(runId: string): Promise<DetectionRunDetail> {
 
 export function ScanWorkbench() {
   const [fileName, setFileName] = useState("dbbl-network-snapshot-apr03.csv");
+  const [file, setFile] = useState<File | null>(null);
   const [selectedRules, setSelectedRules] = useState<string[]>(defaultSelectedRules);
   const [runs, setRuns] = useState<DetectionRunSummary[]>([]);
   const [activeRun, setActiveRun] = useState<DetectionRunDetail | null>(null);
@@ -91,14 +92,25 @@ export function ScanWorkbench() {
     setNotice(null);
     setError(null);
     try {
-      const response = await fetch("/api/scan/runs", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          fileName: fileName.trim() || undefined,
-          selectedRules,
-        }),
-      });
+      let response: Response;
+      if (file) {
+        const formData = new FormData();
+        formData.append("file", file, file.name);
+        formData.append("selected_rules", selectedRules.join(","));
+        response = await fetch("/api/scan/runs/upload", {
+          method: "POST",
+          body: formData,
+        });
+      } else {
+        response = await fetch("/api/scan/runs", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            fileName: fileName.trim() || undefined,
+            selectedRules,
+          }),
+        });
+      }
       const payload = (await readResponsePayload<ScanQueueResponse>(response)) as
         | ScanQueueResponse
         | { detail?: string };
@@ -112,6 +124,7 @@ export function ScanWorkbench() {
       setActiveRun(result.run);
       setRuns((current) => [result.run, ...current.filter((run) => run.id !== result.run.id)]);
       setNotice(result.message);
+      if (file) setFile(null);
     } catch (caughtError) {
       setError(caughtError instanceof Error ? caughtError.message : "Unable to queue detection run.");
     } finally {
@@ -123,7 +136,12 @@ export function ScanWorkbench() {
     <div className="space-y-6">
       <div className="grid gap-6 xl:grid-cols-[0.9fr_1.1fr]">
         <div className="space-y-6">
-          <UploadDrop fileName={fileName} onFileNameChange={setFileName} />
+          <UploadDrop
+            fileName={fileName}
+            file={file}
+            onFileNameChange={setFileName}
+            onFileChange={setFile}
+          />
           <ScanConfig
             selectedRules={selectedRules}
             onToggleRule={toggleRule}

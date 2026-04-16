@@ -1,12 +1,12 @@
 from typing import Annotated
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, File, Form, UploadFile
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.auth import AuthenticatedUser, get_current_user, require_roles
 from app.dependencies import get_current_session
 from app.schemas.scan import DetectionRunDetail, DetectionRunSummary, FlaggedAccount, ScanQueueRequest, ScanQueueResponse
-from app.services.scanning import get_results, get_run_detail, list_runs, queue_run
+from app.services.scanning import get_results, get_run_detail, list_runs, queue_run, queue_run_with_upload
 
 router = APIRouter()
 
@@ -26,6 +26,25 @@ async def queue(
     session: Annotated[AsyncSession, Depends(get_current_session)] = None,
 ) -> ScanQueueResponse:
     return await queue_run(session, user=user, request=body)
+
+
+@router.post("/runs/upload", response_model=ScanQueueResponse)
+async def queue_upload(
+    user: Annotated[AuthenticatedUser, Depends(require_roles("manager", "admin", "superadmin"))],
+    session: Annotated[AsyncSession, Depends(get_current_session)],
+    file: Annotated[UploadFile, File(...)],
+    selected_rules: Annotated[str, Form()] = "",
+) -> ScanQueueResponse:
+    """Upload a CSV, persist its transactions tagged with the new run_id, then scan."""
+    content_bytes = await file.read()
+    rules = [rule for rule in selected_rules.split(",") if rule.strip()]
+    return await queue_run_with_upload(
+        session,
+        user=user,
+        file_name=file.filename or "upload.csv",
+        content_bytes=content_bytes,
+        selected_rules=rules,
+    )
 
 
 @router.get("/runs/{run_id}", response_model=DetectionRunDetail)
