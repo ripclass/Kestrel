@@ -12,7 +12,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.auth import AuthenticatedUser
 from app.models.ctr import CashTransactionReport
-from app.models.organization import Organization
 from app.schemas.ctr import CTRBulkImportResponse, CTRListResponse, CTRSummary
 
 
