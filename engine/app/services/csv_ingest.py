@@ -11,6 +11,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.account import Account
+from app.models.org import Organization
 from app.models.transaction import Transaction
 from app.parsers.csv import parse_csv
 
@@ -50,13 +51,19 @@ async def _resolve_account(
     org_id: uuid.UUID,
     account_number: str,
     accounts_cache: dict[str, Account],
+    bank_code: str | None = None,
 ) -> Account:
     number = (account_number or "").strip()
     if not number:
         raise ValueError("Account number cannot be empty")
 
     if number in accounts_cache:
-        return accounts_cache[number]
+        # If we previously cached this account with an unknown bank_code and
+        # now we have one from the CSV, fill it in.
+        cached = accounts_cache[number]
+        if bank_code and not getattr(cached, "bank_code", None):
+            cached.bank_code = bank_code
+        return cached
 
     result = await session.execute(
         select(Account)
@@ -69,14 +76,25 @@ async def _resolve_account(
             org_id=org_id,
             account_number=number,
             account_name=None,
+            bank_code=bank_code,
             risk_tier="normal",
             metadata_json={"source": "csv_upload"},
         )
         session.add(account)
         await session.flush()  # populate account.id
+    elif bank_code and not account.bank_code:
+        # Back-fill bank_code on pre-existing account rows
+        account.bank_code = bank_code
 
     accounts_cache[number] = account
     return account
+
+
+async def _load_org_bank_code(session: AsyncSession, org_id: uuid.UUID) -> str | None:
+    result = await session.execute(
+        select(Organization.bank_code).where(Organization.id == org_id).limit(1)
+    )
+    return result.scalar_one_or_none()
 
 
 async def ingest_csv(
@@ -115,25 +133,32 @@ async def ingest_csv(
 
     accounts_cache: dict[str, Account] = {}
     tx_count = 0
+    org_bank_code = await _load_org_bank_code(session, org_id)
 
     for idx, row in enumerate(rows, start=1):
         try:
             posted_at = _parse_timestamp(row.get("posted_at", ""))
             amount = _parse_amount(row.get("amount", ""))
+            # Source accounts always belong to the uploading bank
             src = await _resolve_account(
                 session,
                 org_id=org_id,
                 account_number=row.get("src_account", ""),
                 accounts_cache=accounts_cache,
+                bank_code=org_bank_code,
             )
             dst_number = (row.get("dst_account") or "").strip()
             dst = None
             if dst_number:
+                # Optional dst_bank_code column flags cross-bank transfers.
+                # Defaults to uploader's bank when absent.
+                dst_bank = (row.get("dst_bank_code") or "").strip() or org_bank_code
                 dst = await _resolve_account(
                     session,
                     org_id=org_id,
                     account_number=dst_number,
                     accounts_cache=accounts_cache,
+                    bank_code=dst_bank,
                 )
         except ValueError as exc:
             raise HTTPException(
