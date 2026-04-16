@@ -162,6 +162,12 @@ export interface AlertDetail extends AlertSummary {
   entity?: EntitySummary;
 }
 
+export interface AiExplanation {
+  summary: string;
+  whyItMatters: string;
+  recommendedActions: string[];
+}
+
 export interface MatchSummary {
   id: string;
   entityId: string;
