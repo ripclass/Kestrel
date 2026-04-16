@@ -159,7 +159,7 @@ export function CaseWorkspace({ caseId }: { caseId: string }) {
           {error ? <p className="text-sm text-red-300">{error}</p> : null}
         </CardContent>
       </Card>
-      <CaseExport />
+      <CaseExport caseId={caseId} caseRef={workspace.caseRef} />
       <div className="grid gap-6 xl:grid-cols-[1.1fr_0.9fr]">
         <CaseTimeline events={workspace.timeline} />
         <CaseNotes
