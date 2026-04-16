@@ -95,13 +95,39 @@ async def run_str_pipeline(
 
 
 async def _load_accounts_and_transactions(
-    session: AsyncSession, *, scope_org_ids: list[uuid.UUID] | None
+    session: AsyncSession,
+    *,
+    scope_org_ids: list[uuid.UUID] | None,
+    source_run_id: uuid.UUID | None = None,
 ) -> tuple[list[Account], list[Transaction]]:
     """Load accounts and transactions to scan.
 
-    ``scope_org_ids=None`` loads everything (regulator scope). A non-empty
-    list filters to those orgs (bank scope).
+    When ``source_run_id`` is set, only transactions tagged with that run_id
+    (and the accounts they touch) are returned — this is the upload path,
+    where the scan operates only on freshly-uploaded data.
+
+    Otherwise, ``scope_org_ids=None`` loads everything (regulator scope) and
+    a non-empty list filters to those orgs (bank scope).
     """
+    if source_run_id is not None:
+        txns_result = await session.execute(
+            select(Transaction).where(Transaction.run_id == source_run_id)
+        )
+        transactions = list(txns_result.scalars().all())
+
+        account_ids = {
+            tx.src_account_id for tx in transactions if tx.src_account_id is not None
+        } | {
+            tx.dst_account_id for tx in transactions if tx.dst_account_id is not None
+        }
+        if not account_ids:
+            return [], transactions
+        accounts_result = await session.execute(
+            select(Account).where(Account.id.in_(account_ids))
+        )
+        accounts = list(accounts_result.scalars().all())
+        return accounts, transactions
+
     accounts_stmt = select(Account)
     txns_stmt = select(Transaction)
     if scope_org_ids:
@@ -196,6 +222,7 @@ async def run_scan_pipeline(
     run_id: uuid.UUID,
     org_id: uuid.UUID,
     scope_org_ids: list[uuid.UUID] | None = None,
+    source_run_id: uuid.UUID | None = None,
 ) -> dict[str, Any]:
     """Execute the full scan detection pipeline.
 
@@ -218,7 +245,7 @@ async def run_scan_pipeline(
     run.started_at = datetime.now(UTC)
 
     accounts, transactions = await _load_accounts_and_transactions(
-        session, scope_org_ids=scope_org_ids
+        session, scope_org_ids=scope_org_ids, source_run_id=source_run_id
     )
     graph, flagged_entity_ids = await _load_graph_and_flagged(session)
 

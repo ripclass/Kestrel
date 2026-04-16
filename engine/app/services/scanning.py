@@ -16,6 +16,8 @@ from app.models.detection_run import DetectionRun
 from app.models.entity import Entity
 from app.models.match import Match
 from app.schemas.scan import DetectionRunDetail, FlaggedAccount, ScanQueueRequest, ScanQueueResponse
+from app.services.csv_ingest import ingest_csv
+from app.services.storage import StorageError, upload_to_uploads_bucket
 
 
 def _as_uuid(value: str | UUID | None) -> UUID | None:
@@ -295,6 +297,104 @@ async def queue_run(
         run=DetectionRunDetail.model_validate(_serialize_run_detail(run)),
         message=(
             "Detection pipeline executed over current transactions."
+            if run.status == "completed"
+            else f"Detection run ended with status {run.status}."
+        ),
+    )
+
+
+async def queue_run_with_upload(
+    session: AsyncSession,
+    *,
+    user: AuthenticatedUser,
+    file_name: str,
+    content_bytes: bytes,
+    selected_rules: list[str],
+) -> ScanQueueResponse:
+    """Upload path: ingest a CSV, tag transactions with run_id, scan those only."""
+    org_uuid = _as_uuid(user.org_id)
+    if org_uuid is None:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid organization id.")
+
+    safe_name = (file_name or "upload.csv").strip() or "upload.csv"
+    now = datetime.now(UTC)
+
+    run = DetectionRun(
+        org_id=org_uuid,
+        run_type="upload",
+        status="processing",
+        file_name=safe_name,
+        file_url=None,
+        tx_count=0,
+        accounts_scanned=0,
+        alerts_generated=0,
+        results={
+            "summary": "processing upload",
+            "selected_rules": list(selected_rules),
+            "flagged_accounts": [],
+        },
+        triggered_by=_as_uuid(user.user_id),
+        started_at=now,
+        completed_at=None,
+        error=None,
+    )
+    session.add(run)
+    await session.flush()
+
+    # Best-effort upload of the raw file. Storage down ≠ failed scan.
+    storage_path = f"{org_uuid}/{run.id}/{safe_name}"
+    try:
+        run.file_url = await upload_to_uploads_bucket(
+            path=storage_path,
+            content=content_bytes,
+            content_type="text/csv",
+        )
+    except StorageError:
+        # Swallow — ingestion can still proceed
+        run.file_url = None
+
+    # Decode and ingest
+    try:
+        content_str = content_bytes.decode("utf-8-sig")
+    except UnicodeDecodeError:
+        content_str = content_bytes.decode("latin-1")
+
+    try:
+        ingest_summary = await ingest_csv(
+            session, run_id=run.id, org_id=org_uuid, content=content_str
+        )
+    except HTTPException as exc:
+        run.status = "failed"
+        run.error = str(exc.detail)
+        run.completed_at = datetime.now(UTC)
+        await session.commit()
+        await session.refresh(run)
+        raise
+
+    run.tx_count = int(ingest_summary.get("tx_count", 0))
+
+    scope_org_ids = None if user.org_type == "regulator" else [org_uuid]
+
+    try:
+        await run_scan_pipeline(
+            session,
+            run_id=run.id,
+            org_id=org_uuid,
+            scope_org_ids=scope_org_ids,
+            source_run_id=run.id,
+        )
+    except Exception as exc:
+        run.status = "failed"
+        run.error = str(exc)
+        run.completed_at = datetime.now(UTC)
+
+    await session.commit()
+    await session.refresh(run)
+
+    return ScanQueueResponse(
+        run=DetectionRunDetail.model_validate(_serialize_run_detail(run)),
+        message=(
+            f"Ingested {run.tx_count} transactions and ran detection."
             if run.status == "completed"
             else f"Detection run ended with status {run.status}."
         ),
