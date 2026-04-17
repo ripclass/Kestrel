@@ -7,6 +7,8 @@ import type { STRReportDetail, Viewer } from "@/types/domain";
 import { Currency } from "@/components/common/currency";
 import { DisseminateAction } from "@/components/disseminations/disseminate-action";
 import { StatusBadge } from "@/components/common/status-badge";
+import { SupplementAction } from "@/components/str-reports/supplement-action";
+import { SupplementList } from "@/components/str-reports/supplement-list";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -286,6 +288,7 @@ export function STRReportWorkspace({
                 defaultSubject={`Report ${report.reportRef}: ${report.subjectName ?? "subject"}\n${report.narrative ?? ""}`}
                 variant="outline"
               />
+              {report.reportType !== "additional_info" ? <SupplementAction parent={report} /> : null}
             </div>
           </div>
         </CardHeader>
@@ -700,6 +703,8 @@ export function STRReportWorkspace({
           </CardContent>
         </Card>
       ) : null}
+
+      {report.reportType !== "additional_info" ? <SupplementList parentId={report.id} /> : null}
 
       <Card>
         <CardHeader>
