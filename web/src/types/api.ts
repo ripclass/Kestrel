@@ -227,7 +227,7 @@ export interface STRMutationResponse {
 export interface STRDraftPayload {
   reportType?: string;
   subjectName?: string;
-  subjectAccount: string;
+  subjectAccount?: string;
   subjectBank?: string;
   subjectPhone?: string;
   subjectWallet?: string;
@@ -242,6 +242,23 @@ export interface STRDraftPayload {
   dateRangeEnd?: string;
   narrative?: string;
   metadata?: Record<string, unknown>;
+  supplementsReportId?: string;
+  mediaSource?: string;
+  mediaUrl?: string;
+  mediaPublishedAt?: string;
+  ierDirection?: "inbound" | "outbound";
+  ierCounterpartyFiu?: string;
+  ierCounterpartyCountry?: string;
+  ierEgmontRef?: string;
+  ierRequestNarrative?: string;
+  ierResponseNarrative?: string;
+  ierDeadline?: string;
+  tbmlInvoiceValue?: number;
+  tbmlDeclaredValue?: number;
+  tbmlLcReference?: string;
+  tbmlHsCode?: string;
+  tbmlCommodity?: string;
+  tbmlCounterpartyCountry?: string;
 }
 
 export interface STRReviewPayload {

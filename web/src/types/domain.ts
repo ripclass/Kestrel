@@ -399,7 +399,20 @@ export interface STRReviewState {
   statusHistory: STRLifecycleEvent[];
 }
 
-export type ReportType = "str" | "sar" | "ctr";
+export type ReportType =
+  | "str"
+  | "sar"
+  | "ctr"
+  | "tbml"
+  | "complaint"
+  | "ier"
+  | "internal"
+  | "adverse_media_str"
+  | "adverse_media_sar"
+  | "escalated"
+  | "additional_info";
+
+export type IERDirection = "inbound" | "outbound";
 
 export interface STRReportSummary {
   id: string;
@@ -409,7 +422,7 @@ export interface STRReportSummary {
   reportType: ReportType;
   status: STRReportStatus;
   subjectName?: string | null;
-  subjectAccount: string;
+  subjectAccount?: string | null;
   subjectBank?: string | null;
   totalAmount: number;
   currency: string;
@@ -421,6 +434,10 @@ export interface STRReportSummary {
   reportedAt?: string | null;
   createdAt: string;
   updatedAt?: string | null;
+  supplementsReportId?: string | null;
+  ierDirection?: IERDirection | null;
+  ierCounterpartyFiu?: string | null;
+  mediaSource?: string | null;
 }
 
 export interface STRReportDetail extends STRReportSummary {
@@ -437,4 +454,17 @@ export interface STRReportDetail extends STRReportSummary {
   metadata: Record<string, unknown>;
   enrichment?: STREnrichment | null;
   review: STRReviewState;
+  mediaUrl?: string | null;
+  mediaPublishedAt?: string | null;
+  ierCounterpartyCountry?: string | null;
+  ierEgmontRef?: string | null;
+  ierRequestNarrative?: string | null;
+  ierResponseNarrative?: string | null;
+  ierDeadline?: string | null;
+  tbmlInvoiceValue?: number | null;
+  tbmlDeclaredValue?: number | null;
+  tbmlLcReference?: string | null;
+  tbmlHsCode?: string | null;
+  tbmlCommodity?: string | null;
+  tbmlCounterpartyCountry?: string | null;
 }

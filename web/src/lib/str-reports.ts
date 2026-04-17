@@ -44,7 +44,7 @@ type RawSummary = {
   report_type?: string;
   status: STRReportSummary["status"];
   subject_name?: string | null;
-  subject_account: string;
+  subject_account?: string | null;
   subject_bank?: string | null;
   total_amount: number;
   currency: string;
@@ -56,6 +56,10 @@ type RawSummary = {
   reported_at?: string | null;
   created_at: string;
   updated_at?: string | null;
+  supplements_report_id?: string | null;
+  ier_direction?: "inbound" | "outbound" | null;
+  ier_counterparty_fiu?: string | null;
+  media_source?: string | null;
 };
 
 type RawDetail = RawSummary & {
@@ -72,6 +76,19 @@ type RawDetail = RawSummary & {
   metadata: Record<string, unknown>;
   enrichment?: RawEnrichment | null;
   review?: RawReviewState | null;
+  media_url?: string | null;
+  media_published_at?: string | null;
+  ier_counterparty_country?: string | null;
+  ier_egmont_ref?: string | null;
+  ier_request_narrative?: string | null;
+  ier_response_narrative?: string | null;
+  ier_deadline?: string | null;
+  tbml_invoice_value?: number | null;
+  tbml_declared_value?: number | null;
+  tbml_lc_reference?: string | null;
+  tbml_hs_code?: string | null;
+  tbml_commodity?: string | null;
+  tbml_counterparty_country?: string | null;
 };
 
 function normalizeSummary(report: RawSummary): STRReportSummary {
@@ -95,6 +112,10 @@ function normalizeSummary(report: RawSummary): STRReportSummary {
     reportedAt: report.reported_at,
     createdAt: report.created_at,
     updatedAt: report.updated_at,
+    supplementsReportId: report.supplements_report_id,
+    ierDirection: report.ier_direction,
+    ierCounterpartyFiu: report.ier_counterparty_fiu,
+    mediaSource: report.media_source,
   };
 }
 
@@ -112,6 +133,19 @@ export function normalizeSTRReportDetail(report: RawDetail): STRReportDetail {
     submittedBy: report.submitted_by,
     reviewedBy: report.reviewed_by,
     metadata: report.metadata,
+    mediaUrl: report.media_url,
+    mediaPublishedAt: report.media_published_at,
+    ierCounterpartyCountry: report.ier_counterparty_country,
+    ierEgmontRef: report.ier_egmont_ref,
+    ierRequestNarrative: report.ier_request_narrative,
+    ierResponseNarrative: report.ier_response_narrative,
+    ierDeadline: report.ier_deadline,
+    tbmlInvoiceValue: report.tbml_invoice_value,
+    tbmlDeclaredValue: report.tbml_declared_value,
+    tbmlLcReference: report.tbml_lc_reference,
+    tbmlHsCode: report.tbml_hs_code,
+    tbmlCommodity: report.tbml_commodity,
+    tbmlCounterpartyCountry: report.tbml_counterparty_country,
     enrichment: report.enrichment
       ? {
           draftNarrative: report.enrichment.draft_narrative,
