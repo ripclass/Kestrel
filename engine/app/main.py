@@ -17,6 +17,7 @@ from app.routers import (
     ctr,
     diagrams,
     disseminations,
+    ier,
     intelligence,
     investigate,
     match_definitions,
@@ -93,6 +94,7 @@ app.include_router(ctr.router, prefix="/ctr", tags=["ctr"])
 app.include_router(alerts.router, prefix="/alerts", tags=["alerts"])
 app.include_router(cases.router, prefix="/cases", tags=["cases"])
 app.include_router(disseminations.router, prefix="/disseminations", tags=["disseminations"])
+app.include_router(ier.router, prefix="/iers", tags=["iers"])
 app.include_router(intelligence.router, prefix="/intelligence", tags=["intelligence"])
 app.include_router(saved_queries.router, prefix="/saved-queries", tags=["saved-queries"])
 app.include_router(diagrams.router, prefix="/diagrams", tags=["diagrams"])
