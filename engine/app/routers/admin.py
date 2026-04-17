@@ -21,6 +21,7 @@ from app.schemas.admin import (
     SyntheticBackfillPlanResponse,
     SyntheticBackfillResultResponse,
 )
+from app.schemas.statistics import OperationalStatisticsResponse
 from app.services.admin import (
     apply_rules_insert_policy_fix,
     build_admin_integrations,
@@ -33,6 +34,8 @@ from app.services.admin import (
     update_rule_configuration,
     update_team_member,
 )
+from app.services.schedules import ScheduleListResponse, build_schedule_list
+from app.services.statistics import build_operational_statistics
 from seed.dbbl_synthetic import OUTPUT_DIR_DEFAULT
 from seed.load_dbbl_synthetic import apply_dataset
 
@@ -162,3 +165,20 @@ async def apply_rules_policy_fix(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Rules policy fix failed. Check engine logs for details.",
         ) from exc
+
+
+@router.get("/statistics", response_model=OperationalStatisticsResponse)
+async def operational_statistics(
+    user: Annotated[AuthenticatedUser, Depends(require_roles("analyst", "manager", "admin", "superadmin"))],
+    session: Annotated[AsyncSession, Depends(get_current_session)],
+) -> OperationalStatisticsResponse:
+    _require_regulator_admin(user)
+    return await build_operational_statistics(session)
+
+
+@router.get("/schedules", response_model=ScheduleListResponse)
+async def scheduled_processes(
+    user: Annotated[AuthenticatedUser, Depends(require_roles("admin", "superadmin"))],
+) -> ScheduleListResponse:
+    _require_regulator_admin(user)
+    return build_schedule_list()
