@@ -9,16 +9,15 @@ import { KpiCard } from "@/components/overview/kpi-card";
 import { MatchTicker } from "@/components/overview/match-ticker";
 import { OverviewBrief } from "@/components/overview/overview-brief";
 import { ThreatMap } from "@/components/overview/threat-map";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { detailFromPayload, readResponsePayload } from "@/lib/http";
 import type { ComplianceResponse, NationalReportResponse } from "@/types/api";
 import type { ComplianceScore } from "@/types/domain";
 
-const levelColor: Record<string, string> = {
-  "Very high": "bg-red-500/20 text-red-400 border-red-500/30",
-  "High": "bg-orange-500/20 text-orange-400 border-orange-500/30",
-  "Elevated": "bg-yellow-500/20 text-yellow-400 border-yellow-500/30",
-  "Monitoring": "bg-muted text-muted-foreground border-border",
+const levelTone: Record<string, string> = {
+  "Very high": "border-accent text-accent",
+  High: "border-accent/60 text-accent",
+  Elevated: "border-foreground/40 text-foreground",
+  Monitoring: "border-border text-muted-foreground",
 };
 
 export function CommandView() {
@@ -59,9 +58,7 @@ export function CommandView() {
     })();
   }, []);
 
-  if (isLoading) {
-    return <LoadingState label="Loading command view..." />;
-  }
+  if (isLoading) return <LoadingState label="Loading command view…" />;
 
   if (!dashboard) {
     return <EmptyState title="Command view unavailable" description={error ?? "National metrics are unavailable."} />;
@@ -74,67 +71,90 @@ export function CommandView() {
     <div className="space-y-6">
       <AlertTicker />
       <MatchTicker />
-      <OverviewBrief title="National command summary" headline={dashboard.headline} operational={dashboard.operational} />
-      <div className="grid gap-4 xl:grid-cols-3">
+      <OverviewBrief
+        title="National command summary"
+        headline={dashboard.headline}
+        operational={dashboard.operational}
+      />
+      <div className="grid gap-0 border-x border-b border-border sm:grid-cols-2 xl:grid-cols-3 xl:border-b-0">
         {dashboard.stats.map((stat) => (
           <KpiCard key={stat.label} stat={stat} />
         ))}
       </div>
       {dashboard.threatMap.length > 0 ? (
-        <div className="flex flex-wrap gap-2">
+        <div className="flex flex-wrap gap-0 border border-border">
           {dashboard.threatMap.map((row) => (
             <span
               key={row.channel}
-              className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-medium ${levelColor[row.level] ?? "bg-muted text-muted-foreground border-border"}`}
+              className={`flex items-center gap-2 border-r border-border px-4 py-2.5 font-mono text-[11px] uppercase tracking-[0.18em] last:border-r-0 ${levelTone[row.level] ?? "border-border text-muted-foreground"}`}
             >
               {row.channel}
-              <span className="opacity-70">{row.signalCount} signals</span>
+              <span className="tabular-nums opacity-70">· {row.signalCount} signals</span>
             </span>
           ))}
         </div>
       ) : null}
       <div className="grid gap-6 xl:grid-cols-[1.3fr_0.9fr]">
         <ThreatMap rows={dashboard.threatMap} />
-        <Card>
-          <CardHeader>
-            <CardTitle>Bank compliance posture</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
+        <section className="border border-border">
+          <div className="border-b border-border px-6 py-5">
+            <p className="font-mono text-[10px] uppercase tracking-[0.28em] text-muted-foreground">
+              <span aria-hidden className="mr-2 text-accent">┼</span>
+              Section · Bank compliance posture
+            </p>
+          </div>
+          <div className="space-y-6 px-6 py-6">
             {laggingBanks.length > 0 ? (
-              <div className="space-y-2">
-                <p className="text-xs font-medium uppercase tracking-widest text-orange-400">Attention needed</p>
-                {laggingBanks.map((bank) => (
-                  <div key={bank.orgName} className="rounded-xl border border-orange-500/30 bg-orange-500/5 p-4">
-                    <div className="flex items-center justify-between">
-                      <p className="font-medium">{bank.orgName}</p>
-                      <span className="text-xl font-semibold text-orange-400">{bank.score}</span>
-                    </div>
-                    <p className="mt-2 text-sm text-muted-foreground">
-                      Timeliness {bank.submissionTimeliness}, conversion {bank.alertConversion}, peer coverage {bank.peerCoverage}
-                    </p>
-                  </div>
-                ))}
-              </div>
+              <section>
+                <p className="font-mono text-[10px] uppercase tracking-[0.28em] text-accent">
+                  Attention needed
+                </p>
+                <ul className="mt-3 divide-y divide-border border border-border">
+                  {laggingBanks.map((bank) => (
+                    <li key={bank.orgName} className="flex items-start justify-between gap-6 px-4 py-3">
+                      <div>
+                        <p className="text-sm font-semibold text-foreground">{bank.orgName}</p>
+                        <p className="mt-1 text-xs text-muted-foreground">
+                          Timeliness {bank.submissionTimeliness} · Conversion {bank.alertConversion} · Peer {bank.peerCoverage}
+                        </p>
+                      </div>
+                      <span className="font-mono text-2xl leading-none tabular-nums text-accent">
+                        {bank.score}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              </section>
             ) : null}
             {topBanks.length > 0 ? (
-              <div className="space-y-2">
-                <p className="text-xs font-medium uppercase tracking-widest text-muted-foreground">Leading</p>
-                {topBanks.map((bank) => (
-                  <div key={bank.orgName} className="rounded-xl border border-border/70 bg-background/50 p-4">
-                    <div className="flex items-center justify-between">
-                      <p className="font-medium">{bank.orgName}</p>
-                      <span className="text-xl font-semibold">{bank.score}</span>
-                    </div>
-                    <p className="mt-2 text-sm text-muted-foreground">
-                      Timeliness {bank.submissionTimeliness}, conversion {bank.alertConversion}, peer coverage {bank.peerCoverage}
-                    </p>
-                  </div>
-                ))}
-              </div>
+              <section>
+                <p className="font-mono text-[10px] uppercase tracking-[0.28em] text-muted-foreground">
+                  Leading
+                </p>
+                <ul className="mt-3 divide-y divide-border border border-border">
+                  {topBanks.map((bank) => (
+                    <li key={bank.orgName} className="flex items-start justify-between gap-6 px-4 py-3">
+                      <div>
+                        <p className="text-sm font-semibold text-foreground">{bank.orgName}</p>
+                        <p className="mt-1 text-xs text-muted-foreground">
+                          Timeliness {bank.submissionTimeliness} · Conversion {bank.alertConversion} · Peer {bank.peerCoverage}
+                        </p>
+                      </div>
+                      <span className="font-mono text-2xl leading-none tabular-nums text-foreground">
+                        {bank.score}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              </section>
             ) : null}
-            {error ? <p className="text-sm text-red-300">{error}</p> : null}
-          </CardContent>
-        </Card>
+            {error ? (
+              <p className="font-mono text-xs uppercase tracking-[0.18em] text-destructive">
+                <span aria-hidden className="mr-2">┼</span>ERROR · {error}
+              </p>
+            ) : null}
+          </div>
+        </section>
       </div>
     </div>
   );

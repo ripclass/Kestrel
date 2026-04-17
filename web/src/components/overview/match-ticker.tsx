@@ -7,10 +7,10 @@ import { readResponsePayload } from "@/lib/http";
 import type { MatchListResponse } from "@/types/api";
 import type { MatchSummary } from "@/types/domain";
 
-const severityColor: Record<string, string> = {
-  critical: "text-red-400",
-  high: "text-orange-400",
-  medium: "text-yellow-400",
+const severityTone: Record<string, string> = {
+  critical: "text-accent",
+  high: "text-accent",
+  medium: "text-foreground",
   low: "text-muted-foreground",
 };
 
@@ -25,7 +25,7 @@ export function MatchTicker() {
         const payload = (await readResponsePayload<MatchListResponse>(response)) as MatchListResponse;
         setMatches(payload.matches.slice(0, 5));
       } catch {
-        // Degrade silently — match ticker is supplementary
+        // Degrade silently — ticker is supplementary.
       }
     })();
   }, []);
@@ -33,21 +33,25 @@ export function MatchTicker() {
   if (matches.length === 0) return null;
 
   return (
-    <div className="flex gap-4 overflow-x-auto rounded-2xl border border-border/80 bg-card/80 px-4 py-3 text-sm">
-      <span className="min-w-max font-medium text-muted-foreground">Cross-bank</span>
+    <div className="flex items-center gap-0 overflow-x-auto border border-border bg-card">
+      <span className="flex items-center gap-2 whitespace-nowrap border-r border-border px-4 py-3 font-mono text-[10px] uppercase tracking-[0.28em] text-accent">
+        <span aria-hidden className="leading-none">┼</span>
+        Cross-bank wire
+      </span>
       {matches.map((match) => (
         <Link
           key={match.id}
-          href={`/intelligence/matches`}
-          className="flex min-w-max items-center gap-2 transition-colors hover:text-primary"
+          href="/intelligence/matches"
+          className="flex min-w-max items-center gap-3 border-r border-border px-4 py-3 text-sm last:border-r-0 hover:bg-foreground/[0.03]"
         >
-          <span className={severityColor[match.severity] ?? "text-muted-foreground"}>
-            {match.severity.toUpperCase()}
+          <span
+            className={`font-mono text-[10px] uppercase tracking-[0.22em] ${severityTone[match.severity] ?? "text-muted-foreground"}`}
+          >
+            {match.severity}
           </span>
-          <span className="text-muted-foreground">/</span>
-          <span>{match.matchKey}</span>
-          <span className="text-muted-foreground">
-            ({match.involvedOrgs.length} banks)
+          <span className="font-mono text-foreground">{match.matchKey}</span>
+          <span className="font-mono text-[11px] text-muted-foreground">
+            {match.involvedOrgs.length} banks
           </span>
         </Link>
       ))}
