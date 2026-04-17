@@ -13,6 +13,8 @@ const navItems: NavItem[] = [
   { section: "Intelligence Tools", label: "Investigate", href: "/investigate" },
   { section: "Intelligence Tools", label: "Intelligence", href: "/intelligence/entities" },
   { section: "Intelligence Tools", label: "Disseminations", href: "/intelligence/disseminations" },
+  { section: "Intelligence Tools", label: "Saved queries", href: "/intelligence/saved-queries" },
+  { section: "Intelligence Tools", label: "Diagram builder", href: "/investigate/diagram" },
   { section: "Operations", label: "STRs", href: "/strs" },
   { section: "Operations", label: "Alerts", href: "/alerts" },
   { section: "Operations", label: "Cases", href: "/cases" },
@@ -24,6 +26,7 @@ const navItems: NavItem[] = [
   { section: "Admin", label: "Settings", href: "/admin", roles: ["admin", "manager", "superadmin"] },
   { section: "Admin", label: "Team", href: "/admin/team", roles: ["admin", "manager", "superadmin"] },
   { section: "Admin", label: "Rules", href: "/admin/rules", roles: ["admin", "manager", "superadmin"] },
+  { section: "Admin", label: "Match definitions", href: "/admin/match-definitions", roles: ["admin", "manager", "superadmin"] },
   { section: "Admin", label: "API Keys", href: "/admin/api-keys", roles: ["admin", "manager", "superadmin"] },
 ];
 
