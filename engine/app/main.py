@@ -9,7 +9,7 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from app.config import get_settings
 from app.observability import RequestIDMiddleware, configure_logging, current_request_id
-from app.routers import admin, ai, alerts, cases, ctr, intelligence, investigate, network, overview, reports, scan, str_reports, system
+from app.routers import admin, ai, alerts, cases, ctr, disseminations, intelligence, investigate, network, overview, reports, scan, str_reports, system
 
 settings = get_settings()
 configure_logging()
@@ -73,6 +73,7 @@ app.include_router(str_reports.router, prefix="/str-reports", tags=["str-reports
 app.include_router(ctr.router, prefix="/ctr", tags=["ctr"])
 app.include_router(alerts.router, prefix="/alerts", tags=["alerts"])
 app.include_router(cases.router, prefix="/cases", tags=["cases"])
+app.include_router(disseminations.router, prefix="/disseminations", tags=["disseminations"])
 app.include_router(intelligence.router, prefix="/intelligence", tags=["intelligence"])
 app.include_router(reports.router, prefix="/reports", tags=["reports"])
 app.include_router(admin.router, prefix="/admin", tags=["admin"])

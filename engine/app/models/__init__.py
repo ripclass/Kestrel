@@ -5,6 +5,7 @@ from app.models.base import Base
 from app.models.case import Case
 from app.models.connection import Connection
 from app.models.detection_run import DetectionRun
+from app.models.dissemination import Dissemination
 from app.models.entity import Entity
 from app.models.match import Match
 from app.models.org import Organization
@@ -21,6 +22,7 @@ __all__ = [
     "Case",
     "Connection",
     "DetectionRun",
+    "Dissemination",
     "Entity",
     "Match",
     "Organization",
