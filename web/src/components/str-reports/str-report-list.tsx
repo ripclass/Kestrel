@@ -406,8 +406,18 @@ export function STRReportList({ viewer }: { viewer: Viewer }) {
 
       <Card>
         <CardHeader>
-          <CardTitle>Current report lifecycle</CardTitle>
-          <CardDescription>Every draft, submitted filing, and regulator review action lands here.</CardDescription>
+          <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+            <div>
+              <CardTitle>Current report lifecycle</CardTitle>
+              <CardDescription>Every draft, submitted filing, and regulator review action lands here.</CardDescription>
+            </div>
+            <a
+              href={`/api/str-reports/export${filter === "all" ? "" : `?report_type=${filter}`}`}
+              className="inline-flex items-center justify-center rounded-xl border border-border bg-background/60 px-4 py-2 text-sm font-medium text-foreground transition hover:border-primary/40"
+            >
+              Export Excel
+            </a>
+          </div>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="flex flex-wrap gap-2">
