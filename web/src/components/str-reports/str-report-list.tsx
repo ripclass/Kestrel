@@ -34,19 +34,80 @@ const emptyDraft: STRDraftPayload = {
   metadata: {},
 };
 
-type ReportTypeFilter = "all" | "str" | "sar" | "ctr";
+const REPORT_TYPES = [
+  "str",
+  "sar",
+  "ctr",
+  "tbml",
+  "complaint",
+  "ier",
+  "internal",
+  "adverse_media_str",
+  "adverse_media_sar",
+  "escalated",
+  "additional_info",
+] as const;
+
+type ReportTypeFilter = "all" | (typeof REPORT_TYPES)[number];
 
 const reportTypeLabel: Record<string, string> = {
   str: "STR",
   sar: "SAR",
   ctr: "CTR",
+  tbml: "TBML",
+  complaint: "Complaint",
+  ier: "IER",
+  internal: "Internal",
+  adverse_media_str: "AM-STR",
+  adverse_media_sar: "AM-SAR",
+  escalated: "Escalated",
+  additional_info: "Addl. Info",
+};
+
+const reportTypeDescription: Record<string, string> = {
+  str: "STR — Suspicious Transaction",
+  sar: "SAR — Suspicious Activity",
+  ctr: "CTR — Cash Transaction",
+  tbml: "TBML — Trade-Based Money Laundering",
+  complaint: "Complaint Report",
+  ier: "IER — Information Exchange Request (Egmont)",
+  internal: "Internal Report",
+  adverse_media_str: "Adverse Media → STR",
+  adverse_media_sar: "Adverse Media → SAR",
+  escalated: "FIU Escalated Report",
+  additional_info: "Additional Information File",
 };
 
 const reportTypeBadgeClass: Record<string, string> = {
   str: "bg-blue-500/20 text-blue-300 border-blue-500/30",
   sar: "bg-purple-500/20 text-purple-300 border-purple-500/30",
   ctr: "bg-emerald-500/20 text-emerald-300 border-emerald-500/30",
+  tbml: "bg-amber-500/20 text-amber-300 border-amber-500/30",
+  complaint: "bg-rose-500/20 text-rose-300 border-rose-500/30",
+  ier: "bg-cyan-500/20 text-cyan-300 border-cyan-500/30",
+  internal: "bg-slate-500/20 text-slate-300 border-slate-500/30",
+  adverse_media_str: "bg-orange-500/20 text-orange-300 border-orange-500/30",
+  adverse_media_sar: "bg-fuchsia-500/20 text-fuchsia-300 border-fuchsia-500/30",
+  escalated: "bg-red-500/20 text-red-300 border-red-500/30",
+  additional_info: "bg-teal-500/20 text-teal-300 border-teal-500/30",
 };
+
+function canCreateDraft(draft: STRDraftPayload): boolean {
+  const rt = draft.reportType ?? "str";
+  if (rt === "ier") {
+    return Boolean(draft.ierDirection && draft.ierCounterpartyFiu);
+  }
+  if (rt === "additional_info") {
+    return Boolean(draft.supplementsReportId);
+  }
+  if (rt === "tbml") {
+    return Boolean(draft.subjectAccount && draft.tbmlCounterpartyCountry);
+  }
+  if (rt === "adverse_media_str" || rt === "adverse_media_sar") {
+    return Boolean(draft.subjectAccount && draft.mediaSource);
+  }
+  return Boolean(draft.subjectAccount);
+}
 
 export function STRReportList({ viewer }: { viewer: Viewer }) {
   const router = useRouter();
@@ -127,19 +188,23 @@ export function STRReportList({ viewer }: { viewer: Viewer }) {
                 value={draft.reportType ?? "str"}
                 onChange={(event) => updateField("reportType", event.target.value)}
               >
-                <option value="str">STR — Suspicious Transaction</option>
-                <option value="sar">SAR — Suspicious Activity</option>
-                <option value="ctr">CTR — Cash Transaction</option>
+                {REPORT_TYPES.map((type) => (
+                  <option key={type} value={type}>
+                    {reportTypeDescription[type]}
+                  </option>
+                ))}
               </select>
             </div>
-            <div className="space-y-2">
-              <label className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Subject account</label>
-              <Input
-                value={draft.subjectAccount}
-                onChange={(event) => updateField("subjectAccount", event.target.value)}
-                placeholder="1781430000701"
-              />
-            </div>
+            {draft.reportType !== "ier" ? (
+              <div className="space-y-2">
+                <label className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Subject account</label>
+                <Input
+                  value={draft.subjectAccount ?? ""}
+                  onChange={(event) => updateField("subjectAccount", event.target.value)}
+                  placeholder="1781430000701"
+                />
+              </div>
+            ) : null}
             <div className="space-y-2">
               <label className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Subject name</label>
               <Input
@@ -200,6 +265,117 @@ export function STRReportList({ viewer }: { viewer: Viewer }) {
               />
             </div>
           </div>
+          {draft.reportType === "ier" ? (
+            <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4 rounded-2xl border border-border/80 bg-background/40 p-4">
+              <div className="space-y-2">
+                <label className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Direction</label>
+                <select
+                  className="h-11 w-full rounded-xl border border-input bg-background/60 px-4 text-sm outline-none focus:border-primary"
+                  value={draft.ierDirection ?? ""}
+                  onChange={(event) => updateField("ierDirection", (event.target.value || undefined) as STRDraftPayload["ierDirection"])}
+                >
+                  <option value="">Select direction</option>
+                  <option value="outbound">Outbound (BFIU requesting)</option>
+                  <option value="inbound">Inbound (foreign FIU requesting)</option>
+                </select>
+              </div>
+              <div className="space-y-2">
+                <label className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Counterparty FIU</label>
+                <Input
+                  value={draft.ierCounterpartyFiu ?? ""}
+                  onChange={(event) => updateField("ierCounterpartyFiu", event.target.value)}
+                  placeholder="FINTRAC (Canada)"
+                />
+              </div>
+              <div className="space-y-2">
+                <label className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Counterparty country</label>
+                <Input
+                  value={draft.ierCounterpartyCountry ?? ""}
+                  onChange={(event) => updateField("ierCounterpartyCountry", event.target.value)}
+                  placeholder="Canada"
+                />
+              </div>
+              <div className="space-y-2">
+                <label className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Egmont reference</label>
+                <Input
+                  value={draft.ierEgmontRef ?? ""}
+                  onChange={(event) => updateField("ierEgmontRef", event.target.value)}
+                  placeholder="EG-2026-0419"
+                />
+              </div>
+            </div>
+          ) : null}
+          {draft.reportType === "tbml" ? (
+            <div className="grid gap-4 md:grid-cols-3 rounded-2xl border border-border/80 bg-background/40 p-4">
+              <div className="space-y-2">
+                <label className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Counterparty country</label>
+                <Input
+                  value={draft.tbmlCounterpartyCountry ?? ""}
+                  onChange={(event) => updateField("tbmlCounterpartyCountry", event.target.value)}
+                  placeholder="Hong Kong SAR"
+                />
+              </div>
+              <div className="space-y-2">
+                <label className="text-xs uppercase tracking-[0.18em] text-muted-foreground">LC reference</label>
+                <Input
+                  value={draft.tbmlLcReference ?? ""}
+                  onChange={(event) => updateField("tbmlLcReference", event.target.value)}
+                  placeholder="LC-000-2026-045"
+                />
+              </div>
+              <div className="space-y-2">
+                <label className="text-xs uppercase tracking-[0.18em] text-muted-foreground">HS code</label>
+                <Input
+                  value={draft.tbmlHsCode ?? ""}
+                  onChange={(event) => updateField("tbmlHsCode", event.target.value)}
+                  placeholder="6109.10"
+                />
+              </div>
+            </div>
+          ) : null}
+          {draft.reportType === "adverse_media_str" || draft.reportType === "adverse_media_sar" ? (
+            <div className="grid gap-4 md:grid-cols-3 rounded-2xl border border-border/80 bg-background/40 p-4">
+              <div className="space-y-2">
+                <label className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Source publication</label>
+                <Input
+                  value={draft.mediaSource ?? ""}
+                  onChange={(event) => updateField("mediaSource", event.target.value)}
+                  placeholder="The Daily Star"
+                />
+              </div>
+              <div className="space-y-2">
+                <label className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Source URL</label>
+                <Input
+                  value={draft.mediaUrl ?? ""}
+                  onChange={(event) => updateField("mediaUrl", event.target.value)}
+                  placeholder="https://…"
+                />
+              </div>
+              <div className="space-y-2">
+                <label className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Published date</label>
+                <Input
+                  type="date"
+                  value={draft.mediaPublishedAt ?? ""}
+                  onChange={(event) => updateField("mediaPublishedAt", event.target.value)}
+                />
+              </div>
+            </div>
+          ) : null}
+          {draft.reportType === "additional_info" ? (
+            <div className="rounded-2xl border border-border/80 bg-background/40 p-4">
+              <div className="space-y-2">
+                <label className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Supplements report ID</label>
+                <Input
+                  value={draft.supplementsReportId ?? ""}
+                  onChange={(event) => updateField("supplementsReportId", event.target.value)}
+                  placeholder="Parent report UUID"
+                />
+                <p className="text-xs text-muted-foreground">
+                  Subject identity carries over from the parent report automatically.
+                </p>
+              </div>
+            </div>
+          ) : null}
           <div className="space-y-2">
             <label className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Initial narrative</label>
             <Textarea
@@ -217,10 +393,10 @@ export function STRReportList({ viewer }: { viewer: Viewer }) {
             </p>
             <Button
               type="button"
-              disabled={isCreating || !draft.subjectAccount}
+              disabled={isCreating || !canCreateDraft(draft)}
               onClick={() => void createDraft()}
             >
-              {isCreating ? "Creating draft..." : "Create STR draft"}
+              {isCreating ? "Creating draft..." : "Create draft"}
             </Button>
           </div>
         </CardContent>
@@ -233,7 +409,7 @@ export function STRReportList({ viewer }: { viewer: Viewer }) {
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="flex flex-wrap gap-2">
-            {(["all", "str", "sar", "ctr"] as ReportTypeFilter[]).map((type) => (
+            {(["all", ...REPORT_TYPES] as ReportTypeFilter[]).map((type) => (
               <button
                 key={type}
                 type="button"
@@ -244,7 +420,7 @@ export function STRReportList({ viewer }: { viewer: Viewer }) {
                     : "border-border text-muted-foreground hover:border-primary/40"
                 }`}
               >
-                {type === "all" ? "All reports" : reportTypeLabel[type]}
+                {type === "all" ? "All" : reportTypeLabel[type]}
               </button>
             ))}
           </div>
@@ -271,7 +447,7 @@ export function STRReportList({ viewer }: { viewer: Viewer }) {
                       <StatusBadge status={report.status} />
                     </div>
                     <p className="text-sm text-muted-foreground">
-                      {report.subjectName || "Unnamed subject"} · {report.subjectAccount}
+                      {report.subjectName || "Unnamed subject"} · {report.subjectAccount || "—"}
                     </p>
                     <p className="text-sm text-muted-foreground">
                       {report.orgName} · {report.category.replaceAll("_", " ")} · {report.primaryChannel || "No channel"}
