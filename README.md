@@ -16,19 +16,54 @@ Kestrel is built as a standalone product. It can interoperate with goAML via an 
 
 ## Core capabilities
 
-- **Universal entity search** — find any account, phone, wallet, NID, name, or business across every reporting institution from one search box. *(live)*
-- **Entity dossier** — risk score, severity, reporting history, linked alerts, linked cases, connected entities, two-hop network graph, and timeline for any subject. *(live)*
-- **Network analysis** — interactive directed graph with rendered amounts, beneficiary/wallet/device/phone relationships, suspicious-path counting. *(live)*
-- **Cross-bank match clusters** — when the same identifier appears in STRs from multiple institutions it surfaces as a shared-intelligence cluster with an exposure total. *(live)*
-- **Native STR workflow** — draft, edit, enrich, submit, review, and audit STRs directly inside Kestrel without exporting to another system. *(live)*
-- **Alert queue with explainability** — every alert carries a list of `reasons` (rule code, score, evidence JSON, recommended action). Promotion to a case writes a full audit trail. *(live)*
-- **Case management** — case ref generation, evidence linking, timeline, notes, alert linkage, exposure tracking. *(live)*
-- **Persona-aware command view** — three different overview surfaces (analyst / bank CAMLCO / BFIU director) computed from the same intelligence engine. *(live)*
-- **Compliance scorecard** — submission timeliness, alert conversion, peer-network coverage scored per bank-like institution. *(live)*
-- **National threat dashboard** — channel-level threat map (RTGS, NPSB, BEFTN, MFS, Cash, Card), trend series, exposure aggregates. *(live)*
-- **AI-assisted intelligence** — entity extraction, STR narrative drafting, alert explanation expansion, case summarization, typology suggestion, executive briefing generation. Backed by an internal provider abstraction (OpenAI / Anthropic / heuristic fallback) with redaction-by-default and a structured invocation audit. *(live, providers configured per environment)*
-- **Pattern scanning** — bank-side workbench for queueing detection runs and reviewing flagged accounts. *(read paths live; the upload/parse/queue path is in active development — see `docs/production-plan.md` Phase 7)*
-- **Synthetic regulator backfill** — a regulator-only admin action that loads a sanitized synthetic dataset derived from real Bangladesh bank statements into the live database for demos and evaluation. *(live)*
+All items below are live on prod, DB-backed, and cross-mapped to goAML in [`docs/goaml-coverage.md`](docs/goaml-coverage.md).
+
+**Report intake and lifecycle**
+- **11 report types** — STR, SAR, CTR, TBML, Complaint, IER, Internal, Adverse Media-STR, Adverse Media-SAR, FIU Escalated, Additional Information File. One lifecycle (draft → submitted → under_review → flagged → confirmed / dismissed), type-specific columns (IER direction + counterparty FIU, TBML LC + HS code + invoice vs declared, adverse-media provenance, supplements link).
+- **goAML XML import** — `POST /str-reports/import-xml` accepts the XML banks already emit. Parses header + transactions + subjects, maps submission_code → report_type, ingests transactions tagged with the import batch's `run_id`, resolves every subject into the shared entity pool.
+- **goAML XML export** — `GET /str-reports/{id}/export.xml` emits a Kestrel report back in goAML format for peer-FIU handoff or legacy-system interop.
+- **AI-assisted enrichment** — "Draft STR from alert" button generates a narrative from alert context; entity extraction auto-populates subjects; narrative drafting + typology suggestion on submit.
+- **Additional Information File workflow** — "Supplement this report" action on any STR opens a modal, creates a linked supplement, and shows a "Supplements" section on the parent listing all children.
+
+**Investigation**
+- **Universal omnisearch** — find any account, phone, wallet, NID, name, or business across every reporting institution from one search box. Powered by `pg_trgm` fuzzy matching.
+- **Entity dossier** — risk score, severity, reporting history, linked alerts + cases, connected entities, two-hop network graph, timeline.
+- **Network analysis** — interactive directed graph with amount-weighted edges, beneficiary / wallet / device / phone relationships, suspicious-path counting.
+- **Manual diagram builder** — React Flow canvas for case narrative diagrams at `/investigate/diagram`. Save to case or STR as evidence.
+- **Saved queries (Profiles)** — per-user + org-shared reusable filters at `/intelligence/saved-queries`.
+- **Cross-bank match clusters** — when the same identifier appears across institutions it surfaces as a shared-intelligence cluster with an exposure total.
+- **8 pre-built pattern detection rules** — rapid cashout, fan-in / fan-out burst, structuring, layering, first-time high value, dormant spike, proximity to flagged.
+- **AI alert explainability** — every alert auto-fetches an AI-generated "why this fired" panel on open. Reasons list carries rule code, score, evidence JSON, recommended action.
+- **Catalogue tile grid** at `/investigate/catalogue` — 12 labelled entry points preserving the goAML Catalogue Search vocabulary (Account / Person / Entity / Address / Text / Quick Finder / Transaction / Report / Intelligence Report / Templates / Journal / Dissemination Lookup).
+
+**Case management**
+- **8 case variants** — standard, proposal, RFI, operation, project, FIU escalated, complaint, adverse media. Filter pills on the case board drop the view to any variant.
+- **Proposals kanban** — pending / approved / rejected columns; manager+ decides via the proposal panel on the case workspace.
+- **RFI routing** — analyst-to-analyst requests with `requested_by` + `requested_from` tracking.
+- **PDF case pack export** — WeasyPrint-rendered pack at `/cases/{id}/export.pdf` with "Confidential — BFIU" watermark.
+
+**Regulatory cooperation**
+- **Information Exchange Request workflow** — dedicated `/iers` surface with Inbound / Outbound tabs, Egmont reference, counterparty FIU, deadline, respond, close.
+- **Dissemination tracking** — first-class `disseminations` ledger with DISS-YYMM-##### refs. "Disseminate" action button drops into Alert, Case, Entity dossier, and STR workspaces; emits an audit log entry on every handoff.
+
+**Operational dashboards**
+- **Persona-aware command view** — three overview surfaces (director / CAMLCO / analyst) computed from the same intelligence engine.
+- **Compliance scorecard** — submission timeliness, alert conversion, peer-network coverage scored per institution.
+- **National threat dashboard** — channel-level threat map (RTGS, NPSB, BEFTN, MFS, Cash, Card), trend series, exposure aggregates.
+- **Operational statistics** at `/reports/statistics` — Recharts dashboards: reports by type by month, reports by org, CTR volume, disseminations by recipient, case outcomes, avg time-to-review.
+- **Pattern scanning with file upload** — `/scan` accepts CSV/XLSX uploads, parses, persists transactions tagged with the run id, and runs the detection pipeline scoped to the upload.
+- **Scheduled processes** read-only status page at `/admin/schedules` — declared jobs + live Celery worker ping.
+
+**Administration**
+- **Reference tables** at `/admin/reference-tables` — 7 lookup-master tabs (banks + MFS, channels, categories, countries, currencies, agencies, branches). Seeded day-one with 197 rows; regulator admin can extend.
+- **Match definitions** at `/admin/match-definitions` — admin-configurable custom match rules alongside the 8 system rules.
+- **Rule catalog, team management, API keys** — role-gated admin surfaces.
+- **Synthetic regulator backfill** — loads a sanitised synthetic dataset derived from real DBBL bank statements for demo/evaluation.
+- **Audit log with X-Request-ID tracing** — every service-layer mutation writes a row; structured JSON logs thread `X-Request-ID` through the engine for incident reconstruction.
+- **Readiness probe** at `GET /ready` — covers auth + database + Redis + storage buckets + Celery worker + AI providers. The public landing page reads this live.
+- **Incident runbook** at [`docs/RUNBOOK.md`](docs/RUNBOOK.md) — 9 playbooks covering engine 5xx, database connection loss, Celery drop-out, AI provider failure, and the X-Request-ID trace recipe.
+
+**AI abstraction** — internal provider layer (OpenAI / Anthropic / heuristic fallback) with redaction-by-default, prompt registry, invocation audit, and evaluation harness. Prod currently runs on heuristic fallback; set `OPENAI_API_KEY` or `ANTHROPIC_API_KEY` on Render to flip provider routing live.
 
 ## Architecture
 
@@ -58,14 +93,14 @@ Architectural roadmap and phased plan: [`docs/production-plan.md`](docs/producti
 
 | Component | Technology | Deployment |
 |---|---|---|
-| Web app | Next.js 16.2.2 (App Router), React 19.2.4, TypeScript 5, Tailwind v4, `@xyflow/react`, recharts, zustand, zod | Vercel |
-| API | FastAPI ≥0.115, SQLAlchemy 2 async, asyncpg, pydantic-settings, python-jose, networkx, httpx | Render web service |
-| Worker | Celery 5.5 + Redis | Render worker service |
-| Database | Postgres with RLS, pgcrypto, pg_trgm | Supabase |
+| Web app | Next.js 16.2.2 (App Router), React 19.2.4, TypeScript 5, Tailwind v4, `@xyflow/react` (graphs + manual diagram builder), recharts (statistics dashboards), zustand, zod, `@tanstack/react-table`, date-fns | Vercel |
+| API | FastAPI ≥0.115, SQLAlchemy 2 async, asyncpg, pydantic-settings, python-jose, networkx, httpx, **lxml** (goAML XML import), **jinja2** (PDF templates), **openpyxl** (XLSX export), **weasyprint** (PDF case pack), pdfplumber, pandas | Render web service (99 routes) |
+| Worker | Celery 5.5 + Redis — currently one `worker.ping` task; pipelines run inline in the request path | Render worker service |
+| Database | Postgres 15 with RLS, pgcrypto, pg_trgm — migrations 001–009 | Supabase |
 | Auth | Supabase Auth (JWKS or HS256) | Supabase |
-| File storage | `kestrel-uploads`, `kestrel-exports` buckets | Supabase Storage |
+| File storage | `kestrel-uploads` (scan upload raw bytes), `kestrel-exports` (reserved) | Supabase Storage |
 | Cache / queue | Redis | Render |
-| AI providers | OpenAI + Anthropic via internal abstraction with heuristic fallback | Backend-only |
+| AI providers | OpenAI + Anthropic via internal abstraction with heuristic fallback (currently active on prod — provider keys unset) | Backend-only |
 | Runtime pins | Node `22.x` (`web/package.json`), Python `3.12.8` (`engine/.python-version`) | — |
 
 ## Local development
@@ -83,9 +118,16 @@ cp .env.example .env
 # and optionally OPENAI_API_KEY / ANTHROPIC_API_KEY.
 
 # 2. Database
-# Apply both SQL files to your Supabase project (SQL editor or supabase CLI):
-#   supabase/migrations/001_schema.sql
-#   supabase/migrations/002_rules_insert_policy.sql
+# Apply all 9 migrations in order via Supabase SQL editor or the Supabase MCP:
+#   supabase/migrations/001_schema.sql               (core tables + RLS + triggers)
+#   supabase/migrations/002_rules_insert_policy.sql  (RLS fix for system rules)
+#   supabase/migrations/003_report_types.sql         (report_type column + cash_transaction_reports)
+#   supabase/migrations/004_typologies.sql           (DB-backed typologies library, 5 seed rows)
+#   supabase/migrations/005_report_types_expanded.sql (11 report variants + ier/tbml/media/supplements columns)
+#   supabase/migrations/006_disseminations.sql       (dissemination ledger + DISS-ref trigger)
+#   supabase/migrations/007_case_variants.sql        (cases.variant + proposal decision + RFI routing)
+#   supabase/migrations/008_intel_tables.sql         (saved_queries, diagrams, match_definitions, match_executions)
+#   supabase/migrations/009_reference_tables.sql     (lookup-master table + 197 seed rows)
 
 # 3. Engine
 cd engine
@@ -127,7 +169,9 @@ Three managed targets, all wired through GitHub Actions:
 
 - **Web → Vercel**. `.github/workflows/deploy-web-production.yml` runs `vercel pull` + `vercel build --prod` + `vercel deploy --prebuilt --prod` on pushes to `main` that touch `web/**`. Requires repo secrets `VERCEL_TOKEN`, `VERCEL_ORG_ID`, `VERCEL_PROJECT_ID`. If any are missing the workflow skips cleanly and writes an explanation to the run summary.
 - **Engine + worker → Render**. `engine/render.yaml` declares two services — `kestrel-engine` (FastAPI) and `kestrel-worker` (Celery). `.github/workflows/deploy-engine-production.yml` triggers Render deploy hooks (`RENDER_ENGINE_DEPLOY_HOOK_URL`, `RENDER_WORKER_DEPLOY_HOOK_URL`) on pushes that touch `engine/**` or `supabase/**`.
-- **Database → Supabase**. Apply `supabase/migrations/001_schema.sql` and `supabase/migrations/002_rules_insert_policy.sql` against the target project. Auth, storage buckets, and JWT signing keys are configured in the Supabase dashboard. Connection details live in environment variables on the engine.
+- **Database → Supabase**. Apply all 9 migrations (`001_schema.sql` → `009_reference_tables.sql`) against the target project. Auth, storage buckets, and JWT signing keys are configured in the Supabase dashboard. Connection details live in environment variables on the engine.
+
+For production operations, see [`docs/RUNBOOK.md`](docs/RUNBOOK.md) — 9 incident playbooks including how to trace a single request via `X-Request-ID`.
 
 CI on every PR and every push to `main` runs `.github/workflows/ci.yml`: web lint+build with Node 22, engine pytest + bytecode compile + seed manifest smoke test on Python 3.12.
 
@@ -140,34 +184,43 @@ kestrel/
 ├── web/                          Next.js 16 App Router frontend (Vercel)
 │   ├── src/app/(public)/         Landing, pricing
 │   ├── src/app/(auth)/           Sign in, register, forgot password
-│   ├── src/app/(platform)/       Authenticated shell: overview, investigate,
-│   │                             intelligence, alerts, cases, strs, scan,
-│   │                             reports, admin
+│   ├── src/app/(platform)/       39 authenticated pages: overview,
+│   │                             investigate (+ catalogue + diagram),
+│   │                             intelligence (+ new subject + disseminations
+│   │                             + saved queries), alerts, cases, strs,
+│   │                             iers, scan, reports (+ statistics),
+│   │                             admin (+ match-definitions + reference-tables
+│   │                             + schedules)
 │   ├── src/app/api/              Next route handlers that proxy to the engine
 │   ├── src/components/           Domain components + UI primitives
 │   ├── src/lib/                  Supabase clients, engine proxy, normalizers
 │   └── proxy.ts                  Supabase session middleware
 │
-├── engine/                       FastAPI intelligence engine (Render)
-│   ├── app/main.py               Router registration
+├── engine/                       FastAPI intelligence engine (Render) — 99 routes
+│   ├── app/main.py               Router registration (19 routers)
 │   ├── app/auth.py               Supabase JWT validation (JWKS + HS256)
 │   ├── app/config.py             Pydantic settings
-│   ├── app/routers/              One router per domain
-│   ├── app/services/             DB-backed business logic
-│   ├── app/models/               SQLAlchemy models
-│   ├── app/schemas/              Pydantic request/response models
-│   ├── app/parsers/              CSV / XLSX / PDF statement parsers
-│   ├── app/core/                 Graph builder + analyzer (detection engine
-│   │                             core is scaffolded — see CLAUDE.md)
+│   ├── app/observability.py      RequestIDMiddleware + structured JSON logs
+│   ├── app/routers/              One file per domain (19 files)
+│   ├── app/services/             Real DB-backed business logic (27 files)
+│   ├── app/models/               SQLAlchemy models (21 files, aligned with
+│   │                             migrations 001–009)
+│   ├── app/schemas/              Pydantic request/response models per domain
+│   ├── app/parsers/              CSV / XLSX / PDF statement + goAML XML parser
+│   ├── app/core/                 Detection engine (8 rules + evaluator +
+│   │                             scorer + resolver + matcher + pipeline +
+│   │                             graph utilities)
 │   ├── app/ai/                   Internal AI provider abstraction, prompts,
 │   │                             routing, redaction, audit, evaluations
-│   ├── app/tasks/                Celery app + task modules
-│   ├── seed/                     Synthetic data generators and loaders
-│   ├── tests/                    pytest suites
+│   ├── app/tasks/                Celery app + (empty) task modules
+│   ├── seed/                     Synthetic data generators + DBBL loader
+│   ├── tests/                    pytest suites (95 tests)
 │   └── render.yaml               Render service declarations
 │
-├── supabase/migrations/          001_schema.sql, 002_rules_insert_policy.sql
+├── supabase/migrations/          9 migrations: 001_schema → 009_reference_tables
 ├── docs/production-plan.md       Phased roadmap and locked decisions
+├── docs/goaml-coverage.md        Procurement-facing goAML-to-Kestrel map
+├── docs/RUNBOOK.md               Incident playbooks (9 scenarios)
 ├── .github/workflows/            CI + Vercel + Render deployment
 ├── .env.example                  All environment variables
 ├── CLAUDE.md                     Project intelligence for Claude Code sessions
@@ -176,9 +229,7 @@ kestrel/
 
 ## Production roadmap
 
-The phased plan is in [`docs/production-plan.md`](docs/production-plan.md). It is organized into ten phases from infrastructure baseline through production hardening. Phases 1, 3, 4, 5, 6, 8, and 9 have real database-backed implementations against the production schema. Phase 2 (AI platform) has a complete internal subsystem with providers, routing, prompts, redaction, audit, and a heuristic fallback. Phases 7 (real upload-driven scan pipeline) and 10 (production hardening, observability, AI evaluation) are the active areas of work.
-
-For an unvarnished status report — what works, what is scaffolded, and the prioritized task list to reach the next demo milestone — read [`CLAUDE.md`](CLAUDE.md).
+All 10 items from the intelligence-core spec and all 13 items from the goAML coverage patch are shipped and live-verified on prod. For the current "what's next" list — landing-page hero rewrite, demo film, scheduled rule execution, remaining graph-lookup modifiers, rule expression DSL, outbound goAML adapter, AI red-team harness — read [`CLAUDE.md`](CLAUDE.md). For the original phased plan see [`docs/production-plan.md`](docs/production-plan.md). For the procurement-facing capability map see [`docs/goaml-coverage.md`](docs/goaml-coverage.md).
 
 ## License
 

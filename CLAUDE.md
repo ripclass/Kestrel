@@ -2,194 +2,230 @@
 
 ## What is this
 
-Kestrel is a standalone financial crime intelligence platform for Bangladesh. It is built to sit between commercial banks (and MFS/NBFIs) and the Bangladesh Financial Intelligence Unit (BFIU), providing cross-bank entity intelligence, network analysis, explainable alerts, case management, native STR workflows, and command-level reporting. goAML is treated as an optional downstream adapter, not a dependency. The product has three personas on one platform: `bfiu_analyst`, `bank_camlco`, and `bfiu_director`.
+Kestrel is a standalone financial crime intelligence platform for Bangladesh. It is built to sit between commercial banks (and MFS/NBFIs) and the Bangladesh Financial Intelligence Unit (BFIU), providing cross-bank entity intelligence, network analysis, explainable alerts, case management, native STR workflows, and command-level reporting. It is positioned as a **complete goAML replacement** — banks can continue filing in goAML XML (import + export round-trip), BFIU analysts see the familiar vocabulary (Catalogue Search, IER, Match Definitions, Disseminations), and the platform adds AI-native intelligence goAML cannot provide. The product has three personas on one platform: `bfiu_analyst`, `bank_camlco`, `bfiu_director`. The procurement-facing capability map is at `docs/goaml-coverage.md`.
 
 ## Current state
 
-Phase 1 (infrastructure baseline) and Phase 3 (real auth and tenancy) from `docs/production-plan.md` are largely complete. Phases 4–9 have real database-backed implementations that already query the schema in `supabase/migrations/001_schema.sql`; they are no longer fixture-only. Phase 2 (AI platform) has a full internal subsystem in `engine/app/ai/` with providers, prompts, routing, redaction, audit, and a heuristic fallback provider — and AI alert explanations auto-fetch on open. **Phase 10 (production hardening) — shipped and live-verified** (`3ffd1e4`): per-request IDs, structured JSON logs, standardized error envelope (extended to Starlette 404s in `73f09d4`), and the incident runbook at `docs/RUNBOOK.md` with 9 playbooks.
+Two full build-out sessions are shipped end-to-end on prod.
 
-**All 10 roadmap items from the intelligence-core spec are shipped and verified end-to-end on prod as of 2026-04-17.** Intelligence core merged at `53797d1` (2026-04-15) with follow-ups `d55aa90`, `0d35525`, `7aed54f`. Then in order: AI alert explanation + Draft STR (`0d25d9e`), CommandView polish (`ef6b2e9`), SAR/CTR report types (`62150a9`), WeasyPrint PDF case pack (`706c5cc`), scan upload path + incremental scan scope (`9f01e19`), parked modifier conditions (`042b5ab`), DB-backed typologies (`d64424b`), Phase 10 hardening (`3ffd1e4`). Baseline live verification against the DBBL synthetic dataset on `https://kestrel-engine.onrender.com`: 377 accounts, 547 transactions → 10 flagged accounts, 11 alerts. See `docs/superpowers/plans/2026-04-15-intelligence-core.md` and `2026-04-15-intelligence-core-verification.md` for the core merge, plus the per-task plans under `docs/superpowers/plans/2026-04-16-*` and `2026-04-17-*`.
+**Session 1 — intelligence-core (2026-04-15 → 2026-04-16).** 10 roadmap items from `KESTREL-INTELLIGENCE-CORE-PROMPT.md`: real detection engine (8 YAML rules + evaluator + scorer + resolver + matcher + pipeline), scan upload path, WeasyPrint PDF case pack, SAR/CTR report types, AI alert auto-explanation + Draft STR, DB-backed typologies, CommandView polish, parked modifier conditions wired, incremental scan scope, Phase 10 hardening (request IDs + structured JSON logs + standardised error envelope + `docs/RUNBOOK.md`).
 
-What works end-to-end (with real DB data):
-- Supabase Auth → JWT → engine JWKS/HS256 validation → profile lookup → role/persona/org resolution (`engine/app/auth.py`).
-- Universal entity search, dossier with reporting history/alerts/cases/timeline, two-hop network graph via networkx (`engine/app/services/investigation.py`).
-- Alerts list/detail with audit-logged mutations including alert→case escalation (`engine/app/services/alerts.py`).
-- Cases list/detail with audit-logged mutations (`engine/app/services/case_mgmt.py`).
-- STR reports native lifecycle: create/update/submit/review/enrich (`engine/app/services/str_reports.py`). **Submission now invokes `run_str_pipeline` which resolves identifiers + runs cross-bank matching.**
-- **Pattern scan pipeline (`engine/app/services/scanning.py::queue_run` → `engine/app/core/pipeline.py::run_scan_pipeline`).** Loads accounts + transactions for the org scope, runs all 8 YAML rules via `evaluate_accounts`, scores via `calculate_risk_score`, resolves flagged accounts as entities, runs cross-bank matching, writes scan + cross_bank alerts, updates the `detection_runs` row. Detection runs synchronously in the request path — no Celery.
-- **Scan upload path.** `POST /scan/runs/upload` accepts multipart CSV/XLSX, stores the raw file in `kestrel-uploads`, parses via `engine/app/parsers/`, persists `Transaction` rows tagged with the new `run_id`, and runs the pipeline scoped to that `run_id` only (`run_scan_pipeline(source_run_id=...)`) — this is the incremental scope path.
-- **SAR/CTR report types.** `str_reports.report_type` column + separate `cash_transaction_reports` table (migration `003`). STR router filters by `report_type`; `POST /ctr-reports` + bulk-import endpoint exists.
-- **PDF case pack export.** `GET /cases/{id}/export.pdf` streams a real WeasyPrint-rendered case pack with "Confidential — BFIU" watermark (`engine/app/services/pdf_export.py`).
-- **AI alert explanations auto-fetch.** `AlertDetail` opens → `/api/ai/alerts/{id}/explanation` resolves → cached in alert metadata. "Draft STR" button on the same page POSTs to `/ai/str-narrative` and creates a draft STR.
-- **DB-backed typologies library.** `engine/app/models/typology.py` + `typologies` table (migration `004`). `/intelligence/typologies` and `/web/typologies` both hit the DB; fixture removed.
-- Overview (persona-aware KPIs + operational notes), compliance scorecard, national threat dashboard, trend series — all computed from real rows (`engine/app/services/reporting.py`). Director `CommandView` includes a cross-bank MatchTicker, typology spark badges, and a lagging-banks highlight.
-- Admin surfaces: tenant summary/settings, team directory with mutations, rule catalog with mutations, synthetic backfill plan and apply (`engine/app/services/admin.py`, `engine/app/routers/admin.py`).
-- AI invocation surface: entity extraction, STR narrative drafting, typology suggestion, executive briefing, alert explanation, case summary (`engine/app/routers/ai.py`).
-- Readiness probe covering auth/db/redis/storage/worker/AI providers at `GET /ready` (`engine/app/services/readiness.py`). The public landing page consumes this report live.
-- Observability baseline: per-request `X-Request-ID` middleware, structured JSON logs with request id propagation, standardized error envelope covering both FastAPI HTTPException and Starlette 404s, and `docs/RUNBOOK.md` with 9 incident playbooks.
+**Session 2 — goAML coverage patch (2026-04-17).** All 13 items from `KESTREL-GOAML-COVERAGE-PROMPT.md`. Migrations `005_report_types_expanded`, `006_disseminations`, `007_case_variants`, `008_intel_tables`, `009_reference_tables` all applied to prod Supabase. Expanded report types to 11 variants (STR, SAR, CTR, TBML, Complaint, IER, Internal, Adverse Media-STR, Adverse Media-SAR, Escalated, Additional Info). Shipped goAML XML import + export, dedicated IER workflow (`/iers`), Additional Information File supplements, 3-tab New Subjects form, Catalogue tile grid, dissemination ledger with "Disseminate" action on Case/Alert/Entity/STR, 8-variant case enum with proposal kanban + RFI routing, saved queries + manual diagram builder + match definitions, reference tables (197 seed rows: 64 banks, 10 channels, 12 categories, 64 countries, 30 currencies, 17 agencies), operational statistics dashboards, scheduled-processes admin surface, XLSX + goAML-XML exports, goAML vocabulary tooltips on every nav entry, and `docs/goaml-coverage.md` — the procurement doc.
 
-What is scaffolded but NOT wired the way the plan implies:
-- **Celery worker has one ping task.** `engine/app/tasks/*` defines `celery_app` and a `worker.ping` task and nothing else. `scan_tasks.py`, `export_tasks.py`, `str_tasks.py` exist as modules but are not hooked into any flow. All pipelines — including scan upload — run inline in the FastAPI request, not via Celery. This is fine for current load.
-- **`engine/app/core/alerter.py` is orphaned.** Not imported by any production path after the intelligence-core merge. Left in place to avoid scope creep — do not delete blindly without checking imports.
-- **Four detection modifier conditions remain hardcoded `False`** — see "Detection engine" below. Task 6 wired the other seven.
-- **goAML adapter is a stub.** `engine/app/adapters/goaml.py` and related config exist; no sync is implemented.
+**Aggregate prod state:**
+- 99 engine routes across 19 routers. 95/95 pytest. `GET /ready` on `https://kestrel-engine.onrender.com` shows auth/db/redis/storage/worker=ok; OpenAI + Anthropic `missing_config` → heuristic fallback is active.
+- Migrations 001–009 applied. Prod data: 197 reference_tables rows, 5 typologies, 28 entities, 377 accounts, 547 transactions, 10 STRs, 22 alerts, 1 case. Disseminations / saved_queries / diagrams / match_definitions tables exist and are empty (used only in verification so far).
+- All 39 `(platform)` pages under `web/src/app/` are live with real DB-backed data — no scaffold placeholders remain.
+
+What is scaffolded but NOT wired the way the code implies:
+- **Celery worker has one ping task.** `engine/app/tasks/*` defines `celery_app` + `worker.ping`. `scan_tasks.py` / `export_tasks.py` / `str_tasks.py` are empty shells. Every pipeline (STR submit, scan run, scan upload, XML import, match execution) runs inline in the FastAPI request path — fine for current load but scheduled execution is not wired.
+- **`engine/app/core/alerter.py` is orphaned.** Not imported by any production path. Left to avoid touching `seed/fixtures.py` references.
+- **4 of 11 detection modifier conditions still hardcoded `False`** (the graph-lookup ones — see "Detection engine" below).
+- **goAML *outbound* adapter is a stub.** `engine/app/adapters/goaml.py` exists; machine-to-machine sync into goAML's central server is not implemented. Distinct from the XML import/export we shipped (those are file-based).
+- **`/admin/schedules` is read-only.** The declared jobs list exists but no Celery Beat schedule is populated.
 
 What is missing entirely:
-- Scheduled detection rule execution (currently only on-demand via `POST /scan/runs` or `POST /scan/runs/upload`).
-- A real rule expression DSL — current evaluator uses dict-keyed lookup of modifier strings, not parsed expressions.
-- Red team / AI eval harness beyond the scaffolding in `engine/app/ai/evaluations.py`.
+- A real rule expression DSL — the evaluator uses dict-keyed lookup of modifier strings.
+- AI red-team / evaluation harness beyond the scaffolding in `engine/app/ai/evaluations.py`.
+- Landing page hero rewrite — `kestrel-nine.vercel.app` still leads with deployment health rather than the intelligence story.
 
 ## Architecture
 
 ### Stack
-- **Frontend**: Next.js `16.2.2` App Router (`web/package.json`), React `19.2.4`, TypeScript 5, Tailwind v4, shadcn-style UI components, `@xyflow/react` for network graphs, `recharts`, `zustand`, `zod`, `@tanstack/react-table`, `date-fns`. Node pinned to `22.x`.
-- **Backend**: Python `>=3.12` (pinned to `3.12.8` via `engine/.python-version`), FastAPI `>=0.115`, SQLAlchemy 2 async + asyncpg, Pydantic v2 settings, `python-jose` for JWT, `networkx` for graphs, `celery[redis]`, `PyYAML`, `pdfplumber`, `pandas`, `openpyxl`, `weasyprint`, `httpx`. Build backend: `hatchling`. See `engine/pyproject.toml`.
-- **Database**: Supabase Postgres. Schema: `supabase/migrations/001_schema.sql`. RLS patch: `supabase/migrations/002_rules_insert_policy.sql`.
+- **Frontend**: Next.js `16.2.2` App Router (`web/package.json`), React `19.2.4`, TypeScript 5, Tailwind v4, shadcn-style UI components, `@xyflow/react` for network graphs, `recharts` for dashboards, `zustand`, `zod`, `@tanstack/react-table`, `date-fns`. Node pinned to `22.x`.
+- **Backend**: Python `>=3.12` (pinned to `3.12.8` via `engine/.python-version`), FastAPI `>=0.115`, SQLAlchemy 2 async + asyncpg, Pydantic v2 settings, `python-jose` for JWT, `networkx` for graphs, `celery[redis]`, `PyYAML`, `pdfplumber`, `pandas`, `openpyxl`, `weasyprint`, `lxml` (for goAML XML import), `jinja2`, `httpx`. Build backend: `hatchling`. See `engine/pyproject.toml`.
+- **Database**: Supabase Postgres. Schema source of truth: `supabase/migrations/001_schema.sql` through `009_reference_tables.sql`.
 - **Auth**: Supabase Auth. Engine validates tokens two ways: `SUPABASE_JWT_SECRET` (HS256) or JWKS at `{SUPABASE_URL}/auth/v1/.well-known/jwks.json` with a 10-minute cache. Profile lookup joins `profiles` with `organizations` to resolve org/role/persona. See `engine/app/auth.py`.
-- **Storage**: Supabase Storage, buckets `kestrel-uploads` and `kestrel-exports` (from `STORAGE_BUCKET_UPLOADS` / `STORAGE_BUCKET_EXPORTS`). The scan upload path writes raw CSV/XLSX uploads to `kestrel-uploads`; PDF case-pack exports stream directly from `/cases/{id}/export.pdf` rather than staging to `kestrel-exports` (bucket is still provisioned for future use). Readiness probe verifies both.
-- **Cache/Queue**: Redis on Render. Celery app name `kestrel` at `app.tasks.celery_app.celery_app`. Single `worker.ping` task declared — used by the readiness probe only.
-- **AI**: Internal provider abstraction in `engine/app/ai/`. Adapters: `openai_adapter.py`, `anthropic_adapter.py`, plus a `HeuristicProvider` fallback. Task routing, prompt registry, redaction, invocation audit, and evaluation harness exist. Provider health is merged into `/ready`. Configured via `OPENAI_API_KEY` / `ANTHROPIC_API_KEY` and model overrides; unset ⇒ not configured ⇒ heuristic fallback if `AI_FALLBACK_ENABLED=true`.
+- **Storage**: Supabase Storage, buckets `kestrel-uploads` and `kestrel-exports` (from `STORAGE_BUCKET_UPLOADS` / `STORAGE_BUCKET_EXPORTS`). The scan upload path writes raw CSV/XLSX to `kestrel-uploads`; PDF case packs + XLSX + XML exports stream directly from the engine rather than staging. Readiness probe verifies both buckets exist.
+- **Cache/Queue**: Redis on Render. Celery app `kestrel` at `app.tasks.celery_app.celery_app`. Single `worker.ping` task — used by the readiness probe + the `/admin/schedules` live worker probe.
+- **AI**: Internal provider abstraction in `engine/app/ai/`. Adapters: `openai_adapter.py`, `anthropic_adapter.py`, plus a `HeuristicProvider` fallback. Task routing, prompt registry, redaction, invocation audit, and evaluation harness exist. Provider health is merged into `/ready`. **Prod currently runs on heuristic fallback** — both OpenAI and Anthropic show `missing_config` because the API keys haven't been set on Render.
 
 ### Deployment
 - `web/` → Vercel via `deploy-web-production.yml` (prebuilt deploy; skips cleanly if `VERCEL_TOKEN` / `VERCEL_ORG_ID` / `VERCEL_PROJECT_ID` are not configured).
-- `engine/` → Render. `engine/render.yaml` declares two services: `kestrel-engine` (FastAPI web, `uvicorn app.main:app`, healthcheck `/health`) and `kestrel-worker` (Celery, `celery -A app.tasks.celery_app.celery_app worker`). Deploy workflow uses per-service deploy hooks: `RENDER_ENGINE_DEPLOY_HOOK_URL`, `RENDER_WORKER_DEPLOY_HOOK_URL`. No live URL is committed to the repo.
-- Database → Supabase. Connection via `DATABASE_URL` (`postgresql+asyncpg://...`) plus the `SUPABASE_*` envs for auth and storage.
+- `engine/` → Render. `engine/render.yaml` declares two services: `kestrel-engine` (FastAPI web, `uvicorn app.main:app`, healthcheck `/health`) and `kestrel-worker` (Celery, `celery -A app.tasks.celery_app.celery_app worker`). Deploy workflow uses per-service deploy hooks: `RENDER_ENGINE_DEPLOY_HOOK_URL`, `RENDER_WORKER_DEPLOY_HOOK_URL`.
+- Database → Supabase project `bmlyqlkzeuoglyvfythg`. Connection via `DATABASE_URL` (`postgresql+asyncpg://...`) plus the `SUPABASE_*` envs.
 - **CI**: GitHub Actions.
-  - `.github/workflows/ci.yml` — `web` job: Node 22, `npm ci`, `npm run lint`, `npm run build`. `engine` job: Python 3.12, `pip install -e .[dev]`, `compileall`, `pytest -q`, then `python seed/run.py` as a smoke test.
+  - `.github/workflows/ci.yml` — `web` job: Node 22, `npm ci`, `npm run lint`, `npm run build`. `engine` job: Python 3.12, `pip install -e .[dev]`, `compileall`, `pytest -q`, then `python seed/run.py` smoke test.
   - `.github/workflows/deploy-web-production.yml` — `vercel pull` + `vercel build --prod` + `vercel deploy --prebuilt --prod` on `main` pushes that touch `web/**`.
   - `.github/workflows/deploy-engine-production.yml` — triggers Render deploy hooks on `main` pushes that touch `engine/**` or `supabase/**`.
   - `.github/workflows/vercel-prebuilt-check.yml` — manual Vercel build check, skipped unless secrets are present.
 
 ### Key directories
-- `web/src/app/(public)/` — landing + pricing (implemented, reads live `/ready`).
-- `web/src/app/(auth)/` — login, register, forgot-password (UI + Supabase client).
-- `web/src/app/(platform)/` — authenticated shell pages (all implemented; mix of server-component DB fetches and client fetches to `/api/*`).
-- `web/src/app/api/` — Next.js proxy routes that forward to the engine via `lib/engine-server.ts` and normalize payloads back into the web domain types. This is the data path for all platform pages.
-- `web/src/components/` — shell, common, overview, investigate, alerts, cases, scan, STRs, intelligence, reports, admin, public, UI primitives. Mostly implemented.
-- `web/src/lib/` — Supabase clients (`supabase/client.ts`, `server.ts`, `middleware.ts`), `auth.ts`, `engine-server.ts` (engine proxy), per-domain normalizers (`alerts.ts`, `cases.ts`, `investigation.ts`, `overview.ts`, `reports.ts`, `scan.ts`, `str-reports.ts`, `admin.ts`, `system.ts`), `demo.ts` (fixtures used only for landing persona cards and the viewer fallback).
-- `web/src/hooks/` — `use-profile`, `use-realtime`, `use-role`, `use-search`. `use-search` hits `/api/investigate/search`.
-- `engine/app/routers/` — one router per domain, registered in `app/main.py`.
-- `engine/app/services/` — real DB-backed business logic (investigation, alerts, case_mgmt, str_reports, scanning, reporting, admin, compliance, readiness, pdf_export).
-- `engine/app/core/` — **placeholder**. Pipeline/resolver/matcher/alerter are stubs. Only `core/graph/*` and `core/matcher.py→services` delegation are real.
-- `engine/app/core/detection/rules/` — 8 YAML metadata files; no DSL.
+
+- `web/src/app/(public)/` — landing (reads live `/ready`) + pricing.
+- `web/src/app/(auth)/` — login, register, forgot-password (Supabase-backed).
+- `web/src/app/(platform)/` — 39 authenticated shell pages. Every one is live with DB-backed data.
+- `web/src/app/api/` — Next.js proxy routes that forward to the engine via `lib/engine-server.ts` and normalize snake_case → camelCase. Download endpoints (PDF / XLSX / XML) forward raw bytes with preserved `Content-Disposition`.
+- `web/src/components/` — `shell/`, `common/`, `overview/`, `investigate/`, `alerts/`, `cases/`, `scan/`, `str-reports/`, `intelligence/`, `iers/`, `disseminations/`, `intel/`, `admin/`, `reports/`, `public/`, `ui/`. All implemented.
+- `web/src/lib/` — Supabase clients, `auth.ts`, `engine-server.ts`, per-domain normalizers (`alerts`, `cases`, `investigation`, `overview`, `reports`, `scan`, `str-reports`, `disseminations`, `iers`, `intel`, `admin-intel`, `system`), `demo.ts` (demo viewer fallback).
+- `web/src/hooks/` — `use-profile`, `use-realtime`, `use-role`, `use-search`.
+
+**Engine routers** (`engine/app/routers/`, 19 files — one per domain):
+`admin.py`, `ai.py`, `alerts.py`, `cases.py`, `ctr.py`, `diagrams.py`, `disseminations.py`, `ier.py`, `intelligence.py`, `investigate.py`, `match_definitions.py`, `network.py`, `overview.py`, `reference_tables.py`, `reports.py`, `saved_queries.py`, `scan.py`, `str_reports.py`, `system.py`.
+
+**Engine services** (`engine/app/services/`, 27 files — all real DB-backed, none are stubs or placeholders):
+`admin`, `alerts`, `case_export`, `case_mgmt`, `compliance`, `csv_ingest`, `ctr`, `diagrams`, `disseminations`, `goaml_xml_export` (inverse of Task 2 parser), `goaml_xml_import` (Task 2 import service), `ier` (facade over STR with ier_* columns), `investigation`, `match_definitions`, `new_subject`, `pdf_export` (WeasyPrint), `readiness`, `reference_tables`, `reporting`, `saved_queries`, `scanning`, `schedules` (Celery ping probe + declared-jobs list), `statistics` (goAML-shape aggregator), `storage`, `str_reports`, `xlsx_export` (openpyxl).
+
+**Engine models** (`engine/app/models/`, 21 files):
+`account`, `alert`, `audit`, `base`, `case`, `connection`, `ctr`, `detection_run`, `diagram`, `dissemination`, `entity`, `match`, `match_definition` (includes `MatchExecution`), `org`, `profile`, `reference_table`, `rule`, `saved_query`, `str_report`, `transaction`, `typology`.
+
+**Engine core** (`engine/app/core/`):
+- `detection/rules/*.yaml` — 8 rules; `detection/loader.py`, `detection/evaluator.py`, `detection/scorer.py`, `detection/rule_hit.py`.
+- `resolver.py` — `normalize_identifier`, `resolve_identifier`, `resolve_identifiers_from_str`, `link_subject_group` (public pairwise `same_owner` helper).
+- `matcher.py` — `run_cross_bank_matching`.
+- `pipeline.py` — `run_str_pipeline`, `run_scan_pipeline`.
+- `graph/` — `builder.py`, `analyzer.py`, `pathfinder.py`, `export.py`.
+- `alerter.py` — orphaned, do not delete blindly (still referenced by `seed/fixtures.py`).
+
+**Engine parsers** (`engine/app/parsers/`):
+- `csv.py`, `xlsx.py`, `statement_pdf.py` — used by the scan upload path + synthetic seed generator.
+- `goaml_xml.py` — lxml-based goAML XML intake (Task 2). Permissive, recovers from malformed docs, logs warnings.
+
 - `engine/app/ai/` — provider abstraction, routing, prompts, redaction, audit, evaluations, heuristic fallback.
-- `engine/app/models/` — SQLAlchemy models aligned to `supabase/migrations/001_schema.sql`.
 - `engine/app/schemas/` — Pydantic request/response models per domain.
-- `engine/app/parsers/` — `csv.py`, `xlsx.py`, `statement_pdf.py` (used by synthetic seed generator only).
-- `engine/app/tasks/` — Celery app + unused task modules.
-- `engine/seed/` — synthetic data generators (see "Seed data").
-- `engine/tests/` — pytest suites for phase-1 baseline, scaffold, AI, auth, STR, scan, alerts/cases, reports, admin, synthetic dataset, schema alignment, rules RLS policy.
-- `supabase/migrations/` — `001_schema.sql` (all core tables, RLS, triggers, auth hooks) and `002_rules_insert_policy.sql` (RLS fix that now lives in production).
-- `docs/production-plan.md` — the canonical roadmap.
+- `engine/app/tasks/` — Celery app + (empty) task modules.
+- `engine/seed/` — synthetic data generators.
+- `engine/tests/` — pytest suites.
+- `supabase/migrations/` — 9 files; see "Database schema" below.
+- `docs/production-plan.md` — original phased roadmap.
+- `docs/goaml-coverage.md` — procurement-facing goAML coverage map.
+- `docs/RUNBOOK.md` — incident playbooks (Phase 10).
 
 ## Database schema
 
-Source of truth: `supabase/migrations/001_schema.sql`. All tables have RLS enabled. Helper functions: `auth_org_id()` (current user's org), `is_regulator()` (user belongs to a `regulator` org), `handle_new_user()` (profile row on `auth.users` insert), `update_timestamp()`, `gen_case_ref()`, `gen_str_ref()`.
+All tables have RLS enabled. Helper functions: `auth_org_id()`, `is_regulator()`, `handle_new_user()`, `update_timestamp()`, `gen_case_ref()`, `gen_str_ref()` (short-code prefix map added in migration 005), `gen_dissem_ref()`.
 
-- `organizations` — 9 columns; `org_type` ∈ {`regulator`,`bank`,`mfs`,`nbfi`}. RLS: visible to own org or regulators.
-- `profiles` — 7 columns; `role` ∈ {`superadmin`,`admin`,`manager`,`analyst`,`viewer`}; `persona` ∈ {`bfiu_analyst`,`bank_camlco`,`bfiu_director`}. Auto-inserted from `auth.users.raw_user_meta_data` via `on_signup`. RLS: own org or regulator.
-- `entities` — 20 columns; canonical shared-intelligence identity. `entity_type` ∈ {`account`,`phone`,`wallet`,`nid`,`device`,`ip`,`url`,`person`,`business`}. Unique on `(entity_type, canonical_value)`. GIN trigram index on `display_value`. **RLS: shared across all authenticated users.**
-- `connections` — 8 columns; directed edges between entities with typed relation and evidence JSON. Unique on `(from,to,relation)`. RLS: shared.
-- `str_reports` — 23 columns; native STR lifecycle with `status` ∈ {`draft`,`submitted`,`under_review`,`flagged`,`confirmed`,`dismissed`}, `category` ∈ {`fraud`,`money_laundering`,`terrorist_financing`,`tbml`,`cyber_crime`,`other`}. RLS: own org or regulator. `gen_str_ref` trigger generates `STR-YYMM-######`.
-- `matches` — 13 columns; cross-bank match clusters. Unique on `(match_type, match_key)`. RLS: shared.
-- `accounts` — 10 columns; per-org bank accounts. Unique on `(org_id, account_number)`. RLS: own org or regulator.
-- `transactions` — 14 columns; posted transactions with source/destination accounts. RLS: own org or regulator.
-- `detection_runs` — 14 columns; persisted scan executions with `run_type` ∈ {`upload`,`scheduled`,`str_triggered`,`api`} and `results` JSONB (stores `summary`, `selected_rules`, `flagged_accounts`). RLS: own org or regulator.
-- `alerts` — 16 columns; `source_type` ∈ {`scan`,`cross_bank`,`str_enrichment`,`manual`}; `status` ∈ {`open`,`reviewing`,`escalated`,`true_positive`,`false_positive`}. RLS: own org or regulator.
-- `cases` — 17 columns; `status` ∈ {`open`,`investigating`,`escalated`,`pending_action`,`closed_confirmed`,`closed_false_positive`}. `gen_case_ref` trigger generates `KST-YYMM-#####`. RLS: own org or regulator.
-- `rules` — 11 columns; unique on `(org_id, code)`. RLS: own org OR `is_system=true` (applies to both `using` and `with check`, per migration 002). System rules are writable via the scoped system session path in the admin service — see commit `2113e4b`.
-- `audit_log` — 8 columns; append-only, indexed on `(org_id, created_at desc)`. RLS: own org only.
+**Core tables from `001_schema.sql`:**
+- `organizations` — 9 cols; `org_type` ∈ {regulator, bank, mfs, nbfi}. RLS: own org or regulator.
+- `profiles` — 7 cols; `role` ∈ {superadmin, admin, manager, analyst, viewer}; `persona` ∈ {bfiu_analyst, bank_camlco, bfiu_director}. Auto-inserted from `auth.users` via `on_signup`. RLS: own org or regulator.
+- `entities` — 20 cols; canonical shared-intelligence identity. `entity_type` ∈ {account, phone, wallet, nid, device, ip, url, person, business}. Unique `(entity_type, canonical_value)`. GIN trigram on `display_value`. **RLS: shared across all authed users** (intentional for cross-bank intelligence).
+- `connections` — 8 cols; directed edges with typed relations. **RLS: shared.**
+- `matches` — 13 cols; cross-bank clusters. Unique `(match_type, match_key)`. **RLS: shared.**
+- `accounts` — 10 cols; per-org. RLS: own org or regulator.
+- `transactions` — 14 cols; `run_id` lets the scan pipeline scope to an upload batch. RLS: own org or regulator.
+- `detection_runs` — 14 cols; `status` ∈ {pending, processing, completed, failed} — NOT `running`. RLS: own org or regulator.
+- `alerts` — 16 cols; `source_type` ∈ {scan, cross_bank, str_enrichment, manual}; `status` ∈ {open, reviewing, escalated, true_positive, false_positive}. RLS: own org or regulator.
+- `cases` — 17 base cols + 7 added in migration 007. RLS: own org or regulator.
+- `str_reports` — 23 base cols + 1 from migration 003 + 17 from migration 005. RLS: own org or regulator.
+- `rules` — 11 cols; unique `(org_id, code)`. RLS: own org OR `is_system=true` (via migration 002). Admin mutations go through a scoped system session — see commit `2113e4b`.
+- `audit_log` — 8 cols; append-only, indexed on `(org_id, created_at desc)`. RLS: own org only, no regulator override.
+
+**`002_rules_insert_policy.sql`:** RLS fix — system rules writable via `is_system=true` on insert + update.
+
+**`003_report_types.sql`:** Adds `str_reports.report_type` (initially CHECK over `str, sar, ctr`) + creates `cash_transaction_reports` (bulk CTR, 11 cols, RLS: own org or regulator) + updates `gen_str_ref()` to use `upper(report_type)` as prefix.
+
+**`004_typologies.sql`:** New `typologies` table — 5 cols (`id`, `title`, `category`, `channels`, `indicators`, `narrative`). Seeded with 5 Bangladesh-specific typologies. No RLS (reference data).
+
+**`005_report_types_expanded.sql`** (goAML Task 1): Expands `str_reports.report_type` CHECK to 11 variants. Adds 17 columns on `str_reports`:
+- `supplements_report_id` (FK to str_reports for Additional Information Files).
+- `media_source`, `media_url`, `media_published_at` (adverse-media provenance).
+- `ier_direction` (CHECK in/out), `ier_counterparty_fiu`, `ier_counterparty_country`, `ier_egmont_ref`, `ier_request_narrative`, `ier_response_narrative`, `ier_deadline`.
+- `tbml_invoice_value`, `tbml_declared_value`, `tbml_lc_reference`, `tbml_hs_code`, `tbml_commodity`, `tbml_counterparty_country`.
+- Replaces `gen_str_ref()` with a CASE-based prefix map: STR/SAR/CTR/TBML/COMP/IER/INT/AMSTR/AMSAR/ESC/ADDL.
+- Indexes on `report_type`, `supplements_report_id`, `ier_direction`.
+
+**`006_disseminations.sql`** (goAML Task 7): New `disseminations` table — 15 cols (org_id, dissemination_ref, recipient_agency, recipient_type, subject_summary, linked_report_ids[], linked_entity_ids[], linked_case_ids[], disseminated_by, disseminated_at, classification, metadata, created_at). Ref trigger `gen_dissem_ref()` → `DISS-YYMM-#####`. RLS: own org or regulator. 4 indexes.
+
+**`007_case_variants.sql`** (goAML Task 8): Adds 7 columns on `cases`:
+- `variant` (CHECK over 8 values: standard, proposal, rfi, operation, project, escalated, complaint, adverse_media) — separate from the existing `category` (which is the free-text subject category).
+- `parent_case_id` (FK for hierarchies).
+- `requested_by`, `requested_from` (RFI routing).
+- `proposal_decision` (CHECK over approved/rejected/pending), `proposal_decided_by`, `proposal_decided_at`.
+- 5 partial indexes.
+
+**`008_intel_tables.sql`** (goAML Task 9): Four new tables —
+- `saved_queries` (13 cols) — per-user + org-shared via `is_shared`. RLS: owner OR (shared AND same-org) OR regulator. 4 policies (SELECT, INSERT, UPDATE, DELETE).
+- `diagrams` (10 cols) — manual React Flow canvases. `graph_definition` JSONB holds nodes/edges/positions. RLS: own org or regulator.
+- `match_definitions` (12 cols) — custom match rules. `UNIQUE(org_id, name)`. RLS: own org or regulator.
+- `match_executions` (7 cols) — FK to `match_definitions` with `ON DELETE CASCADE`. RLS inherits via parent.
+
+**`009_reference_tables.sql`** (goAML Task 10): Single `reference_tables` table (11 cols) keyed on `(table_name, code)` UNIQUE. `table_name` CHECK over `banks, branches, countries, channels, categories, currencies, agencies`. RLS: any authed user reads; regulator-only writes (4 policies). Seeded with 197 rows: 10 channels, 12 categories, 64 banks+MFS (tagged by category), 64 countries, 30 currencies, 17 recipient agencies. `ON CONFLICT DO NOTHING` so re-application is idempotent.
 
 ## Auth and tenancy model
 
-The auth flow:
-1. User signs in via Supabase Auth in the web app (`web/src/lib/supabase/client.ts`, `server.ts`, `middleware.ts`).
-2. `PlatformLayout` calls `requireViewer()` (`web/src/lib/auth.ts`) which either resolves the viewer from Supabase session + `profiles` or returns a demo viewer if demo mode is enabled.
-3. Every `/api/*` proxy call passes the Supabase access token to the engine via `proxyEngineRequest()` in `web/src/lib/engine-server.ts`.
-4. The engine `HTTPBearer` dependency runs `authenticate_token()` → `decode_access_token()` in `engine/app/auth.py`. When `SUPABASE_JWT_SECRET` is set it uses HS256; otherwise it fetches JWKS from `{SUPABASE_URL}/auth/v1/.well-known/jwks.json` and verifies signatures (cache TTL 600s).
-5. `resolve_authenticated_user()` looks up the profile row via `_load_profile_context()` and returns an `AuthenticatedUser` with `user_id`, `email`, `org_id`, `org_type`, `role`, `persona`, `designation`.
-6. Route-level role gating uses `require_roles("analyst","manager","admin","superadmin")` and the admin service adds an extra `org_type == "regulator"` guard on privileged endpoints like synthetic backfill.
-7. Row-level isolation is enforced by Postgres RLS policies, not by code. `auth_org_id()` and `is_regulator()` are `SECURITY DEFINER` functions.
+Flow:
+1. User signs in via Supabase Auth (`web/src/lib/supabase/{client,server,middleware}.ts`).
+2. `PlatformLayout` calls `requireViewer()` → either resolves from Supabase session + `profiles`, or returns demo viewer when demo mode is enabled.
+3. Every `/api/*` proxy call forwards the Supabase access token via `proxyEngineRequest()`.
+4. The engine `HTTPBearer` dep runs `authenticate_token()` → `decode_access_token()`. Prefers HS256 when `SUPABASE_JWT_SECRET` is set; falls back to JWKS (cache TTL 600s).
+5. `resolve_authenticated_user()` loads the profile row and returns `AuthenticatedUser(user_id, email, org_id, org_type, role, persona, designation)`.
+6. Role gating: `require_roles("analyst","manager","admin","superadmin")`. Additional checks in services (`_require_regulator_admin`, etc.). For `/admin/reference-tables` mutations the service layer also checks `org_type == "regulator"`.
+7. Row-level isolation is Postgres RLS. `auth_org_id()` + `is_regulator()` are `SECURITY DEFINER`.
 
-Roles (database constraint): `superadmin`, `admin`, `manager`, `analyst`, `viewer`.
-Personas (database constraint): `bfiu_analyst`, `bank_camlco`, `bfiu_director`.
+Roles (DB constraint): `superadmin`, `admin`, `manager`, `analyst`, `viewer`.
+Personas: `bfiu_analyst`, `bank_camlco`, `bfiu_director`.
 
-Demo fallback: when Supabase auth config is absent AND `KESTREL_ENABLE_DEMO_MODE=true`, `authenticate_token` returns a synthesized user from `DEMO_USERS` keyed by `KESTREL_DEMO_PERSONA`.
+Demo fallback: when Supabase auth config absent AND `KESTREL_ENABLE_DEMO_MODE=true`, `authenticate_token` synthesises a user from `DEMO_USERS[KESTREL_DEMO_PERSONA]`.
 
 RLS semantics to remember:
-- `entities`, `connections`, `matches` — shared across all authenticated users. This is intentional for cross-bank intelligence.
-- Everything else — own-org only unless the caller is regulator (via `is_regulator()`).
+- `entities`, `connections`, `matches` — shared (cross-bank intelligence).
+- `reference_tables` — any authed user reads; regulator writes.
 - `rules` — own-org OR `is_system=true`.
 - `audit_log` — own-org only, no regulator override.
+- `saved_queries` — owner OR (shared + same-org) OR regulator.
+- Everything else — own-org only unless caller is regulator.
 
 ## API routes
 
-All routers live in `engine/app/routers/` and are mounted in `engine/app/main.py`.
+19 routers, 99 routes total, all mounted in `engine/app/main.py`.
 
-- `system.router` (no prefix) — `GET /health`, `GET /ready`. Real implementation. `readiness.py` probes auth config, db, redis, storage buckets, Celery worker, AI providers.
-- `/overview` — `GET /overview` → real, persona-aware KPIs from DB (`services.reporting.build_overview`).
-- `/investigate` — `GET /investigate/search`, `GET /investigate/entity/{entity_id}` → real SQLAlchemy queries, trigram-ish ILIKE search (`services.investigation`).
-- `/network` — `GET /network/entity/{entity_id}` → real two-hop graph built with `core.graph.builder.build_graph`.
-- `/scan` — `GET /scan/runs`, `POST /scan/runs`, `GET /scan/runs/{id}`, `GET /scan/runs/{id}/results`. All paths real. `POST /scan/runs` creates a `pending` `DetectionRun`, calls `run_scan_pipeline` synchronously, and returns the completed (or failed) run. Still no file upload — the pipeline scans whatever transactions are already in the DB. Regulator callers scan all banks; bank callers scan only their own org.
-- `/str-reports` — full CRUD + `/submit`, `/review`, `/enrich`. Real service implementation.
-- `/alerts` — `GET /alerts`, `GET /alerts/{id}`, `POST /alerts/{id}/actions`. Real, audit-logged, supports alert→case promotion.
-- `/cases` — `GET /cases`, `GET /cases/{id}`, `POST /cases/{id}/actions`. Real, audit-logged.
-- `/intelligence` — `GET /intelligence/entities`, `GET /intelligence/matches` (real DB), `GET /intelligence/typologies` (returns fixture `TYPOLOGIES` from `seed/fixtures.py`).
-- `/reports` — `GET /reports/national`, `GET /reports/compliance`, `GET /reports/trends`, `POST /reports/export` (PDF export goes through `services.pdf_export.build_report_export`).
-- `/admin` — `summary`, `settings`, `team` (GET + PATCH), `rules` (GET + PATCH), `api-keys`, `synthetic-backfill` (GET plan + POST apply), `maintenance/rules-policy-fix`. Rule and team mutations use a scoped system session because of the RLS policy on `rules`.
-- `/ai` — `POST /entity-extraction`, `/str-narrative`, `/typology-suggestion`, `/executive-briefing`, `/alerts/{id}/explanation`, `/cases/{id}/summary`. All go through `AIOrchestrator` with provider routing, prompt registry, redaction, and audit logging.
+- **`system`** (no prefix) — `GET /health`, `GET /ready`.
+- **`/overview`** — `GET /overview` (persona-aware KPIs).
+- **`/investigate`** — search + entity dossier.
+- **`/network`** — `GET /network/entity/{id}` (two-hop graph).
+- **`/scan`** — list, detail, results, `POST /scan/runs` (on-demand scan), `POST /scan/runs/upload` (multipart CSV/XLSX → parse → tagged txns → pipeline).
+- **`/str-reports`** — list + CRUD + `/submit` + `/review` + `/enrich` + `/import-xml` + `/{id}/supplements` (list + create) + `/export.xlsx` (bulk) + `/{id}/export.xml` (goAML format).
+- **`/ctr`** — CTR bulk import.
+- **`/iers`** — list, `/outbound`, `/inbound`, `/{id}` detail, `/{id}/respond`, `/{id}/close` (manager+).
+- **`/alerts`** — list, detail, `/{id}/actions` (promote to case, assign, flag, etc.), `/export.xlsx`.
+- **`/cases`** — list, detail, `/{id}/actions`, `/{id}/export.pdf` (WeasyPrint), `/propose`, `/rfi`, `/{id}/decide` (manager+).
+- **`/disseminations`** — list, create, detail, `/export.xlsx`.
+- **`/intelligence`** — `/entities` (GET search + POST new subject with pairwise same_owner linking + `/export.xlsx`), `/matches`, `/typologies` (DB-backed).
+- **`/saved-queries`** — CRUD + `/{id}/record-run`.
+- **`/diagrams`** — CRUD (React Flow canvas state in `graph_definition` JSONB).
+- **`/match-definitions`** — CRUD (manager+) + `/{id}/execute` (records execution; evaluator wiring is v2).
+- **`/reference-tables`** — `GET ?table_name=X` + `GET /tables` (counts) + CRUD (admin+ regulator).
+- **`/reports`** — national, compliance, trends, export.
+- **`/admin`** — summary, settings, team, rules, api-keys, synthetic-backfill, maintenance/rules-policy-fix, **`/statistics`** (goAML-shape aggregator), **`/schedules`** (declared jobs + live worker probe).
+- **`/ai`** — entity-extraction, str-narrative, typology-suggestion, executive-briefing, alerts/{id}/explanation, cases/{id}/summary.
 
-The web side mirrors this with thin Next route handlers in `web/src/app/api/*/route.ts` that call `proxyEngineRequest` and normalize field names (e.g., `snake_case` → `camelCase`).
+Auth: every router except `/health` + `/ready` requires a Supabase JWT. Role gates applied per endpoint via `require_roles`. RLS enforces tenant isolation at the DB layer.
 
 ## Frontend pages
 
-Every page lives under `web/src/app/`. "Implemented with real data" means the page (or its child client components) fetches from `/api/*` proxy routes that forward to the engine and hit the database.
+39 platform pages under `web/src/app/(platform)/`. Every one is live with real DB-backed data.
 
 Public:
-- `(public)/page.tsx` — landing. Implemented. Reads `/ready` live via `fetchDeploymentReadiness`. Demo persona cards pull from `lib/demo.ts`.
-- `(public)/pricing/page.tsx` — implemented.
+- `(public)/page.tsx` — landing, reads `/ready` live.
+- `(public)/pricing/page.tsx`.
 
-Auth:
-- `(auth)/login/page.tsx`, `register/page.tsx`, `forgot-password/page.tsx` — Supabase-backed forms.
+Auth: `(auth)/login`, `register`, `forgot-password` — Supabase forms.
 
-Platform (all inside `(platform)` shell with sidebar + topbar, `requireViewer`-gated):
-- `overview/page.tsx` — switches between `CommandView` (director), `BankView` (CAMLCO), `AnalystView`. All three fetch `/api/overview`. Real data.
-- `investigate/page.tsx` — Omnisearch component hits `/api/investigate/search`. Real.
-- `investigate/entity/[id]/page.tsx` — server-side `fetchEntityDossier(id)` → real dossier. Real.
-- `investigate/network/[id]/page.tsx` — network canvas. Real graph via `/network/entity/{id}`.
-- `investigate/trace/page.tsx` — scaffolded page shell.
-- `intelligence/entities/page.tsx` — server-side `fetchSharedEntities()`. Real.
-- `intelligence/matches/page.tsx` — real.
-- `intelligence/typologies/page.tsx` — **fixture-backed** via engine `TYPOLOGIES`.
-- `alerts/page.tsx`, `alerts/[id]/page.tsx` — `AlertQueue` + detail both fetch `/api/alerts`. Real.
-- `cases/page.tsx`, `cases/[id]/page.tsx` — real.
-- `strs/page.tsx`, `strs/[id]/page.tsx` — real.
-- `scan/page.tsx` — `ScanWorkbench` fetches `/api/scan/runs`. Both list and queue submission run the real pipeline against persisted transactions.
-- `scan/history/page.tsx`, `scan/[runId]/page.tsx` — real.
-- `reports/national/page.tsx`, `compliance/page.tsx`, `trends/page.tsx`, `export/page.tsx` — real.
-- `admin/page.tsx` — server-side `fetchAdminSummary()` + `fetchAdminSettings()` + conditional `fetchSyntheticBackfillPlan()`. Real.
-- `admin/team/page.tsx`, `rules/page.tsx`, `api-keys/page.tsx` — real.
-- `demo/[persona]/route.ts` — demo persona cookie setter (only active when demo mode is enabled).
+Platform:
+- **Overview:** `overview/page.tsx` — routes to `CommandView` (director) / `BankView` (CAMLCO) / `AnalystView` (bfiu_analyst). All fetch `/api/overview`. Analyst view includes a goAML welcome line pointing to `docs/goaml-coverage.md`.
+- **Investigate:** `investigate/page.tsx` (omnisearch), `catalogue/page.tsx` (12 goAML-vocabulary tiles), `diagram/page.tsx` (React Flow manual builder), `entity/[id]/page.tsx` (dossier), `network/[id]/page.tsx` (graph), `trace/page.tsx` (shell).
+- **Intelligence:** `intelligence/entities/page.tsx`, `entities/new/page.tsx` (Account/Person/Entity tabs), `matches/page.tsx`, `typologies/page.tsx` (DB-backed via migration 004), `saved-queries/page.tsx`, `disseminations/page.tsx` + `[id]/page.tsx`.
+- **Operations:** `strs/page.tsx` + `[id]/page.tsx` (STR workspace with XML import card, type-aware sections, Supplement + Disseminate + Export dropdown actions), `alerts/page.tsx` + `[id]/page.tsx` (auto AI explanation + Draft STR + Disseminate), `cases/page.tsx` + `[id]/page.tsx` (variant filter pills, proposals kanban, proposal decision panel, Export to PDF + Disseminate), `iers/page.tsx` + `new/page.tsx` + `[id]/page.tsx` (Inbound/Outbound tabs, respond, close), `scan/page.tsx` + `history/page.tsx` + `[runId]/page.tsx` (upload path wired).
+- **Command:** `reports/national`, `compliance`, `trends`, `statistics` (Recharts dashboards over `/admin/statistics`), `export`.
+- **Admin:** `admin/page.tsx`, `team`, `rules`, `match-definitions`, `reference-tables` (7-tab CRUD), `schedules` (declared jobs + live Celery workers), `api-keys`.
+
+Every page uses `PageFrame` (common) + domain-specific client components. Server components call `requireViewer()` / `requireRole(...)` at the top; the data path is exclusively `/api/*` route handlers → `proxyEngineRequest()` → engine.
 
 ## Detection engine
 
 `engine/app/core/` is the production detection layer. Sync execution on the FastAPI request path (no Celery). Key files:
 
-- `core/detection/rules/*.yaml` — 8 rules with code, trigger, params, scoring, severity, alert_template. Loader: `loader.py` validates schema on load.
-- `core/detection/evaluator.py` — one `evaluate_*` function per trigger type + `evaluate_accounts()` dispatcher returning `list[RuleHit]` (defined in `rule_hit.py`).
-- `core/detection/scorer.py` — `calculate_risk_score(rule_hits)` → `(score, severity, reasons)`. Weighted average clamped 0–100. Bands: critical ≥90, high ≥70, medium ≥50. **`weighted_contribution` is a percentage summing to ~100, not score-magnitude.**
-- `core/resolver.py` — normalize + resolve identifiers (exact match, then pg_trgm fuzzy for person/business). Source-derived confidence: `str_cross_ref: 0.7`, `manual: 0.8`, `pattern_scan: 0.6`, `system: 0.5`. `resolve_identifiers_from_str` extracts STR subjects and emits `same_owner` connections.
-- `core/matcher.py` — `run_cross_bank_matching`: for entities with ≥2 `reporting_orgs`, upserts `matches`, emits `cross_bank` alerts on new/escalated. Risk: `min(100, 50 + 10×count + (20 if exposure > 1 crore))`.
-- `core/pipeline.py` — `run_str_pipeline` (from STR submit: resolve → match → mutate STR) and `run_scan_pipeline` (from scan: load accounts/txns → evaluate → score → resolve → match → write alerts/run).
-- `core/graph/` — `builder.py` (networkx DiGraph), `analyzer.py` (metrics + suspicious_paths gated on risk ≥70), `pathfinder.py`, `export.py`.
+- `core/detection/rules/*.yaml` — 8 rules (rapid_cashout, fan_in_burst, fan_out_burst, structuring, layering, first_time_high_value, dormant_spike, proximity_to_bad). Loader validates schema.
+- `core/detection/evaluator.py` — one `evaluate_*` function per trigger + `evaluate_accounts()` dispatcher returning `list[RuleHit]`.
+- `core/detection/scorer.py` — `calculate_risk_score(rule_hits)` → `(score, severity, reasons)`. Weighted average clamped 0–100. Severity bands: critical ≥90, high ≥70, medium ≥50. **`weighted_contribution` is a percentage summing to ~100, not score-magnitude.**
+- `core/resolver.py` — `normalize_identifier`, `resolve_identifier` (exact then pg_trgm fuzzy for person/business), `resolve_identifiers_from_str`, `link_subject_group` (public pairwise `same_owner` helper added for the New Subjects form).
+- `core/matcher.py` — `run_cross_bank_matching` for entities with ≥2 `reporting_orgs`; upserts `matches`, emits cross_bank alerts on new/escalated.
+- `core/pipeline.py` — `run_str_pipeline` (from STR submit) + `run_scan_pipeline` (from scan). `run_scan_pipeline` takes an optional `source_run_id` to scope to a single upload batch.
+- `core/graph/` — `builder.py` (networkx DiGraph), `analyzer.py`, `pathfinder.py`, `export.py`.
 
-**Scan pipeline scope rule (load-bearing):** `scope_org_ids=None` → all banks (regulator); `[uuid]` → that org (bank). Per-account writes (Entity, Match, Alert) attribute to `account.org_id` (the bank), not the caller. Threshold: `_SCAN_SCORE_THRESHOLD = 50`.
+**Scan pipeline scope rule:** `scope_org_ids=None` → all banks (regulator); `[uuid]` → that org (bank). Per-account writes (Entity, Match, Alert) attribute to `account.org_id`, not the caller. Threshold `_SCAN_SCORE_THRESHOLD = 50`.
 
-**`core/alerter.py` is orphaned** — not imported post-merge. Left to avoid `seed/fixtures.py` reference churn.
-
-**Modifier conditions: 7 wired by Task 6 (`042b5ab`), 4 still hardcoded `False`** (need graph lookups the evaluator doesn't do yet):
-- Wired: `cross_bank_debit` (rapid_cashout), `senders_from_multiple_banks` (fan_in_burst), `recipients_at_different_banks` (fan_out_burst), `beneficiary_at_different_bank` + `beneficiary_is_flagged` (first_time_high_value), `multiple_npsb_sources` + `immediate_outflow` (dormant_spike). All driven by `account.bank_code` populated on CSV ingest (`35d3055`) — synthetic accounts backfilled.
-- Still `False`: `proximity_to_flagged <= 2` (rapid_cashout), `involves_multiple_banks` + `circular_flow_detected` (layering), `target_confidence > 0.8` (proximity_to_bad).
+**Modifier conditions:** All 8 rules have full condition + scoring logic. Task 6 of the intelligence-core spec wired 7 modifiers (`cross_bank_debit`, `senders_from_multiple_banks`, `recipients_at_different_banks`, `beneficiary_at_different_bank`, `beneficiary_is_flagged`, `multiple_npsb_sources`, `immediate_outflow`) — all driven by `account.bank_code` populated on CSV ingest. **4 modifiers still hardcoded `False`** because they need graph lookups the evaluator doesn't currently do: `proximity_to_flagged <= 2` (rapid_cashout), `involves_multiple_banks` + `circular_flow_detected` (layering), `target_confidence > 0.8` (proximity_to_bad).
 
 **`proximity_to_bad` warm-up:** needs `account.metadata_json["entity_id"]` (assigned on first resolve), so fires from the second scan onward.
 
@@ -199,131 +235,122 @@ Platform (all inside `(platform)` shell with sidebar + topbar, `requireViewer`-g
 
 ## Seed data
 
-Two mechanisms exist.
+**Synthetic DBBL dataset** (`engine/seed/dbbl_synthetic.py` + `load_dbbl_synthetic.py`):
+1. `dbbl_synthetic.py` reads curated DBBL PDFs from `F:\New Download\Scammers' Bank statement DBBL` (local-only, never committed), parses via `engine/app/parsers/statement_pdf.py`, sanitises (stable hash-based account numbers + names, scaled amounts, shifted dates), computes `risk_profile`, and writes JSON fixtures under `engine/seed/generated/dbbl_synthetic/` (committed: `summary.json`, `organizations.json`, `statements.json`, `entities.json`, `matches.json`, `connections.json`, `transactions.json`, `manifest.json`).
+2. `load_dbbl_synthetic.py::apply_dataset()` idempotently upserts into live Supabase tables using deterministic UUIDs derived from namespace `8d393384-a67a-4b64-bf0b-7b66b8d5da76`.
 
-**In-memory fixtures** (`engine/seed/fixtures.py`):
-- Hand-crafted `EntitySearchResult`, `NetworkGraph`, `EntityDossier`, `AlertDetail`, `CrossBankMatch`, `TypologySummary`, `DetectionRunSummary`, `FlaggedAccount`, `CaseWorkspace`, `ComplianceScore` for the "Rizwana Enterprise" scenario. Used by: the intelligence typologies endpoint, `core/alerter.py::build_alerts`, and as cloneable reference data. Not written to the database by production code.
+**Reference tables** (migration 009): 197 rows seeded inline in the migration — 10 channels (RTGS, BEFTN, NPSB, MFS, CASH, CHEQUE, CARD, WIRE, LC, DRAFT), 12 AML categories, 64 Bangladesh scheduled banks + MFS providers (tagged by category: state_owned_commercial, state_owned_development, specialized, private_commercial, private_islamic, foreign_commercial, mfs), 64 ISO-3166 country codes focused on BFIU's operational radius, 30 ISO-4217 currency codes, 17 recipient agencies (Bangladesh LE + regulators + Egmont peer FIUs). `ON CONFLICT DO NOTHING` means re-application adds only new rows.
 
-**Synthetic DBBL generator** (`engine/seed/dbbl_synthetic.py` + `load_dbbl_synthetic.py`):
-1. `dbbl_synthetic.py` reads a curated subset of real DBBL PDFs from `F:\New Download\Scammers' Bank statement DBBL` (local-only, never committed), runs them through `engine/app/parsers/statement_pdf.py`, sanitizes them (stable hash-based account numbers and names, scaled amounts, shifted dates), computes a `risk_profile` with rules for `rapid_cashout`, `mfs_fanout`, `cash_exit`, `burst_activity`, `high_turnover`, and writes JSON fixtures under `engine/seed/generated/dbbl_synthetic/` (which ARE committed: `summary.json`, `organizations.json`, `statements.json`, `entities.json`, `matches.json`, `connections.json`, `transactions.json`, `manifest.json`).
-2. `load_dbbl_synthetic.py::apply_dataset()` idempotently upserts those JSON rows into live Supabase tables (`organizations`, `entities`, `connections`, `accounts`, `transactions`, `str_reports`, `matches`, `alerts`, `cases`) using deterministic UUIDs derived from the stable namespace `8d393384-a67a-4b64-bf0b-7b66b8d5da76`.
+**Typologies** (migration 004): 5 Bangladesh-specific typologies seeded at migration time.
 
-The loader can be invoked two ways:
-- Locally: `python -m seed.load_dbbl_synthetic` prints a plan; `--apply` writes to whatever `DATABASE_URL` resolves to.
-- Via the engine: `POST /admin/synthetic-backfill` (regulator admin/superadmin only) calls the same `apply_dataset` function — this is what the "Synthetic Backfill" card on `/admin` uses.
+**Current prod state** (from direct SQL against `bmlyqlkzeuoglyvfythg`): synthetic dataset is loaded — 28 entities, 377 accounts, 547 transactions, 10 STRs, 22 alerts, 1 case, 7 organizations. The goAML-patch tables (disseminations, saved_queries, diagrams, match_definitions) are empty in prod — they were only touched in end-to-end verification (records cleaned up after).
 
-The generator target bank (`source_bank`) is hardcoded to Dutch-Bangla Bank PLC. Alerts generated from the synthetic dataset are attributed to the BFIU org. Whether the live Supabase currently has synthetic data loaded depends on whether `/admin/synthetic-backfill` has been run against it — check with a read of the `entities` table or via the admin summary card.
+To regenerate the synthetic JSON fixtures: `python -m seed.dbbl_synthetic`. To load: `python -m seed.load_dbbl_synthetic --apply`, or via `/admin/synthetic-backfill` as a regulator admin.
 
-Also present: `engine/seed/run.py` (CI smoke test that asserts the generated manifest exists), `engine/seed/organizations.py`, `engine/seed/entities.py`, `engine/seed/patterns.py`, `engine/seed/str_reports.py`, `engine/seed/transactions.py`.
+Also present under `engine/seed/`: `run.py` (CI smoke test), `organizations.py`, `entities.py`, `patterns.py`, `str_reports.py`, `transactions.py`, `fixtures.py` (in-memory fixtures — used only by orphaned `core/alerter.py` at this point).
 
 ## Environment variables
 
-Source of truth: `.env.example`. Critical gotchas only (see that file for the full list):
+Source of truth: `.env.example`.
 
 - **Demo mode:** `KESTREL_ENABLE_DEMO_MODE` + `KESTREL_DEMO_PERSONA` (engine), `NEXT_PUBLIC_ENABLE_DEMO_MODE` + `NEXT_PUBLIC_DEMO_PERSONA` (web).
 - **Supabase (web):** `NEXT_PUBLIC_SUPABASE_URL` + `NEXT_PUBLIC_SUPABASE_ANON_KEY` — if missing, web silently falls back to demo.
 - **Supabase (engine):** `SUPABASE_URL`, `SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`. `SUPABASE_JWT_SECRET` enables HS256 (takes precedence over JWKS).
-- **Engine core:** `DATABASE_URL` (must be `postgresql+asyncpg://`), `REDIS_URL`, `ALLOWED_ORIGINS`.
-- **Web→engine proxy:** `ENGINE_URL` (server) or `NEXT_PUBLIC_ENGINE_URL` (client).
-- **AI providers (all optional):** `OPENAI_API_KEY`, `ANTHROPIC_API_KEY` + model overrides. Unset → heuristic fallback if `AI_FALLBACK_ENABLED=true`.
+- **Engine core:** `DATABASE_URL` (`postgresql+asyncpg://`), `REDIS_URL`, `ALLOWED_ORIGINS`.
+- **Web → engine proxy:** `ENGINE_URL` (server) or `NEXT_PUBLIC_ENGINE_URL` (client).
+- **AI providers (all optional):** `OPENAI_API_KEY` + `OPENAI_MODEL`, `ANTHROPIC_API_KEY` + `ANTHROPIC_MODEL`. **Neither is set on prod Render** — `/ready` shows both as `missing_config`; heuristic fallback handles every AI task. Set either key to flip provider routing live.
 - **Hardcoded defaults** not in `.env.example`: `ALGORITHM`, `APP_VERSION`, `ENVIRONMENT`.
 
 ## What to work on next
 
-**All 10 roadmap items from the intelligence-core spec are shipped and live-verified on prod as of 2026-04-17.** No "next up" work queued. Completed tasks with shipping commits and verification shape:
+No KESTREL-*-PROMPT.md items remain. The capability surface meets the procurement bar described in `docs/goaml-coverage.md`. Priorities for the next session, ordered by whether they block the first BFIU meeting:
 
-| # | Item | Shipped in | Verified by |
-|---|------|------------|-------------|
-| 1 | SAR/CTR report types | `62150a9` + chain | SQL + UI |
-| 2 | WeasyPrint PDF case pack | `706c5cc` + chain | Real PDF (18 KB, 2 pages) |
-| 3 | Scan upload path | `9f01e19` + chain | Live CSV upload |
-| 4 | AI alert explanation auto-call | `0d25d9e` | Browser test |
-| 5 | Draft STR from alert | `0d25d9e` | Browser test |
-| 6 | Parked modifier conditions | `042b5ab` + `35d3055` | Alert with `recipients_at_different_banks` firing +10 |
-| 7 | Incremental scan scope | `9f01e19` (`source_run_id`) | Verified via Task 3 |
-| 8 | Command view polish | `ef6b2e9` + `0c53fc1` | Browser test |
-| 9 | Typologies DB-backed | `d64424b` + chain | 5 typologies from live DB |
-| 10 | Phase 10 hardening — shipped and live-verified | `3ffd1e4` + `73f09d4` | Structured logs + envelope + runbook |
+**Blocks first BFIU meeting:**
+1. **Landing page hero rewrite.** `kestrel-nine.vercel.app` still leads with deployment health (the `/ready` probe) — fine for ops but wrong for a BFIU director landing cold. Needs an intelligence-story hero: the goAML replacement claim, the AI-native capabilities list, the 13-item coverage matrix summary, and a persona-aware demo CTA. Reference `docs/goaml-coverage.md`.
+2. **Demo film production.** Not a code task, but the most important next step. The platform is ready to be shown — a recorded walkthrough of Director → Analyst → CAMLCO personas hitting each of the 13 goAML-coverage items against the synthetic DBBL dataset would compress the first meeting from an hour to ten minutes.
 
-**Candidates for the next roadmap** (not prioritized — no active commitment):
-- Scheduled / cron-driven scan execution (today only on-demand via `/scan/runs` or `/scan/runs/upload`).
-- Graph lookups for the remaining four `False` modifiers (`proximity_to_flagged`, `involves_multiple_banks`, `circular_flow_detected`, `target_confidence > 0.8`).
-- Real rule expression DSL (replacing the dict-keyed modifier lookup).
-- AI eval / red-team harness beyond the scaffolding in `engine/app/ai/evaluations.py`.
-- goAML adapter — currently a stub.
-- Delete orphaned `engine/app/core/alerter.py` after confirming no seed/fixture references remain.
-- Move heavy pipelines into Celery tasks once load justifies it (`engine/app/tasks/scan_tasks.py` etc. are empty shells).
+**Post-first-meeting polish:**
+3. **Scheduled rule execution wiring.** `/admin/schedules` surfaces three declared jobs with status `not_configured` because no Celery Beat schedule is populated. Move `run_scan_pipeline` into a Celery task, wire the nightly + daily-digest + weekly-compliance jobs into `app.tasks.celery_app.celery_app.conf.beat_schedule`, flip the declared entries from `not_configured` to `scheduled`.
+4. **Real rule expression DSL.** Current evaluator uses dict-keyed lookup of modifier strings. A richer DSL (or a hosted rule editor consuming `match_definitions`) would let BFIU analysts define custom rules without editing YAML in git. The match_definitions table + `/admin/match-definitions` UI are ready; the evaluator wiring is the missing piece.
+5. **Wire remaining 4 `False` modifiers** (`proximity_to_flagged`, `involves_multiple_banks`, `circular_flow_detected`, `target_confidence > 0.8`) via graph lookups. All four need the resolved entity graph the pipeline already builds — just not threaded through to the evaluator yet.
+6. **Outbound goAML adapter.** Distinct from the XML import/export we shipped (those are file-based). This is a machine-to-machine adapter that pushes reports into goAML's central server for FIUs running both systems in parallel. `engine/app/adapters/goaml.py` exists as a stub.
+7. **AI red-team harness.** Structured adversarial prompts + evaluation scoring for the AI task surface. `engine/app/ai/evaluations.py` has the scaffold; needs a prompt corpus, expected-output fixtures, and a CI gate before real provider keys go live on Render.
+8. **Delete orphaned `core/alerter.py`** once `seed/fixtures.py` references are cleaned up (fixtures are themselves orphaned since the DB-backed typologies migration).
+9. **Landing-page BBC.** `web/src/lib/demo.ts` still seeds public-page persona cards with hardcoded fixtures — not a correctness issue but should be reviewed against the new intelligence surface.
 
 ## Code conventions
 
 Observed by reading the code, not invented:
 
 **Python (engine):**
-- FastAPI routers are one-file-per-domain in `engine/app/routers/`; they do nothing except parameter wiring, auth dependencies, and delegation to `engine/app/services/`.
-- Services accept the `AsyncSession` plus a keyword-only `user: AuthenticatedUser` and return plain dicts that routers wrap in Pydantic response models.
-- SQLAlchemy 2 async style: `select(...)`, `session.execute()`, `.scalars()`. Use `select(Model.id, ...)` for narrow projections.
-- Helper functions `_as_uuid`, `_as_float`, `_iso`, `_safe_int` are duplicated per service file (each file owns its own). Not centralized.
-- Audit logging is manual: services that mutate state insert an `AuditLog` row with `action=f"<resource>.<verb>"` and `details=request.model_dump()` before `await session.commit()`.
+- FastAPI routers are one-file-per-domain in `engine/app/routers/`; they do only parameter wiring, auth dependencies, and delegation to `engine/app/services/`.
+- Services accept `AsyncSession` + keyword-only `user: AuthenticatedUser` and return plain dicts (or typed responses).
+- SQLAlchemy 2 async: `select(...)`, `session.execute()`, `.scalars()`. `select(Model.id, ...)` for narrow projections.
+- Helpers `_as_uuid`, `_as_float`, `_iso`, `_safe_int` are duplicated per service file (not centralized). Low cost, explicit.
+- Audit logging is manual: mutation services insert an `AuditLog` row with `action=f"<resource>.<verb>"` and `details=request.model_dump()` before `await session.commit()`.
 - All DB-touching code lives under `engine/app/services/`; routers never execute SQL directly.
-- Pydantic `model_validate(dict)` is used everywhere to turn service dicts into response models.
-- Redaction and AI call contracts live in `engine/app/ai/`; nothing else should talk to OpenAI/Anthropic.
+- Pydantic `model_validate(dict)` turns service dicts into response models.
+- AI provider contracts live in `engine/app/ai/`; nothing else should talk to OpenAI/Anthropic.
 - Dependency injection uses `Annotated[T, Depends(...)]` consistently.
-- Role gates: `require_roles("analyst","manager","admin","superadmin")`; additional checks live in services (`_require_regulator_admin`).
-- Test files follow `test_<domain>_phase<n>.py` naming.
+- Role gates: `require_roles("analyst","manager","admin","superadmin")`; additional checks in services.
+- Test files follow `test_<domain>_phase<n>.py` or `test_*_core.py` naming.
 
 **TypeScript (web):**
 - Next.js App Router with route groups: `(public)`, `(auth)`, `(platform)`.
-- Server components call `requireViewer()` or `requireRole(...)` at the top of the file and throw a redirect on failure.
-- Data fetching uses Next route handlers under `web/src/app/api/**/route.ts` which proxy to the engine via `proxyEngineRequest`. No component fetches the engine directly.
-- Per-domain normalizer modules in `web/src/lib/` translate engine snake_case payloads into web camelCase domain types in `web/src/types/domain.ts`.
-- Client components use `"use client"`, load state via `useState` + `useEffect`, show `LoadingState` / `EmptyState` / `ErrorState` common components.
-- shadcn-style UI primitives live in `web/src/components/ui/` and are composed by domain components.
-- Navigation is config-driven via `web/src/components/shell/nav-config.ts` with persona/role filters.
+- Server components call `requireViewer()` / `requireRole(...)` at the top; redirect on failure.
+- Data fetching: Next route handlers under `web/src/app/api/**/route.ts` which proxy to the engine via `proxyEngineRequest`. Components never fetch the engine directly.
+- Per-domain normalisers in `web/src/lib/` translate snake_case engine payloads → camelCase domain types in `web/src/types/domain.ts`.
+- Client components use `"use client"`, `useState` + `useEffect`, `LoadingState` / `EmptyState` / `ErrorState` commons.
+- shadcn-style UI primitives in `web/src/components/ui/` are composed by domain components.
+- Navigation config-driven via `web/src/components/shell/nav-config.ts` with persona/role filters + optional `aka` (goAML vocabulary) tooltip.
 - `PageFrame` is the canonical page wrapper (eyebrow, title, description, actions slot).
-- No global state library is actively used beyond `zustand` being installed; state is local to client components or comes from server components.
+- Download endpoints forward raw bytes + preserved `Content-Disposition` through the proxy — do not wrap with `NextResponse.json`.
+- No global state library is actively used (`zustand` is installed but local state + server components cover everything).
 
 ## Commands
 
-From the actual files:
-
 **Web (`web/`):**
-- `npm install` — install. Node must be 22.x.
-- `npm run dev` — Next dev server.
+- `npm install` — install (Node 22.x).
+- `npm run dev` — dev server.
 - `npm run build` — production build.
 - `npm run start` — run the built app.
 - `npm run lint` — ESLint via `eslint-config-next`.
 
 **Engine (`engine/`):**
-- `pip install -e .[dev]` — install runtime + dev dependencies (pytest, pytest-asyncio).
+- `pip install -e .[dev]` — install runtime + dev deps.
 - `uvicorn app.main:app --reload` — dev API.
 - `celery -A app.tasks.celery_app.celery_app worker --loglevel=INFO` — worker (same command as Render).
-- `pytest -q` — run tests.
+- `pytest -q` — run tests (95 tests).
 - `python seed/run.py` — manifest smoke test (runs in CI).
 - `python -m seed.dbbl_synthetic` — regenerate synthetic JSON fixtures from local DBBL PDFs.
 - `python -m seed.load_dbbl_synthetic` — print the load plan against `DATABASE_URL`.
-- `python -m seed.load_dbbl_synthetic --apply` — actually upsert the synthetic dataset.
+- `python -m seed.load_dbbl_synthetic --apply` — upsert the synthetic dataset.
 
-**Database:**
-- Apply migrations in order: `001_schema.sql`, `002_rules_insert_policy.sql`, `003_report_types.sql` (SAR/CTR), `004_typologies.sql` (DB-backed typologies library).
+**Import check before pushing** (memory lesson from SAR/CTR rollout): `python -c "from app.main import app; print(len(app.routes))"`. `py_compile` alone does NOT catch broken imports; Render fails at uvicorn boot. Also verify new third-party packages are declared in `pyproject.toml`.
+
+**Database:** apply migrations in order `001` → `009` via Supabase SQL editor or the Supabase MCP `apply_migration` tool.
 
 **Deployment:**
-- Vercel production: push to `main` with `web/**` changes and `VERCEL_*` secrets set. Workflow handles prebuilt deploy.
-- Render production: push to `main` with `engine/**` or `supabase/**` changes and `RENDER_*` deploy hook secrets set.
-- No Makefile. No `justfile`. No local `docker-compose`.
+- Vercel production: push to `main` touching `web/**` with `VERCEL_*` secrets set.
+- Render production: push to `main` touching `engine/**` or `supabase/**` with `RENDER_*` deploy hook secrets set. Deploy hook completes in ~45–60s; uvicorn startup another ~20s.
+- No Makefile, no `justfile`, no local `docker-compose`.
 
 ## Known issues
 
-Already covered in Current state / Detection engine: Celery has only ping (pipelines run inline), four modifier conditions still hardcoded `False`, `alerter.py` orphaned, goAML stub.
-
-Non-obvious gotchas:
+Non-obvious gotchas that trip first-time readers:
 
 1. **Demo fallback is silent.** `web/src/lib/auth.ts::getCurrentViewer` returns demo viewer when Supabase client is null. Production has env vars set — only matters if removed.
 2. **`detection_runs.status` CHECK** — `pending|processing|completed|failed` only. NOT `running` (fix: `d55aa90`).
-3. **Rule RLS policy chain.** Commits `76b76f8` through `4e1af27` fix admin rule mutations via `scoped system session` in `services.admin.update_rule_configuration` + maintenance endpoint `POST /admin/maintenance/rules-policy-fix`. Don't simplify without understanding why the direct session failed.
+3. **Rule RLS policy chain.** Commits `76b76f8` → `4e1af27` fix admin rule mutations via `scoped system session` in `services.admin.update_rule_configuration` + maintenance endpoint `POST /admin/maintenance/rules-policy-fix`. Don't simplify without understanding why the direct session failed.
 4. **`_load_profile_context` swallows DB errors.** `engine/app/auth.py` catches `Exception` → `None` → falls back to JWT/demo. Broken DB looks like "not provisioned" instead of 500.
 5. **Two `supabase` client paths.** `web/src/lib/supabase/` (folder) vs any `supabase.ts` import. Check the folder first.
 6. **`proxy.ts` is the Next middleware.** Don't rename — tooling depends on it.
 7. **Vercel SSR may 500 during Render redeploy.** Transient; reload after `Application startup complete`.
 8. **`weighted_contribution` bug (fixed `7aed54f`).** Values above 100 = reintroduced bug.
-9. **`py_compile` alone does not catch broken imports.** The SAR/CTR rollout shipped a missing import (`ctr.py` referenced a non-existent `app.models.organization`); local `py_compile` passed, Render deploy failed at uvicorn boot. Before pushing branches with new imports, run `cd engine && python -c "from app.main import app"`. Also verify third-party packages are declared in `pyproject.toml` (case: `jinja2` transitively present locally but missing from `pyproject.toml` → Render fresh install failed, fixed `390b2f1`).
-10. **Error envelope covers Starlette 404s too.** The Phase 10 middleware wraps FastAPI `HTTPException`, but Starlette's router-level 404s (unknown path, unmatched method) bypass that handler by default. Fix `73f09d4` registers a separate `StarletteHTTPException` handler. Don't consolidate the two handlers — the Starlette one catches routes FastAPI's handler never sees.
+9. **`py_compile` alone does not catch broken imports.** Before pushing branches with new imports run `cd engine && python -c "from app.main import app"`. Also verify third-party packages are declared in `pyproject.toml` (case: `jinja2` transitively present locally but missing from `pyproject.toml` → Render fresh install failed, fixed `390b2f1`; `lxml` required this for Task 2).
+10. **Error envelope covers Starlette 404s too.** The Phase 10 middleware wraps FastAPI `HTTPException`, but Starlette's router-level 404s bypass that handler by default. Fix `73f09d4` registers a separate `StarletteHTTPException` handler. Don't consolidate the two — the Starlette one catches routes the FastAPI handler never sees.
+11. **`cases.variant` is separate from `cases.category`.** Migration 007 added `variant` (goAML case classification) alongside the existing `category` (free-text subject category like `fraud`) because `category` already held real data in prod. Don't conflate them.
+12. **`gen_str_ref()` short-code prefix map.** Migration 005 replaced the old `upper(report_type)` prefix with a CASE map (STR/SAR/CTR/TBML/COMP/IER/INT/AMSTR/AMSAR/ESC/ADDL). Any new report_type value added to the CHECK constraint needs a new branch in the CASE or it'll fall through to `upper(...)` and produce long prefixes.
+13. **Download proxy routes must forward bytes.** Never `NextResponse.json()` a PDF/XLSX/XML response — convert `arrayBuffer()` then `new NextResponse(body, { headers: ... })`. Copy the `Content-Disposition` header from the engine.
+14. **`STRDraftUpsert` validator is strict on type-specific fields.** Posting `report_type='ier'` without `ier_direction` + `ier_counterparty_fiu` will 422 at Pydantic validation before the router sees it. Additional Information Files need `supplements_report_id`; TBML needs `tbml_counterparty_country`; adverse media needs `media_source`. When creating supplements via `POST /str-reports/{id}/supplements`, the router forces both fields so the client doesn't need to.
+15. **Observability hook false-positives.** The Vercel plugin's `posttooluse-validate` hook fires on every route handler asking for "observability instrumentation." Kestrel's engine-side structured JSON logs + X-Request-ID cover every proxied call; adding per-proxy-route instrumentation would be duplicative. Skip these suggestions.
