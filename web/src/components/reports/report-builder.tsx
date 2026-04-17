@@ -5,7 +5,6 @@ import { useState } from "react";
 import { detailFromPayload, readResponsePayload } from "@/lib/http";
 import type { ReportExportResponse } from "@/types/api";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
 export function ReportBuilder() {
   const [reportType, setReportType] = useState("national");
@@ -39,32 +38,51 @@ export function ReportBuilder() {
   }
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Report builder</CardTitle>
-      </CardHeader>
-      <CardContent className="space-y-4 text-sm text-muted-foreground">
-        <p>Select briefing pack, typology digest, or compliance scorecard export.</p>
-        <select
-          className="h-10 rounded-lg border border-input bg-background/60 px-3 text-sm outline-none focus:border-primary"
-          value={reportType}
-          onChange={(event) => setReportType(event.target.value)}
-        >
-          <option value="national">National briefing pack</option>
-          <option value="compliance">Compliance scorecard</option>
-          <option value="trends">Trend analysis digest</option>
-        </select>
-        <div className="flex gap-3">
+    <section className="border border-border">
+      <div className="border-b border-border px-6 py-5">
+        <p className="font-mono text-[10px] uppercase tracking-[0.28em] text-muted-foreground">
+          <span aria-hidden className="mr-2 text-accent">┼</span>
+          Section · Report builder
+        </p>
+        <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
+          Select a briefing pack, typology digest, or compliance scorecard export.
+        </p>
+      </div>
+      <div className="space-y-5 p-6">
+        <label className="flex flex-col gap-2">
+          <span className="font-mono text-[10px] uppercase tracking-[0.28em] text-muted-foreground">
+            Export type
+          </span>
+          <select
+            className="h-11 w-full rounded-none border border-input bg-card px-4 text-sm outline-none focus:border-foreground"
+            value={reportType}
+            onChange={(event) => setReportType(event.target.value)}
+          >
+            <option value="national">National briefing pack</option>
+            <option value="compliance">Compliance scorecard</option>
+            <option value="trends">Trend analysis digest</option>
+          </select>
+        </label>
+        <div className="flex gap-2 border-t border-border pt-4">
           <Button type="button" disabled={isSubmitting} onClick={() => void queueExport()}>
-            {isSubmitting ? "Queueing..." : "Generate PDF"}
+            {isSubmitting ? "Queueing…" : "Generate PDF"}
           </Button>
           <Button type="button" variant="outline" disabled>
             Export XLSX
           </Button>
         </div>
-        {notice ? <p className="text-primary/80">{notice}</p> : null}
-        {error ? <p className="text-red-300">{error}</p> : null}
-      </CardContent>
-    </Card>
+        {notice ? (
+          <p className="font-mono text-xs uppercase tracking-[0.18em] text-accent">
+            <span aria-hidden className="mr-2">┼</span>
+            {notice}
+          </p>
+        ) : null}
+        {error ? (
+          <p className="font-mono text-xs uppercase tracking-[0.18em] text-destructive">
+            <span aria-hidden className="mr-2">┼</span>ERROR · {error}
+          </p>
+        ) : null}
+      </div>
+    </section>
   );
 }
