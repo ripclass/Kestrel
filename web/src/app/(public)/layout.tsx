@@ -1,10 +1,26 @@
+import { IBM_Plex_Mono, JetBrains_Mono } from "next/font/google";
+
+const displayFont = IBM_Plex_Mono({
+  subsets: ["latin"],
+  weight: ["400", "500", "600"],
+  variable: "--font-landing-display",
+});
+
+const bodyFont = JetBrains_Mono({
+  subsets: ["latin"],
+  weight: ["400", "500"],
+  variable: "--font-landing-body",
+});
+
 export default function PublicLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
   return (
-    <div className="min-h-screen bg-[radial-gradient(circle_at_top,_rgba(88,166,166,0.22),_transparent_35%),linear-gradient(180deg,#09111d_0%,#0f1a2a_45%,#09111d_100%)] text-foreground">
+    <div
+      className={`${displayFont.variable} ${bodyFont.variable} min-h-screen bg-landing-bg text-landing-foreground font-[family-name:var(--font-landing-body)]`}
+    >
       {children}
     </div>
   );

@@ -58,6 +58,13 @@
   --radius-md: calc(var(--radius) * 0.875);
   --radius-lg: var(--radius);
   --radius-xl: calc(var(--radius) * 1.25);
+
+  --color-landing-bg: var(--landing-bg);
+  --color-landing-foreground: var(--landing-foreground);
+  --color-landing-alarm: var(--landing-alarm);
+  --color-landing-rule: var(--landing-rule);
+  --color-landing-rule-solid: var(--landing-rule-solid);
+  --color-landing-muted: var(--landing-muted);
 }
 
 body {
@@ -85,6 +92,14 @@ html.dark {
   --border: #22324b;
   --input: #22324b;
   --ring: #58a6a6;
+
+  /* Landing Page (Sovereign Ledger) Tokens */
+  --landing-bg: #0F1115;
+  --landing-foreground: #EAE6DA;
+  --landing-alarm: #FF3823;
+  --landing-rule: rgba(234, 230, 218, 0.08); /* hairline */
+  --landing-rule-solid: #2A2C30; /* structural bounds */
+  --landing-muted: #8E929A;
 }
 
 * {

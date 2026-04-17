@@ -5,17 +5,17 @@ const stats: {
 }[] = [
   {
     value: "14,106",
-    label: "STRs and SARs received by BFIU in a single reporting year, each reviewed by hand.",
-    source: "BFIU Annual Report, FY 2022–23",
+    label: "STRs and SARs reviewed by hand in one reporting year.",
+    source: "BFIU Annual Report · FY 2022–23",
   },
   {
     value: "90.8%",
-    label: "Share of suspicious activity that originates inside the banking system.",
+    label: "Share of suspicious activity originating inside the banking system.",
     source: "BFIU Annual Report",
   },
   {
     value: "61",
-    label: "Scheduled banks in Bangladesh. Each one is a blind spot to the others — until now.",
+    label: "Scheduled banks in Bangladesh — each blind to the others, until now.",
     source: "Bangladesh Bank",
   },
   {
@@ -27,17 +27,21 @@ const stats: {
 
 export function StatsRow() {
   return (
-    <section className="border-b border-white/5">
-      <div className="mx-auto w-full max-w-7xl px-6 py-16 lg:px-10">
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          {stats.map((stat) => (
-            <div
-              key={stat.value}
-              className="rounded-2xl border border-white/10 bg-white/[0.03] p-5 backdrop-blur-sm"
-            >
-              <p className="font-mono text-3xl tracking-tight text-primary">{stat.value}</p>
-              <p className="mt-3 text-sm leading-relaxed text-slate-300">{stat.label}</p>
-              <p className="mt-3 text-[11px] uppercase tracking-[0.18em] text-slate-500">
+    <section className="border-b border-landing-rule bg-landing-bg">
+      <div className="mx-auto w-full max-w-7xl px-6 lg:px-10">
+        <div className="grid grid-cols-2 divide-x divide-y divide-landing-rule-solid border border-landing-rule-solid lg:grid-cols-4 lg:divide-y-0">
+          {stats.map((stat, i) => (
+            <div key={stat.value} className="relative flex min-h-[240px] flex-col gap-4 p-8 lg:p-10">
+              <span className="font-landing-body text-[10px] uppercase tracking-[0.28em] text-landing-muted">
+                {`Anchor 0${i + 1}`}
+              </span>
+              <p className="font-landing-display text-4xl leading-none tracking-tight text-landing-foreground lg:text-5xl">
+                {stat.value}
+              </p>
+              <p className="font-landing-body text-sm leading-relaxed text-landing-foreground/80">
+                {stat.label}
+              </p>
+              <p className="mt-auto font-landing-body text-[10px] uppercase tracking-[0.24em] text-landing-muted">
                 {stat.source}
               </p>
             </div>
