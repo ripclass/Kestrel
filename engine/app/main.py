@@ -22,6 +22,7 @@ from app.routers import (
     match_definitions,
     network,
     overview,
+    reference_tables,
     reports,
     saved_queries,
     scan,
@@ -96,5 +97,6 @@ app.include_router(intelligence.router, prefix="/intelligence", tags=["intellige
 app.include_router(saved_queries.router, prefix="/saved-queries", tags=["saved-queries"])
 app.include_router(diagrams.router, prefix="/diagrams", tags=["diagrams"])
 app.include_router(match_definitions.router, prefix="/match-definitions", tags=["match-definitions"])
+app.include_router(reference_tables.router, prefix="/reference-tables", tags=["reference-tables"])
 app.include_router(reports.router, prefix="/reports", tags=["reports"])
 app.include_router(admin.router, prefix="/admin", tags=["admin"])

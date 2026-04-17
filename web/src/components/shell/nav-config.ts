@@ -22,11 +22,14 @@ const navItems: NavItem[] = [
   { section: "Command", label: "National", href: "/reports/national", personas: ["bfiu_director", "bfiu_analyst"] },
   { section: "Command", label: "Compliance", href: "/reports/compliance", personas: ["bfiu_director", "bank_camlco"] },
   { section: "Command", label: "Trends", href: "/reports/trends", personas: ["bfiu_director"] },
+  { section: "Command", label: "Statistics", href: "/reports/statistics", personas: ["bfiu_director", "bfiu_analyst"] },
   { section: "Command", label: "Export", href: "/reports/export" },
   { section: "Admin", label: "Settings", href: "/admin", roles: ["admin", "manager", "superadmin"] },
   { section: "Admin", label: "Team", href: "/admin/team", roles: ["admin", "manager", "superadmin"] },
   { section: "Admin", label: "Rules", href: "/admin/rules", roles: ["admin", "manager", "superadmin"] },
   { section: "Admin", label: "Match definitions", href: "/admin/match-definitions", roles: ["admin", "manager", "superadmin"] },
+  { section: "Admin", label: "Reference tables", href: "/admin/reference-tables", roles: ["admin", "manager", "superadmin"] },
+  { section: "Admin", label: "Schedules", href: "/admin/schedules", roles: ["admin", "superadmin"] },
   { section: "Admin", label: "API Keys", href: "/admin/api-keys", roles: ["admin", "manager", "superadmin"] },
 ];
 

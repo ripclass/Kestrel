@@ -597,3 +597,96 @@ export interface MatchDefinitionDetail extends MatchDefinitionSummary {
   definition: Record<string, unknown>;
   recentExecutions: MatchExecutionSummary[];
 }
+
+export type ReferenceTableName =
+  | "banks"
+  | "branches"
+  | "countries"
+  | "channels"
+  | "categories"
+  | "currencies"
+  | "agencies";
+
+export interface ReferenceEntry {
+  id: string;
+  tableName: ReferenceTableName;
+  code: string;
+  value: string;
+  description?: string | null;
+  parentCode?: string | null;
+  metadata: Record<string, unknown>;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ReferenceTableMeta {
+  tableName: ReferenceTableName;
+  activeCount: number;
+  totalCount: number;
+}
+
+export interface ReportsByTypeByMonth {
+  month: string;
+  reportType: string;
+  count: number;
+}
+
+export interface ReportsByOrg {
+  orgName: string;
+  count: number;
+}
+
+export interface CtrVolumeByMonth {
+  month: string;
+  count: number;
+  totalAmount: number;
+}
+
+export interface DisseminationsByAgency {
+  recipientAgency: string;
+  recipientType: string;
+  count: number;
+}
+
+export interface CaseOutcomeBreakdown {
+  status: string;
+  count: number;
+}
+
+export interface TimeToReviewAverage {
+  reportType: string;
+  averageHours: number;
+  sampleSize: number;
+}
+
+export interface OperationalStatistics {
+  reportsByTypeByMonth: ReportsByTypeByMonth[];
+  reportsByOrg: ReportsByOrg[];
+  ctrVolumeByMonth: CtrVolumeByMonth[];
+  disseminationsByAgency: DisseminationsByAgency[];
+  caseOutcomes: CaseOutcomeBreakdown[];
+  timeToReview: TimeToReviewAverage[];
+  generatedAt: string;
+}
+
+export interface ScheduleEntry {
+  name: string;
+  description: string;
+  cron: string;
+  task: string;
+  status: string;
+  lastRunAt?: string | null;
+  nextRunAt?: string | null;
+}
+
+export interface ScheduleWorker {
+  hostname: string;
+  alive: boolean;
+}
+
+export interface ScheduleList {
+  schedules: ScheduleEntry[];
+  workers: ScheduleWorker[];
+  generatedAt: string;
+}

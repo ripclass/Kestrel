@@ -12,6 +12,7 @@ from app.models.match import Match
 from app.models.match_definition import MatchDefinition, MatchExecution
 from app.models.org import Organization
 from app.models.profile import Profile
+from app.models.reference_table import ReferenceEntry
 from app.models.rule import Rule
 from app.models.saved_query import SavedQuery
 from app.models.str_report import STRReport
@@ -33,6 +34,7 @@ __all__ = [
     "MatchExecution",
     "Organization",
     "Profile",
+    "ReferenceEntry",
     "Rule",
     "SavedQuery",
     "STRReport",
