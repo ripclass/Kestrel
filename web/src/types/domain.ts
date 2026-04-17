@@ -468,3 +468,41 @@ export interface STRReportDetail extends STRReportSummary {
   tbmlCommodity?: string | null;
   tbmlCounterpartyCountry?: string | null;
 }
+
+export type RecipientType =
+  | "law_enforcement"
+  | "regulator"
+  | "foreign_fiu"
+  | "prosecutor"
+  | "other";
+
+export type Classification =
+  | "public"
+  | "internal"
+  | "confidential"
+  | "restricted"
+  | "secret";
+
+export interface DisseminationSummary {
+  id: string;
+  orgId: string;
+  orgName: string;
+  disseminationRef: string;
+  recipientAgency: string;
+  recipientType: RecipientType;
+  subjectSummary: string;
+  classification: Classification;
+  disseminatedBy?: string | null;
+  disseminatedAt: string;
+  linkedReportCount: number;
+  linkedEntityCount: number;
+  linkedCaseCount: number;
+  createdAt: string;
+}
+
+export interface DisseminationDetail extends DisseminationSummary {
+  linkedReportIds: string[];
+  linkedEntityIds: string[];
+  linkedCaseIds: string[];
+  metadata: Record<string, unknown>;
+}

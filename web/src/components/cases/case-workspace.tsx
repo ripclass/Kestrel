@@ -7,6 +7,7 @@ import { CaseNotes } from "@/components/cases/case-notes";
 import { CaseEvidence } from "@/components/cases/case-evidence";
 import { CaseExport } from "@/components/cases/case-export";
 import { Currency } from "@/components/common/currency";
+import { DisseminateAction } from "@/components/disseminations/disseminate-action";
 import { EmptyState } from "@/components/common/empty-state";
 import { LoadingState } from "@/components/common/loading";
 import { StatusBadge } from "@/components/common/status-badge";
@@ -154,6 +155,11 @@ export function CaseWorkspace({ caseId }: { caseId: string }) {
             >
               {pendingAction === "update_status" ? "Updating..." : "Update status"}
             </Button>
+            <DisseminateAction
+              linkedCaseId={caseId}
+              defaultSubject={`Case ${workspace.caseRef}: ${workspace.title}\n\n${workspace.summary}`}
+              variant="outline"
+            />
           </div>
           {notice ? <p className="text-sm text-primary/80">{notice}</p> : null}
           {error ? <p className="text-sm text-red-300">{error}</p> : null}

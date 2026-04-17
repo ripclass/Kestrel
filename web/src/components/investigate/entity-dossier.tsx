@@ -1,5 +1,6 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { RiskScore } from "@/components/common/risk-score";
+import { DisseminateAction } from "@/components/disseminations/disseminate-action";
 import { EntityConnections } from "@/components/investigate/entity-connections";
 import { ReportingHistory } from "@/components/investigate/reporting-history";
 import { ActivityTimeline } from "@/components/investigate/activity-timeline";
@@ -16,7 +17,14 @@ export function EntityDossier({ entity }: { entity: EntityDossierType }) {
               <CardTitle className="text-2xl">{entity.displayValue}</CardTitle>
               <CardDescription>{entity.displayName}</CardDescription>
             </div>
-            <RiskScore score={entity.riskScore} severity={entity.severity} />
+            <div className="flex flex-col items-end gap-3">
+              <RiskScore score={entity.riskScore} severity={entity.severity} />
+              <DisseminateAction
+                linkedEntityId={entity.id}
+                defaultSubject={`Subject: ${entity.displayName ?? entity.displayValue}\nEntity ID: ${entity.id}\nRisk: ${entity.riskScore}`}
+                variant="outline"
+              />
+            </div>
           </div>
         </CardHeader>
         <CardContent className="grid gap-4 lg:grid-cols-4">

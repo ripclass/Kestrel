@@ -9,9 +9,13 @@ import type {
   CaseWorkspace,
   CaseSummary,
   ComplianceScore,
+  Classification,
   DeploymentReadiness,
   DetectionRunDetail,
   DetectionRunSummary,
+  DisseminationDetail,
+  DisseminationSummary,
+  RecipientType,
   FlaggedAccount,
   KpiStat,
   EntityDossier,
@@ -218,6 +222,25 @@ export interface ReportExportResponse {
 
 export interface STRListResponse {
   reports: STRReportSummary[];
+}
+
+export interface DisseminationCreatePayload {
+  recipientAgency: string;
+  recipientType: RecipientType;
+  subjectSummary: string;
+  linkedReportIds?: string[];
+  linkedEntityIds?: string[];
+  linkedCaseIds?: string[];
+  classification?: Classification;
+  metadata?: Record<string, unknown>;
+}
+
+export interface DisseminationListResponse {
+  disseminations: DisseminationSummary[];
+}
+
+export interface DisseminationMutationResponse {
+  dissemination: DisseminationDetail;
 }
 
 export interface STRMutationResponse {

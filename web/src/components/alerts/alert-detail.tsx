@@ -7,6 +7,7 @@ import { useRouter } from "next/navigation";
 import { AiExplanation } from "@/components/alerts/ai-explanation";
 import { AlertActions } from "@/components/alerts/alert-actions";
 import { Explainability } from "@/components/alerts/explainability";
+import { DisseminateAction } from "@/components/disseminations/disseminate-action";
 import { EmptyState } from "@/components/common/empty-state";
 import { LoadingState } from "@/components/common/loading";
 import { StatusBadge } from "@/components/common/status-badge";
@@ -230,16 +231,24 @@ export function AlertDetail({ alertId }: { alertId: string }) {
             error={error}
             onAction={runAction}
           />
-          {alert.entity && !alert.caseId ? (
-            <Button
-              type="button"
+          <div className="flex flex-wrap gap-3">
+            {alert.entity && !alert.caseId ? (
+              <Button
+                type="button"
+                variant="outline"
+                disabled={strDrafting || pendingAction !== null}
+                onClick={() => void draftStr()}
+              >
+                {strDrafting ? "Drafting STR..." : "Draft STR from alert"}
+              </Button>
+            ) : null}
+            <DisseminateAction
+              linkedEntityId={alert.entity?.id}
+              linkedCaseId={alert.caseId ?? undefined}
+              defaultSubject={`${alert.title}\n\n${alert.description}`}
               variant="outline"
-              disabled={strDrafting || pendingAction !== null}
-              onClick={() => void draftStr()}
-            >
-              {strDrafting ? "Drafting STR..." : "Draft STR from alert"}
-            </Button>
-          ) : null}
+            />
+          </div>
         </CardContent>
       </Card>
       <AiExplanation explanation={aiExplanation} isLoading={aiLoading} error={aiError} />
