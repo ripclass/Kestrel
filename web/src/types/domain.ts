@@ -525,3 +525,75 @@ export interface DisseminationDetail extends DisseminationSummary {
   linkedCaseIds: string[];
   metadata: Record<string, unknown>;
 }
+
+export type SavedQueryType =
+  | "entity_search"
+  | "transaction_search"
+  | "str_filter"
+  | "alert_filter"
+  | "case_filter"
+  | "custom";
+
+export interface SavedQuerySummary {
+  id: string;
+  orgId: string;
+  userId: string;
+  name: string;
+  description?: string | null;
+  queryType: SavedQueryType;
+  isShared: boolean;
+  lastRunAt?: string | null;
+  runCount: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface SavedQueryDetail extends SavedQuerySummary {
+  queryDefinition: Record<string, unknown>;
+}
+
+export interface DiagramSummary {
+  id: string;
+  orgId: string;
+  createdBy?: string | null;
+  title: string;
+  description?: string | null;
+  linkedCaseId?: string | null;
+  linkedStrId?: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface DiagramDetail extends DiagramSummary {
+  graphDefinition: Record<string, unknown>;
+}
+
+export type MatchExecutionStatus = "pending" | "running" | "completed" | "failed";
+
+export interface MatchExecutionSummary {
+  id: string;
+  definitionId: string;
+  executedAt: string;
+  executedBy?: string | null;
+  hitCount: number;
+  executionStatus: MatchExecutionStatus;
+  resultsSummary: Record<string, unknown>;
+}
+
+export interface MatchDefinitionSummary {
+  id: string;
+  orgId: string;
+  name: string;
+  description?: string | null;
+  isActive: boolean;
+  createdBy?: string | null;
+  createdAt: string;
+  updatedAt: string;
+  lastExecutionAt?: string | null;
+  totalHits: number;
+}
+
+export interface MatchDefinitionDetail extends MatchDefinitionSummary {
+  definition: Record<string, unknown>;
+  recentExecutions: MatchExecutionSummary[];
+}
