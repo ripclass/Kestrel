@@ -1,6 +1,8 @@
+from io import BytesIO
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, File, HTTPException, Query, Request, UploadFile, status
+from fastapi.responses import Response, StreamingResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.auth import AuthenticatedUser, get_current_user, require_roles
@@ -14,6 +16,7 @@ from app.schemas.str_report import (
     STRDraftUpsert,
 )
 from app.schemas.xml_import import XMLImportResponse
+from app.services.goaml_xml_export import render_str_xml
 from app.services.goaml_xml_import import import_goaml_xml
 from app.services.str_reports import (
     create_str_report,
@@ -25,10 +28,28 @@ from app.services.str_reports import (
     submit_str_report,
     update_str_report,
 )
+from app.services.xlsx_export import build_str_reports_xlsx
 
 _XML_IMPORT_MAX_BYTES = 10 * 1024 * 1024  # 10 MB
 
 router = APIRouter()
+
+
+@router.get("/export.xlsx")
+async def export_reports_xlsx(
+    user: Annotated[AuthenticatedUser, Depends(require_roles("analyst", "manager", "admin", "superadmin"))],
+    session: Annotated[AsyncSession, Depends(get_current_session)],
+    status_filter: Annotated[str | None, Query(alias="status")] = None,
+    report_type: Annotated[str | None, Query(alias="report_type")] = None,
+) -> StreamingResponse:
+    reports = await list_str_reports(session, status_filter=status_filter, report_type=report_type)
+    rows = [report.model_dump(mode="json") for report in reports]
+    payload = build_str_reports_xlsx(rows)
+    return StreamingResponse(
+        BytesIO(payload),
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": 'attachment; filename="kestrel-reports.xlsx"'},
+    )
 
 
 @router.get("", response_model=STRListResponse)
@@ -187,4 +208,21 @@ async def create_report_supplement(
         user=user,
         payload=payload,
         ip=request.client.host if request.client else None,
+    )
+
+
+@router.get("/{report_id}/export.xml")
+async def export_report_xml(
+    report_id: str,
+    user: Annotated[AuthenticatedUser, Depends(require_roles("analyst", "manager", "admin", "superadmin"))],
+    session: Annotated[AsyncSession, Depends(get_current_session)],
+) -> Response:
+    try:
+        xml_bytes = await render_str_xml(session, report_id=report_id)
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
+    return Response(
+        content=xml_bytes,
+        media_type="application/xml",
+        headers={"Content-Disposition": f'attachment; filename="str-{report_id}.xml"'},
     )

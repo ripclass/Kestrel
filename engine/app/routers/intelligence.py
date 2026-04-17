@@ -1,6 +1,8 @@
+from io import BytesIO
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, Query, Request
+from fastapi.responses import StreamingResponse
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -12,8 +14,38 @@ from app.schemas.investigate import EntitySearchResult
 from app.schemas.new_subject import NewSubjectRequest, NewSubjectResponse
 from app.services.investigation import list_matches, search_entities
 from app.services.new_subject import create_subject
+from app.services.xlsx_export import build_entities_xlsx
 
 router = APIRouter()
+
+
+@router.get("/entities/export.xlsx")
+async def export_entities_xlsx(
+    user: Annotated[AuthenticatedUser, Depends(require_roles("analyst", "manager", "admin", "superadmin"))],
+    session: Annotated[AsyncSession, Depends(get_current_session)],
+    query: str = Query(""),
+) -> StreamingResponse:
+    items = await search_entities(session, user=user, query=query)
+    rows: list[dict[str, object]] = []
+    for entity in items:
+        rows.append({
+            "id": entity.get("id"),
+            "entity_type": entity.get("entity_type"),
+            "display_value": entity.get("display_value"),
+            "display_name": entity.get("display_name"),
+            "risk_score": entity.get("risk_score"),
+            "severity": entity.get("severity"),
+            "report_count": entity.get("report_count"),
+            "reporting_orgs_count": len(entity.get("reporting_orgs", []) or []),
+            "total_exposure": entity.get("total_exposure"),
+            "status": entity.get("status"),
+        })
+    payload = build_entities_xlsx(rows)
+    return StreamingResponse(
+        BytesIO(payload),
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": 'attachment; filename="kestrel-entities.xlsx"'},
+    )
 
 
 @router.get("/entities", response_model=list[EntitySearchResult])
