@@ -7,10 +7,9 @@ export function NetworkControls() {
   const { showSuspiciousOnly, toggleSuspiciousOnly } = useGraphStore();
 
   return (
-    <div className="flex gap-3">
-      <Button variant="outline" onClick={toggleSuspiciousOnly}>
-        {showSuspiciousOnly ? "Show full graph" : "Show suspicious paths"}
-      </Button>
-    </div>
+    <Button variant="outline" size="sm" onClick={toggleSuspiciousOnly}>
+      <span aria-hidden className="mr-2 text-accent">┼</span>
+      {showSuspiciousOnly ? "Show full graph" : "Show suspicious paths"}
+    </Button>
   );
 }
