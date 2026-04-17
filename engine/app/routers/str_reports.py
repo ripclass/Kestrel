@@ -1,6 +1,6 @@
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, Query, Request
+from fastapi import APIRouter, Depends, File, HTTPException, Query, Request, UploadFile, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.auth import AuthenticatedUser, get_current_user, require_roles
@@ -13,6 +13,8 @@ from app.schemas.str_report import (
     STRReviewRequest,
     STRDraftUpsert,
 )
+from app.schemas.xml_import import XMLImportResponse
+from app.services.goaml_xml_import import import_goaml_xml
 from app.services.str_reports import (
     create_str_report,
     enrich_str_report,
@@ -22,6 +24,8 @@ from app.services.str_reports import (
     submit_str_report,
     update_str_report,
 )
+
+_XML_IMPORT_MAX_BYTES = 10 * 1024 * 1024  # 10 MB
 
 router = APIRouter()
 
@@ -48,6 +52,33 @@ async def create_report(
         session,
         user=user,
         payload=body.model_dump(),
+        ip=request.client.host if request.client else None,
+    )
+
+
+@router.post("/import-xml", response_model=XMLImportResponse)
+async def import_xml_report(
+    request: Request,
+    user: Annotated[AuthenticatedUser, Depends(require_roles("analyst", "manager", "admin", "superadmin"))],
+    session: Annotated[AsyncSession, Depends(get_current_session)],
+    file: Annotated[UploadFile, File()],
+) -> XMLImportResponse:
+    xml_bytes = await file.read()
+    if not xml_bytes:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Uploaded file is empty.",
+        )
+    if len(xml_bytes) > _XML_IMPORT_MAX_BYTES:
+        raise HTTPException(
+            status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+            detail=f"XML file exceeds {_XML_IMPORT_MAX_BYTES} bytes.",
+        )
+    return await import_goaml_xml(
+        session,
+        user=user,
+        xml_bytes=xml_bytes,
+        file_name=file.filename,
         ip=request.client.host if request.client else None,
     )
 
