@@ -93,6 +93,7 @@ export function AppSidebar({ viewer }: { viewer: Viewer }) {
                   <Link
                     key={item.href}
                     href={item.href}
+                    title={item.aka}
                     className={cn(
                       "flex items-center justify-between rounded-xl px-3 py-2.5 text-sm transition",
                       active

@@ -48,6 +48,13 @@ export function AnalystView() {
 
   return (
     <div className="space-y-6">
+      <div className="rounded-2xl border border-primary/30 bg-primary/5 px-4 py-3 text-sm">
+        Looking for goAML workflows? Every screen is here — see the{" "}
+        <a href="/docs/goaml-coverage" className="font-medium text-primary hover:underline">
+          Coverage guide
+        </a>{" "}
+        for the full mapping.
+      </div>
       <AlertTicker />
       <OverviewBrief title="Investigation pulse" headline={overview.headline} operational={overview.operational} />
       <div className="grid gap-4 xl:grid-cols-3">
