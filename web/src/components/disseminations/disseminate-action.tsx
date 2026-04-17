@@ -14,13 +14,10 @@ import type {
 import type { Classification, RecipientType } from "@/types/domain";
 
 type DisseminateActionProps = {
-  /** Preset link context — carries the originating record into the new dissemination. */
   linkedReportId?: string;
   linkedEntityId?: string;
   linkedCaseId?: string;
-  /** Optional pre-filled subject summary so the analyst only needs to append context. */
   defaultSubject?: string;
-  /** Called after a successful dissemination — use to refresh surrounding data. */
   onCompleted?: (dissemId: string) => void;
   triggerLabel?: string;
   variant?: "default" | "secondary" | "outline" | "ghost";
@@ -61,9 +58,7 @@ export function DisseminateAction({
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!open) {
-      setError(null);
-    }
+    if (!open) setError(null);
   }, [open]);
 
   useEffect(() => {
@@ -124,44 +119,47 @@ export function DisseminateAction({
       </Button>
       {open ? (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 p-4 backdrop-blur"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-background/85 p-4 backdrop-blur-sm"
           role="dialog"
           aria-modal="true"
           onClick={(event) => {
             if (event.target === event.currentTarget) setOpen(false);
           }}
         >
-          <div className="w-full max-w-2xl space-y-4 rounded-2xl border border-border bg-card p-6 shadow-xl">
-            <div className="flex items-start justify-between gap-4">
-              <div>
-                <h2 className="text-xl font-semibold">Record a dissemination</h2>
-                <p className="text-sm text-muted-foreground">
-                  Hand off to law enforcement, a regulator, or a foreign FIU. The dissemination ref and audit log are generated automatically.
+          <div className="w-full max-w-3xl border border-border bg-card">
+            <div className="flex items-start justify-between gap-4 border-b border-border px-6 py-5">
+              <div className="space-y-2">
+                <p className="font-mono text-[10px] uppercase tracking-[0.28em] text-accent">
+                  <span aria-hidden className="mr-2">┼</span>
+                  Dialog · Record dissemination
+                </p>
+                <h2 className="text-xl font-semibold text-foreground">Hand off intelligence</h2>
+                <p className="text-sm leading-relaxed text-muted-foreground">
+                  Transmit to law enforcement, a regulator, or a foreign FIU. The dissemination reference
+                  and audit log are generated automatically.
                 </p>
               </div>
               <button
                 type="button"
                 onClick={() => setOpen(false)}
-                className="text-sm text-muted-foreground hover:text-primary"
+                className="font-mono text-sm text-muted-foreground transition hover:text-accent"
                 aria-label="Close"
               >
                 ✕
               </button>
             </div>
 
-            <div className="grid gap-4 md:grid-cols-2">
-              <div className="space-y-2">
-                <label className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Recipient agency</label>
+            <div className="grid gap-5 px-6 py-5 md:grid-cols-2">
+              <Field label="Recipient agency">
                 <Input
                   value={recipientAgency}
                   onChange={(event) => setRecipientAgency(event.target.value)}
                   placeholder="Bangladesh Police — CID"
                 />
-              </div>
-              <div className="space-y-2">
-                <label className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Recipient type</label>
+              </Field>
+              <Field label="Recipient type">
                 <select
-                  className="h-11 w-full rounded-xl border border-input bg-background/60 px-4 text-sm outline-none focus:border-primary"
+                  className="h-11 w-full rounded-none border border-input bg-card px-4 text-sm outline-none focus:border-foreground"
                   value={recipientType}
                   onChange={(event) => setRecipientType(event.target.value as RecipientType)}
                 >
@@ -171,19 +169,19 @@ export function DisseminateAction({
                     </option>
                   ))}
                 </select>
+              </Field>
+              <div className="md:col-span-2">
+                <Field label="Subject summary">
+                  <Textarea
+                    value={subjectSummary}
+                    onChange={(event) => setSubjectSummary(event.target.value)}
+                    placeholder="One to three sentences describing what is being disseminated and why."
+                  />
+                </Field>
               </div>
-              <div className="space-y-2 md:col-span-2">
-                <label className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Subject summary</label>
-                <Textarea
-                  value={subjectSummary}
-                  onChange={(event) => setSubjectSummary(event.target.value)}
-                  placeholder="One to three sentences describing what is being disseminated and why."
-                />
-              </div>
-              <div className="space-y-2">
-                <label className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Classification</label>
+              <Field label="Classification">
                 <select
-                  className="h-11 w-full rounded-xl border border-input bg-background/60 px-4 text-sm outline-none focus:border-primary"
+                  className="h-11 w-full rounded-none border border-input bg-card px-4 text-sm uppercase outline-none focus:border-foreground"
                   value={classification}
                   onChange={(event) => setClassification(event.target.value as Classification)}
                 >
@@ -193,24 +191,27 @@ export function DisseminateAction({
                     </option>
                   ))}
                 </select>
-              </div>
-              <div className="space-y-2">
-                <label className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Linked context</label>
-                <p className="text-sm text-muted-foreground">
+              </Field>
+              <Field label="Linked context">
+                <p className="font-mono text-[11px] uppercase tracking-[0.22em] text-muted-foreground">
                   {linkedCaseId
-                    ? "Linked to the current case."
+                    ? "Linked to the current case"
                     : linkedReportId
-                      ? "Linked to the current STR."
+                      ? "Linked to the current STR"
                       : linkedEntityId
-                        ? "Linked to the current entity."
-                        : "No linked record (standalone)."}
+                        ? "Linked to the current entity"
+                        : "No linked record (standalone)"}
                 </p>
-              </div>
+              </Field>
             </div>
 
-            {error ? <p className="text-sm text-red-300">{error}</p> : null}
+            {error ? (
+              <p className="px-6 pb-2 font-mono text-xs uppercase tracking-[0.18em] text-destructive">
+                <span aria-hidden className="mr-2">┼</span>ERROR · {error}
+              </p>
+            ) : null}
 
-            <div className="flex justify-end gap-3">
+            <div className="flex justify-end gap-2 border-t border-border px-6 py-4">
               <Button type="button" variant="ghost" onClick={() => setOpen(false)} disabled={submitting}>
                 Cancel
               </Button>
@@ -222,5 +223,16 @@ export function DisseminateAction({
         </div>
       ) : null}
     </>
+  );
+}
+
+function Field({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <label className="flex flex-col gap-2">
+      <span className="font-mono text-[10px] uppercase tracking-[0.28em] text-muted-foreground">
+        {label}
+      </span>
+      {children}
+    </label>
   );
 }

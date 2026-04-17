@@ -3,7 +3,6 @@
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { detailFromPayload, readResponsePayload } from "@/lib/http";
 import type { STRListResponse } from "@/types/api";
 import type { STRReportSummary } from "@/types/domain";
@@ -40,42 +39,45 @@ export function SupplementList({ parentId }: { parentId: string }) {
   if (loading) return null;
   if (error) {
     return (
-      <Card>
-        <CardContent className="py-4 text-sm text-red-300">{error}</CardContent>
-      </Card>
+      <p className="font-mono text-xs uppercase tracking-[0.18em] text-destructive">
+        <span aria-hidden className="mr-2">┼</span>ERROR · {error}
+      </p>
     );
   }
   if (supplements.length === 0) return null;
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Supplements</CardTitle>
-        <CardDescription>
-          Additional Information Files linked to this report. Each one carries its own audit trail but shares the parent&apos;s subject identity.
-        </CardDescription>
-      </CardHeader>
-      <CardContent className="space-y-2">
+    <section className="border border-border">
+      <div className="border-b border-border px-6 py-5">
+        <p className="font-mono text-[10px] uppercase tracking-[0.28em] text-muted-foreground">
+          <span aria-hidden className="mr-2 text-accent">┼</span>
+          Section · Supplements
+        </p>
+        <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
+          Additional Information Files linked to this report. Each one carries its own audit trail but
+          shares the parent&apos;s subject identity.
+        </p>
+      </div>
+      <ul className="divide-y divide-border">
         {supplements.map((supplement) => (
-          <Link
-            key={supplement.id}
-            href={`/strs/${supplement.id}`}
-            className="block rounded-xl border border-border/70 bg-background/60 p-3 transition hover:border-primary/60"
-          >
-            <div className="flex flex-wrap items-center justify-between gap-3">
+          <li key={supplement.id}>
+            <Link
+              href={`/strs/${supplement.id}`}
+              className="flex flex-wrap items-center justify-between gap-3 px-6 py-4 transition hover:bg-foreground/[0.03]"
+            >
               <div className="flex flex-wrap items-center gap-3">
-                <span className="font-mono text-sm">{supplement.reportRef}</span>
-                <span className="text-xs uppercase tracking-widest text-muted-foreground">
+                <span className="font-mono text-sm text-foreground">{supplement.reportRef}</span>
+                <span className="font-mono text-[10px] uppercase tracking-[0.22em] text-muted-foreground">
                   {supplement.status.replaceAll("_", " ")}
                 </span>
               </div>
-              <span className="text-xs text-muted-foreground">
+              <span className="font-mono text-[11px] uppercase tracking-[0.22em] text-muted-foreground">
                 Opened {new Date(supplement.createdAt).toLocaleString()}
               </span>
-            </div>
-          </Link>
+            </Link>
+          </li>
         ))}
-      </CardContent>
-    </Card>
+      </ul>
+    </section>
   );
 }

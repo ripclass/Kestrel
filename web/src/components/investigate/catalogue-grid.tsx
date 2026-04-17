@@ -101,7 +101,7 @@ export function CatalogueGrid() {
           >
             <div className="flex items-baseline justify-between">
               <span className="font-mono text-[10px] uppercase tracking-[0.28em] text-muted-foreground">
-                {`Tile 0${i + 1 < 10 ? i + 1 : i + 1}`}
+                {`Tile ${String(i + 1).padStart(2, "0")}`}
               </span>
               <span
                 aria-hidden

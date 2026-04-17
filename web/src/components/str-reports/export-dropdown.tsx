@@ -47,17 +47,21 @@ export function ExportDropdown({
       {open ? (
         <div
           role="menu"
-          className="absolute right-0 z-10 mt-2 w-64 overflow-hidden rounded-xl border border-border bg-card shadow-lg"
+          className="absolute right-0 z-10 mt-2 w-72 divide-y divide-border border border-border bg-card"
         >
           {options.map((option) => (
             <a
               key={option.href}
               href={option.href}
-              className="block px-4 py-2 text-sm transition hover:bg-background/60"
+              className="block px-4 py-3 transition hover:bg-foreground/[0.03]"
               onClick={() => setOpen(false)}
             >
-              <div className="font-medium">{option.label}</div>
-              {option.hint ? <div className="text-xs text-muted-foreground">{option.hint}</div> : null}
+              <div className="text-sm font-medium text-foreground">{option.label}</div>
+              {option.hint ? (
+                <div className="mt-1 font-mono text-[10px] uppercase tracking-[0.22em] text-muted-foreground">
+                  {option.hint}
+                </div>
+              ) : null}
             </a>
           ))}
         </div>

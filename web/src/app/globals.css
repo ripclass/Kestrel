@@ -187,3 +187,12 @@ a {
     linear-gradient(to bottom, rgba(234, 230, 218, 0.035) 1px, transparent 1px);
   background-size: 4rem 4rem;
 }
+
+/* Brutalism: flatten rounded-full pills inside the platform surface.
+ * Tailwind's rounded-full is 9999px literal — it's not tied to --radius, so
+ * it survives the radius: 0 reset. This override catches every pill (filter
+ * tabs, persona switchers, small roundels) and squares them. Opt back into
+ * roundels with an explicit rounded-[999px] when you need one. */
+.platform-surface [class~="rounded-full"] {
+  border-radius: 0;
+}

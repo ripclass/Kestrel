@@ -58,45 +58,48 @@ export function ProposalDecisionPanel({
   const alreadyDecided = decision !== "pending";
 
   return (
-    <div className="rounded-xl border border-amber-500/30 bg-amber-500/5 p-4">
-      <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
-        <div>
-          <p className="text-sm font-semibold">Case proposal</p>
-          <p className="text-xs text-muted-foreground">
-            {alreadyDecided
-              ? `This proposal was ${decision}${decidedBy ? ` by ${decidedBy}` : ""}${
-                  decidedAt ? ` on ${new Date(decidedAt).toLocaleString()}` : ""
-                }.`
-              : "Decide whether to promote this proposal into a standard case, or reject it outright."}
-          </p>
-        </div>
+    <section className="border border-accent/40 bg-accent/[0.04]">
+      <div className="border-b border-accent/30 px-5 py-3">
+        <p className="font-mono text-[10px] uppercase tracking-[0.28em] text-accent">
+          <span aria-hidden className="mr-2">┼</span>
+          Proposal decision {alreadyDecided ? `· ${decision}` : "· pending"}
+        </p>
       </div>
-      {!alreadyDecided ? (
-        <div className="mt-4 space-y-3">
-          <Textarea
-            value={note}
-            onChange={(event) => setNote(event.target.value)}
-            placeholder="Optional note — captured on the case timeline."
-          />
-          <div className="flex flex-wrap gap-3">
-            <Button
-              type="button"
-              disabled={disabled || pending !== null}
-              onClick={() => void decide("approved")}
-            >
-              {pending === "approved" ? "Approving..." : "Approve (open as case)"}
-            </Button>
-            <Button
-              type="button"
-              variant="outline"
-              disabled={disabled || pending !== null}
-              onClick={() => void decide("rejected")}
-            >
-              {pending === "rejected" ? "Rejecting..." : "Reject"}
-            </Button>
-          </div>
-        </div>
-      ) : null}
-    </div>
+      <div className="space-y-4 px-5 py-5">
+        <p className="text-sm leading-relaxed text-foreground">
+          {alreadyDecided
+            ? `This proposal was ${decision}${decidedBy ? ` by ${decidedBy}` : ""}${
+                decidedAt ? ` on ${new Date(decidedAt).toLocaleString()}` : ""
+              }.`
+            : "Decide whether to promote this proposal into a standard case, or reject it outright."}
+        </p>
+        {!alreadyDecided ? (
+          <>
+            <Textarea
+              value={note}
+              onChange={(event) => setNote(event.target.value)}
+              placeholder="Optional note — captured on the case timeline."
+            />
+            <div className="flex flex-wrap gap-2">
+              <Button
+                type="button"
+                disabled={disabled || pending !== null}
+                onClick={() => void decide("approved")}
+              >
+                {pending === "approved" ? "Approving…" : "Approve — open as case"}
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                disabled={disabled || pending !== null}
+                onClick={() => void decide("rejected")}
+              >
+                {pending === "rejected" ? "Rejecting…" : "Reject"}
+              </Button>
+            </div>
+          </>
+        ) : null}
+      </div>
+    </section>
   );
 }

@@ -35,9 +35,7 @@ export function AlertQueue({ alertsToShow }: { alertsToShow?: number }) {
     })();
   }, []);
 
-  if (isLoading) {
-    return <LoadingState label="Loading alert queue..." />;
-  }
+  if (isLoading) return <LoadingState label="Loading alert queue…" />;
 
   if (error) {
     return <EmptyState title="Alert queue unavailable" description={error} />;
@@ -55,7 +53,7 @@ export function AlertQueue({ alertsToShow }: { alertsToShow?: number }) {
   }
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-3">
       {queue.map((alert) => (
         <AlertCard key={alert.id} alert={alert} />
       ))}
