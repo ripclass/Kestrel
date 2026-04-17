@@ -224,6 +224,18 @@ export interface DetectionRunDetail extends DetectionRunSummary {
   error?: string;
 }
 
+export type CaseVariant =
+  | "standard"
+  | "proposal"
+  | "rfi"
+  | "operation"
+  | "project"
+  | "escalated"
+  | "complaint"
+  | "adverse_media";
+
+export type ProposalDecision = "approved" | "rejected" | "pending";
+
 export interface CaseSummary {
   id: string;
   caseRef: string;
@@ -235,6 +247,11 @@ export interface CaseSummary {
   assignedTo?: string;
   linkedEntityIds: string[];
   linkedAlertIds: string[];
+  variant: CaseVariant;
+  parentCaseId?: string | null;
+  proposalDecision?: ProposalDecision | null;
+  requestedBy?: string | null;
+  requestedFrom?: string | null;
 }
 
 export interface CaseNote {
@@ -249,6 +266,8 @@ export interface CaseWorkspace extends CaseSummary {
   evidenceEntities: EntitySummary[];
   notes: CaseNote[];
   graph?: NetworkGraph;
+  proposalDecidedBy?: string | null;
+  proposalDecidedAt?: string | null;
 }
 
 export interface ComplianceScore {

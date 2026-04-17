@@ -168,6 +168,34 @@ export interface CaseMutationResponse {
   case: CaseWorkspace;
 }
 
+export interface CaseProposePayload {
+  title: string;
+  summary?: string;
+  severity?: string;
+  category?: string;
+  linkedAlertIds?: string[];
+  linkedEntityIds?: string[];
+  totalExposure?: number;
+}
+
+export interface CaseDecidePayload {
+  decision: "approved" | "rejected";
+  note?: string;
+}
+
+export interface CaseRfiPayload {
+  title: string;
+  summary: string;
+  requestedFrom: string;
+  parentCaseId?: string;
+  linkedAlertIds?: string[];
+  linkedEntityIds?: string[];
+}
+
+export interface CaseListResponse {
+  cases: CaseSummary[];
+}
+
 export interface TypologyListResponse {
   typologies: TypologySummary[];
 }

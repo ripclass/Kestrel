@@ -6,6 +6,7 @@ import { CaseTimeline } from "@/components/cases/case-timeline";
 import { CaseNotes } from "@/components/cases/case-notes";
 import { CaseEvidence } from "@/components/cases/case-evidence";
 import { CaseExport } from "@/components/cases/case-export";
+import { ProposalDecisionPanel } from "@/components/cases/proposal-decision-panel";
 import { Currency } from "@/components/common/currency";
 import { DisseminateAction } from "@/components/disseminations/disseminate-action";
 import { EmptyState } from "@/components/common/empty-state";
@@ -116,6 +117,9 @@ export function CaseWorkspace({ caseId }: { caseId: string }) {
             </div>
             <div className="flex flex-wrap items-center gap-3">
               <StatusBadge status={workspace.status} />
+              <span className="inline-flex items-center rounded-full border border-border px-2 py-0.5 text-xs font-semibold uppercase tracking-widest text-muted-foreground">
+                {workspace.variant.replaceAll("_", " ")}
+              </span>
               <span className="text-sm text-muted-foreground">
                 Exposure: <Currency amount={workspace.totalExposure} />
               </span>
@@ -127,7 +131,33 @@ export function CaseWorkspace({ caseId }: { caseId: string }) {
           <div className="flex flex-wrap items-center gap-3 text-sm text-muted-foreground">
             <span>{workspace.linkedEntityIds.length} linked entities</span>
             <span>{workspace.linkedAlertIds.length} linked alerts</span>
+            {workspace.parentCaseId ? (
+              <a href={`/cases/${workspace.parentCaseId}`} className="text-primary hover:underline">
+                ↖ Parent case
+              </a>
+            ) : null}
+            {workspace.variant === "rfi" && workspace.requestedBy ? (
+              <span>Requested by: {workspace.requestedBy}</span>
+            ) : null}
+            {workspace.variant === "rfi" && workspace.requestedFrom ? (
+              <span>Requested from: {workspace.requestedFrom}</span>
+            ) : null}
           </div>
+          {workspace.variant === "proposal" ? (
+            <ProposalDecisionPanel
+              caseId={caseId}
+              decision={workspace.proposalDecision ?? "pending"}
+              decidedBy={workspace.proposalDecidedBy}
+              decidedAt={workspace.proposalDecidedAt}
+              disabled={pendingAction !== null}
+              onDecided={(nextCase) => {
+                setWorkspace(nextCase);
+                setStatus(nextCase.status);
+                setNotice(`Proposal ${nextCase.proposalDecision}.`);
+              }}
+              onError={(message) => setError(message)}
+            />
+          ) : null}
           <div className="flex flex-wrap gap-3">
             <Button
               type="button"

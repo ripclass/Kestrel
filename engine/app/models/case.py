@@ -28,3 +28,13 @@ class Case(TimestampMixin, Base):
     tags: Mapped[list[str]] = mapped_column(ARRAY(String), default=list)
     due_date: Mapped[datetime | None] = mapped_column(Date())
     closed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+    variant: Mapped[str] = mapped_column(String(32), default="standard")
+    parent_case_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("cases.id")
+    )
+    requested_by: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True))
+    requested_from: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True))
+    proposal_decision: Mapped[str | None] = mapped_column(String(16))
+    proposal_decided_by: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True))
+    proposal_decided_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))

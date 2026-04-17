@@ -1,11 +1,11 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 
 import { proxyEngineRequest } from "@/lib/engine-server";
 import { detailFromPayload, readResponsePayload } from "@/lib/http";
 import { normalizeCaseSummary } from "@/lib/cases";
 
-export async function GET() {
-  const response = await proxyEngineRequest("/cases");
+export async function GET(request: NextRequest) {
+  const response = await proxyEngineRequest(`/cases${request.nextUrl.search}`);
   const payload = await readResponsePayload<unknown[]>(response);
 
   if (!response.ok) {
