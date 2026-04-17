@@ -7,6 +7,7 @@ import type { STRReportDetail, Viewer } from "@/types/domain";
 import { Currency } from "@/components/common/currency";
 import { DisseminateAction } from "@/components/disseminations/disseminate-action";
 import { StatusBadge } from "@/components/common/status-badge";
+import { ExportDropdown } from "@/components/str-reports/export-dropdown";
 import { SupplementAction } from "@/components/str-reports/supplement-action";
 import { SupplementList } from "@/components/str-reports/supplement-list";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -289,6 +290,20 @@ export function STRReportWorkspace({
                 variant="outline"
               />
               {report.reportType !== "additional_info" ? <SupplementAction parent={report} /> : null}
+              <ExportDropdown
+                options={[
+                  {
+                    label: "Export as goAML XML",
+                    href: `/api/str-reports/${report.id}/export-xml`,
+                    hint: "Inverse of the goAML XML import — hands off to peer FIUs.",
+                  },
+                  {
+                    label: "Export reports list (Excel)",
+                    href: "/api/str-reports/export",
+                    hint: "Every report visible in the current scope.",
+                  },
+                ]}
+              />
             </div>
           </div>
         </CardHeader>
