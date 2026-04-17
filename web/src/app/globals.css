@@ -102,6 +102,64 @@ html.dark {
   --landing-muted: #8E929A;
 }
 
+/*
+ * Sovereign Ledger — authenticated product surface.
+ *
+ * Scope: any descendant of `.platform-surface`. This overrides the
+ * `html.dark` tokens so the platform renders in Sovereign Ledger without
+ * touching the landing (which uses its own `--landing-*` tokens and isn't
+ * wrapped in this class).
+ *
+ * Adding .platform-surface to the platform layout (web/src/app/(platform)/
+ * layout.tsx) cascades the palette to every component using
+ * bg-background / text-foreground / border-border / text-primary / etc.
+ */
+.platform-surface {
+  --background: #0F1115;
+  --foreground: #EAE6DA;
+  --card: #15171C;
+  --card-foreground: #EAE6DA;
+  --popover: #15171C;
+  --popover-foreground: #EAE6DA;
+
+  /* Primary is the foreground — buttons are inverted bone-white tiles. */
+  --primary: #EAE6DA;
+  --primary-foreground: #0F1115;
+
+  --secondary: #1A1C21;
+  --secondary-foreground: #EAE6DA;
+  --muted: #15171C;
+  --muted-foreground: #8E929A;
+
+  /* Accent + destructive are BOTH vermillion — used sparingly for alarm. */
+  --accent: #FF3823;
+  --accent-foreground: #0F1115;
+  --destructive: #FF3823;
+  --destructive-foreground: #0F1115;
+
+  --border: rgba(234, 230, 218, 0.10);
+  --input: rgba(234, 230, 218, 0.10);
+  --ring: #FF3823;
+
+  /* Brutalism: zero radius everywhere. rounded-lg / rounded-xl / rounded-3xl
+     all compute to 0 via the @theme inline calcs above. */
+  --radius: 0rem;
+
+  --sidebar: #0B0C10;
+  --sidebar-foreground: #EAE6DA;
+  --sidebar-accent: #15171C;
+  --sidebar-border: rgba(234, 230, 218, 0.08);
+
+  /* Swap the default font stack for IBM Plex pair. Plex Sans is the
+     humanist body face; Plex Mono carries IDs, timestamps, amounts, codes. */
+  --font-sans: var(--font-plex-sans), ui-sans-serif, system-ui, sans-serif;
+  --font-mono: var(--font-plex-mono), ui-monospace, monospace;
+
+  background: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-sans);
+}
+
 * {
   border-color: var(--border);
 }
@@ -120,4 +178,12 @@ a {
 
 .panel-glow {
   box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.03), 0 24px 80px rgba(4, 13, 27, 0.3);
+}
+
+/* Hairline overlay used by the platform shell to suggest a 1px Swiss grid. */
+.platform-surface .platform-grid-overlay {
+  background-image:
+    linear-gradient(to right, rgba(234, 230, 218, 0.035) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(234, 230, 218, 0.035) 1px, transparent 1px);
+  background-size: 4rem 4rem;
 }

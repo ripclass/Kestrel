@@ -1,7 +1,8 @@
-export function LoadingState({ label = "Loading Kestrel intelligence..." }: { label?: string }) {
+export function LoadingState({ label = "Loading Kestrel intelligence…" }: { label?: string }) {
   return (
-    <div className="rounded-2xl border border-border/80 bg-card/60 px-5 py-8 text-sm text-muted-foreground">
-      {label}
+    <div className="flex items-center gap-3 border border-border bg-card px-5 py-8 font-mono text-xs uppercase tracking-[0.22em] text-muted-foreground">
+      <span aria-hidden className="leading-none text-accent">┼</span>
+      <span>{label}</span>
     </div>
   );
 }

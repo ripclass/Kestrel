@@ -2,10 +2,8 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Bell, Command } from "lucide-react";
+import { Bell } from "lucide-react";
 
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { SearchInput } from "@/components/common/search-input";
 import { DemoPersonaSwitcher } from "@/components/shell/demo-persona-switcher";
@@ -31,36 +29,44 @@ export function AppTopbar({
   }
 
   return (
-    <header className="sticky top-0 z-20 border-b border-border/70 bg-background/90 px-4 py-4 backdrop-blur xl:px-8">
-      <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+    <header className="sticky top-0 z-20 border-b border-border bg-background/95 backdrop-blur-sm">
+      <div className="flex flex-col gap-4 px-6 py-4 lg:flex-row lg:items-center lg:justify-between xl:px-10">
         <div className="flex flex-1 items-center gap-4">
           <div className="relative max-w-2xl flex-1">
             <SearchInput placeholder="Search account, phone, wallet, NID, or business name" />
           </div>
-          <Badge className="hidden bg-primary/15 text-primary lg:inline-flex">
-            <Command className="mr-1.5 h-3.5 w-3.5" />
-            universal search
-          </Badge>
+          <span className="hidden items-center gap-2 border border-border px-3 py-1.5 font-mono text-[10px] uppercase tracking-[0.22em] text-muted-foreground lg:inline-flex">
+            <span aria-hidden className="leading-none text-accent">┼</span>
+            Universal search
+          </span>
         </div>
         <div className="flex items-center gap-3">
           {showDemoSwitcher ? (
             <DemoPersonaSwitcher activePersona={viewer.persona} />
-          ) : null}
-          {!showDemoSwitcher ? (
+          ) : (
             <Button disabled={isPending} variant="outline" onClick={handleSignOut}>
-              {isPending ? "Signing out..." : "Sign out"}
+              {isPending ? "Signing out…" : "Sign out"}
             </Button>
-          ) : null}
-          <button className="rounded-full border border-border/70 bg-card p-2 text-muted-foreground transition hover:text-foreground">
+          )}
+          <button
+            type="button"
+            aria-label="Notifications"
+            className="border border-border bg-card p-2 text-muted-foreground transition hover:border-foreground hover:text-foreground"
+          >
             <Bell className="h-4 w-4" />
           </button>
-          <div className="flex items-center gap-3 rounded-full border border-border/70 bg-card px-3 py-2">
-            <Avatar className="h-8 w-8">
-              <AvatarFallback>{viewer.fullName.charAt(0)}</AvatarFallback>
-            </Avatar>
+          <div className="flex items-center gap-3 border border-border bg-card px-4 py-2">
+            <span
+              aria-hidden
+              className="flex h-8 w-8 items-center justify-center border border-border bg-background font-mono text-sm uppercase text-foreground"
+            >
+              {viewer.fullName.charAt(0)}
+            </span>
             <div className="hidden text-sm md:block">
-              <p>{viewer.fullName}</p>
-              <p className="text-xs text-muted-foreground">{viewer.persona.replaceAll("_", " ")}</p>
+              <p className="font-medium text-foreground">{viewer.fullName}</p>
+              <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-muted-foreground">
+                {viewer.persona.replaceAll("_", " ")}
+              </p>
             </div>
           </div>
         </div>

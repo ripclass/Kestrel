@@ -1,24 +1,42 @@
 import { Badge } from "@/components/ui/badge";
 
+/**
+ * Status semantics collapsed to Sovereign Ledger's three-tone system:
+ *   - ALARM    — vermillion accent. Active, flagged, confirmed, escalated, failed.
+ *   - ACTIVE   — bone foreground, solid. Mid-flight work.
+ *   - MUTED    — dimmed. Resolved, dismissed, drafted, completed, pending.
+ *
+ * In the legacy dark theme (non-platform scope) these map to the existing
+ * accent / foreground / muted tokens — colour shifts palette but semantics
+ * hold.
+ */
+const alarm = "border-accent/40 bg-accent/10 text-accent";
+const active = "border-foreground/30 bg-foreground/10 text-foreground";
+const muted = "border-border bg-white/[0.03] text-muted-foreground";
+
 const statusClassMap: Record<string, string> = {
-  open: "border-sky-400/30 bg-sky-500/15 text-sky-300",
-  draft: "border-zinc-400/30 bg-zinc-500/15 text-zinc-200",
-  submitted: "border-sky-400/30 bg-sky-500/15 text-sky-300",
-  under_review: "border-amber-400/30 bg-amber-500/15 text-amber-300",
-  flagged: "border-red-400/30 bg-red-500/15 text-red-300",
-  confirmed: "border-red-400/30 bg-red-500/15 text-red-300",
-  dismissed: "border-emerald-400/30 bg-emerald-500/15 text-emerald-300",
-  reviewing: "border-amber-400/30 bg-amber-500/15 text-amber-300",
-  escalated: "border-red-400/30 bg-red-500/15 text-red-300",
-  true_positive: "border-red-400/30 bg-red-500/15 text-red-300",
-  false_positive: "border-emerald-400/30 bg-emerald-500/15 text-emerald-300",
-  investigating: "border-amber-400/30 bg-amber-500/15 text-amber-300",
-  completed: "border-emerald-400/30 bg-emerald-500/15 text-emerald-300",
-  processing: "border-sky-400/30 bg-sky-500/15 text-sky-300",
-  pending: "border-zinc-400/30 bg-zinc-500/15 text-zinc-200",
-  failed: "border-red-400/30 bg-red-500/15 text-red-300",
+  open: active,
+  draft: muted,
+  submitted: active,
+  under_review: active,
+  flagged: alarm,
+  confirmed: alarm,
+  dismissed: muted,
+  reviewing: active,
+  escalated: alarm,
+  true_positive: alarm,
+  false_positive: muted,
+  investigating: active,
+  completed: muted,
+  processing: active,
+  pending: muted,
+  failed: alarm,
 };
 
 export function StatusBadge({ status }: { status: string }) {
-  return <Badge className={statusClassMap[status] ?? "bg-white/5"}>{status.replaceAll("_", " ")}</Badge>;
+  return (
+    <Badge className={`${statusClassMap[status] ?? muted} font-mono uppercase tracking-[0.12em]`}>
+      {status.replaceAll("_", " ")}
+    </Badge>
+  );
 }

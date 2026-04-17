@@ -10,7 +10,7 @@ export default async function AlertPage({
 
   return (
     <PageFrame
-      eyebrow="Alert detail"
+      eyebrow="Alert detail · Workspace"
       title="Alert workspace"
       description="Review explainability, assign ownership, disposition the alert, and escalate into a linked case."
     >

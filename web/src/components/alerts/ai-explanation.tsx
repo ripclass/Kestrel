@@ -14,13 +14,15 @@ export function AiExplanation({
     return (
       <Card>
         <CardHeader>
-          <CardTitle>AI Analysis</CardTitle>
+          <p className="font-mono text-[10px] uppercase tracking-[0.28em] text-muted-foreground">
+            <span aria-hidden className="mr-2 text-accent">┼</span>Section · AI Analysis
+          </p>
+          <CardTitle className="font-mono uppercase tracking-[0.12em]">Generating explanation</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="flex items-center gap-2 text-sm text-muted-foreground">
-            <span className="inline-block h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
-            Generating explanation...
-          </div>
+          <p className="font-mono text-xs uppercase tracking-[0.18em] text-muted-foreground">
+            Transmitting…
+          </p>
         </CardContent>
       </Card>
     );
@@ -33,26 +35,38 @@ export function AiExplanation({
   return (
     <Card>
       <CardHeader>
-        <CardTitle>AI Analysis</CardTitle>
+        <p className="font-mono text-[10px] uppercase tracking-[0.28em] text-muted-foreground">
+          <span aria-hidden className="mr-2 text-accent">┼</span>Section · AI Analysis
+        </p>
+        <CardTitle className="font-mono uppercase tracking-[0.12em]">Analyst briefing</CardTitle>
       </CardHeader>
-      <CardContent className="space-y-4">
-        <div>
-          <p className="text-sm font-medium">Summary</p>
-          <p className="mt-1 text-sm text-muted-foreground">{explanation.summary}</p>
-        </div>
-        <div>
-          <p className="text-sm font-medium">Why it matters</p>
-          <p className="mt-1 text-sm text-muted-foreground">{explanation.whyItMatters}</p>
-        </div>
+      <CardContent className="space-y-6">
+        <section>
+          <p className="font-mono text-[10px] uppercase tracking-[0.28em] text-muted-foreground">
+            Summary
+          </p>
+          <p className="mt-2 text-sm leading-relaxed text-foreground">{explanation.summary}</p>
+        </section>
+        <section>
+          <p className="font-mono text-[10px] uppercase tracking-[0.28em] text-muted-foreground">
+            Why it matters
+          </p>
+          <p className="mt-2 text-sm leading-relaxed text-foreground">{explanation.whyItMatters}</p>
+        </section>
         {explanation.recommendedActions.length > 0 ? (
-          <div>
-            <p className="text-sm font-medium">Recommended actions</p>
-            <ul className="mt-1 list-disc pl-5 text-sm text-muted-foreground">
+          <section>
+            <p className="font-mono text-[10px] uppercase tracking-[0.28em] text-muted-foreground">
+              Recommended actions
+            </p>
+            <ul className="mt-3 space-y-2">
               {explanation.recommendedActions.map((action) => (
-                <li key={action}>{action}</li>
+                <li key={action} className="flex items-start gap-3 text-sm leading-relaxed text-foreground">
+                  <span aria-hidden className="pt-1 font-mono leading-none text-accent">┼</span>
+                  <span>{action}</span>
+                </li>
               ))}
             </ul>
-          </div>
+          </section>
         ) : null}
       </CardContent>
     </Card>
