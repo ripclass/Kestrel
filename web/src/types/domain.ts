@@ -690,3 +690,26 @@ export interface ScheduleList {
   workers: ScheduleWorker[];
   generatedAt: string;
 }
+
+export interface IERSummary {
+  id: string;
+  reportRef: string;
+  status: string;
+  direction: IERDirection;
+  counterpartyFiu: string;
+  counterpartyCountry?: string | null;
+  egmontRef?: string | null;
+  deadline?: string | null;
+  hasResponse: boolean;
+  orgName: string;
+  createdAt: string;
+  updatedAt?: string | null;
+}
+
+export interface IERDetail extends IERSummary {
+  requestNarrative?: string | null;
+  responseNarrative?: string | null;
+  narrative?: string | null;
+  linkedEntityIds: string[];
+  reportedAt?: string | null;
+}

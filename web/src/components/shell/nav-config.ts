@@ -18,6 +18,7 @@ const navItems: NavItem[] = [
   { section: "Operations", label: "STRs", href: "/strs" },
   { section: "Operations", label: "Alerts", href: "/alerts" },
   { section: "Operations", label: "Cases", href: "/cases" },
+  { section: "Operations", label: "Exchange", href: "/iers" },
   { section: "Operations", label: "Scan", href: "/scan", personas: ["bank_camlco"] },
   { section: "Command", label: "National", href: "/reports/national", personas: ["bfiu_director", "bfiu_analyst"] },
   { section: "Command", label: "Compliance", href: "/reports/compliance", personas: ["bfiu_director", "bank_camlco"] },
