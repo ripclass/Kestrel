@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from "react";
 
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -17,6 +16,17 @@ const EXAMPLE_DEFINITION = `{
   "scoring": { "base": 60 },
   "severity_thresholds": { "high": 70, "critical": 90 }
 }`;
+
+function Field({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <label className="flex flex-col gap-2">
+      <span className="font-mono text-[10px] uppercase tracking-[0.28em] text-muted-foreground">
+        {label}
+      </span>
+      {children}
+    </label>
+  );
+}
 
 export function MatchDefinitionsAdmin() {
   const [records, setRecords] = useState<MatchDefinitionSummary[]>([]);
@@ -43,7 +53,9 @@ export function MatchDefinitionsAdmin() {
         setError(detailFromPayload(payload, "Unable to load match definitions."));
         return;
       }
-      setRecords((payload as { matchDefinitions: MatchDefinitionSummary[] }).matchDefinitions);
+      setRecords(
+        (payload as { matchDefinitions: MatchDefinitionSummary[] }).matchDefinitions,
+      );
       setError(null);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Unable to load match definitions.");
@@ -145,65 +157,87 @@ export function MatchDefinitionsAdmin() {
 
   return (
     <div className="space-y-6">
-      <Card>
-        <CardHeader>
-          <CardTitle>New match definition</CardTitle>
-          <CardDescription>
-            Define a JSON policy. v1 records executions but does not yet run the evaluator against live transactions
-            — the 8 system rules still cover detection in production.
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
+      <section className="border border-border">
+        <div className="border-b border-border px-6 py-5">
+          <p className="font-mono text-[10px] uppercase tracking-[0.28em] text-muted-foreground">
+            <span aria-hidden className="mr-2 text-accent">┼</span>
+            Section · New match definition
+          </p>
+          <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
+            Define a JSON policy. v1 records executions but does not yet run the evaluator against live
+            transactions — the 8 system rules still cover detection in production.
+          </p>
+        </div>
+        <div className="space-y-5 p-6">
           <div className="grid gap-4 md:grid-cols-2">
-            <div className="space-y-2">
-              <label className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Name</label>
-              <Input value={name} onChange={(event) => setName(event.target.value)} placeholder="High-value border district transfers" />
-            </div>
-            <div className="space-y-2">
-              <label className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Description</label>
+            <Field label="Name">
+              <Input
+                value={name}
+                onChange={(event) => setName(event.target.value)}
+                placeholder="High-value border district transfers"
+              />
+            </Field>
+            <Field label="Description">
               <Input value={description} onChange={(event) => setDescription(event.target.value)} />
-            </div>
+            </Field>
           </div>
-          <div className="space-y-2">
-            <label className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Definition (JSON)</label>
+          <Field label="Definition (JSON)">
             <Textarea
               value={definition}
               onChange={(event) => setDefinition(event.target.value)}
               rows={10}
               className="font-mono text-xs"
             />
-          </div>
-          {error ? <p className="text-sm text-red-300">{error}</p> : null}
-          {notice ? <p className="text-sm text-primary/80">{notice}</p> : null}
-          <div className="flex justify-end">
+          </Field>
+          {error ? (
+            <p className="font-mono text-xs uppercase tracking-[0.18em] text-destructive">
+              <span aria-hidden className="mr-2">┼</span>ERROR · {error}
+            </p>
+          ) : null}
+          {notice ? (
+            <p className="font-mono text-xs uppercase tracking-[0.18em] text-accent">
+              <span aria-hidden className="mr-2">┼</span>
+              {notice}
+            </p>
+          ) : null}
+          <div className="flex justify-end border-t border-border pt-4">
             <Button type="button" disabled={creating || !name.trim()} onClick={() => void create()}>
               {creating ? "Creating…" : "Create match definition"}
             </Button>
           </div>
-        </CardContent>
-      </Card>
+        </div>
+      </section>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Active definitions</CardTitle>
-          <CardDescription>Run a definition to record an execution; toggle active to pause.</CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-3">
+      <section className="border border-border">
+        <div className="border-b border-border px-6 py-5">
+          <p className="font-mono text-[10px] uppercase tracking-[0.28em] text-muted-foreground">
+            <span aria-hidden className="mr-2 text-accent">┼</span>
+            Section · Active definitions
+          </p>
+          <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
+            Run a definition to record an execution · toggle active to pause.
+          </p>
+        </div>
+        <div className="space-y-3 p-6">
           {loading ? (
-            <p className="text-sm text-muted-foreground">Loading…</p>
+            <p className="font-mono text-[11px] uppercase tracking-[0.22em] text-muted-foreground">
+              Loading…
+            </p>
           ) : records.length === 0 ? (
-            <p className="text-sm text-muted-foreground">No match definitions yet.</p>
+            <p className="font-mono text-[11px] uppercase tracking-[0.22em] text-muted-foreground">
+              No match definitions yet
+            </p>
           ) : (
             records.map((record) => (
-              <div key={record.id} className="rounded-2xl border border-border/80 bg-background/50 p-4">
+              <div key={record.id} className="border border-border bg-card px-5 py-4">
                 <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
-                  <div className="space-y-1">
+                  <div className="space-y-2">
                     <div className="flex flex-wrap items-center gap-3">
-                      <p className="font-medium">{record.name}</p>
+                      <p className="font-semibold text-foreground">{record.name}</p>
                       <span
-                        className={`inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-widest ${
+                        className={`border px-2.5 py-0.5 font-mono text-[10px] uppercase tracking-[0.22em] ${
                           record.isActive
-                            ? "border-primary/40 bg-primary/10 text-primary"
+                            ? "border-accent/40 bg-accent/10 text-accent"
                             : "border-border text-muted-foreground"
                         }`}
                       >
@@ -211,11 +245,14 @@ export function MatchDefinitionsAdmin() {
                       </span>
                     </div>
                     {record.description ? (
-                      <p className="text-sm text-muted-foreground">{record.description}</p>
+                      <p className="text-sm leading-relaxed text-muted-foreground">{record.description}</p>
                     ) : null}
-                    <p className="text-xs text-muted-foreground">
-                      {record.totalHits} hit{record.totalHits === 1 ? "" : "s"}
-                      {record.lastExecutionAt ? ` · last run ${new Date(record.lastExecutionAt).toLocaleString()}` : ""}
+                    <p className="font-mono text-[10px] uppercase tracking-[0.22em] text-muted-foreground">
+                      <span className="tabular-nums text-foreground">{record.totalHits}</span> hit
+                      {record.totalHits === 1 ? "" : "s"}
+                      {record.lastExecutionAt
+                        ? ` · last run ${new Date(record.lastExecutionAt).toLocaleString()}`
+                        : ""}
                     </p>
                   </div>
                   <div className="flex flex-wrap gap-2">
@@ -236,7 +273,7 @@ export function MatchDefinitionsAdmin() {
                     <Button
                       type="button"
                       variant="ghost"
-                      className="text-red-300 hover:text-red-200"
+                      className="text-destructive hover:text-destructive"
                       onClick={() => void remove(record)}
                     >
                       Delete
@@ -246,37 +283,54 @@ export function MatchDefinitionsAdmin() {
               </div>
             ))
           )}
-        </CardContent>
-      </Card>
+        </div>
+      </section>
 
       {selected ? (
-        <Card>
-          <CardHeader>
-            <CardTitle>{selected.name}</CardTitle>
-            <CardDescription>Definition JSON + recent execution history.</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <pre className="overflow-x-auto rounded-xl border border-border/70 bg-background/60 p-4 text-xs font-mono">
+        <section className="border border-border">
+          <div className="border-b border-border px-6 py-5">
+            <p className="font-mono text-[10px] uppercase tracking-[0.28em] text-muted-foreground">
+              <span aria-hidden className="mr-2 text-accent">┼</span>
+              Section · {selected.name}
+            </p>
+            <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
+              Definition JSON + recent execution history.
+            </p>
+          </div>
+          <div className="space-y-5 p-6">
+            <pre className="overflow-x-auto border border-border bg-card p-4 font-mono text-xs text-foreground">
               {JSON.stringify(selected.definition, null, 2)}
             </pre>
             <div className="space-y-2">
-              <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Recent executions</p>
+              <p className="font-mono text-[10px] uppercase tracking-[0.28em] text-muted-foreground">
+                Recent executions
+              </p>
               {selected.recentExecutions.length === 0 ? (
-                <p className="text-sm text-muted-foreground">No executions recorded yet.</p>
+                <p className="font-mono text-[11px] uppercase tracking-[0.22em] text-muted-foreground">
+                  No executions recorded yet
+                </p>
               ) : (
-                selected.recentExecutions.map((execution) => (
-                  <div key={execution.id} className="rounded-xl border border-border/70 bg-background/40 p-3">
-                    <div className="flex flex-wrap items-center gap-3 text-sm">
-                      <span>{new Date(execution.executedAt).toLocaleString()}</span>
-                      <span className="text-muted-foreground">status: {execution.executionStatus}</span>
-                      <span className="text-muted-foreground">hits: {execution.hitCount}</span>
-                    </div>
-                  </div>
-                ))
+                <ul className="divide-y divide-border border border-border">
+                  {selected.recentExecutions.map((execution) => (
+                    <li key={execution.id} className="px-4 py-3">
+                      <div className="flex flex-wrap items-center gap-3 font-mono text-[11px] uppercase tracking-[0.22em]">
+                        <span className="text-foreground">
+                          {new Date(execution.executedAt).toLocaleString()}
+                        </span>
+                        <span className="text-muted-foreground">
+                          status · {execution.executionStatus}
+                        </span>
+                        <span className="text-muted-foreground">
+                          hits · <span className="tabular-nums text-foreground">{execution.hitCount}</span>
+                        </span>
+                      </div>
+                    </li>
+                  ))}
+                </ul>
               )}
             </div>
-          </CardContent>
-        </Card>
+          </div>
+        </section>
       ) : null}
     </div>
   );

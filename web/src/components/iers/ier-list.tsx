@@ -3,11 +3,15 @@
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { detailFromPayload, readResponsePayload } from "@/lib/http";
 import type { IERDirection, IERSummary } from "@/types/domain";
 
 type Tab = "all" | IERDirection;
+
+const directionTone: Record<IERDirection, string> = {
+  outbound: "border-foreground/30 text-foreground",
+  inbound: "border-accent/40 text-accent",
+};
 
 export function IERList() {
   const [records, setRecords] = useState<IERSummary[]>([]);
@@ -41,90 +45,113 @@ export function IERList() {
   }, [load]);
 
   return (
-    <div className="space-y-6">
-      <Card>
-        <CardHeader>
-          <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-            <div>
-              <CardTitle>Exchange ledger</CardTitle>
-              <CardDescription>
-                Every outbound request and inbound handoff is tracked as an IER. Use the tabs to focus on one direction.
-              </CardDescription>
-            </div>
-            <Link
-              href="/iers/new"
-              className="inline-flex items-center justify-center rounded-xl border border-primary bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition hover:bg-primary/90"
+    <section className="border border-border">
+      <div className="flex flex-col gap-3 border-b border-border px-6 py-5 lg:flex-row lg:items-center lg:justify-between">
+        <div>
+          <p className="font-mono text-[10px] uppercase tracking-[0.28em] text-muted-foreground">
+            <span aria-hidden className="mr-2 text-accent">┼</span>
+            Section · Exchange ledger
+          </p>
+          <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
+            Every outbound request and inbound handoff is tracked as an IER. Use the tabs to focus on
+            one direction.
+          </p>
+        </div>
+        <Link
+          href="/iers/new"
+          className="inline-flex items-center justify-center bg-foreground px-5 py-2 font-mono text-[11px] uppercase tracking-[0.22em] text-background transition hover:opacity-90"
+        >
+          Open a new exchange
+        </Link>
+      </div>
+      <div className="space-y-4 p-6">
+        <div className="flex flex-wrap gap-0 border border-border">
+          {(["all", "outbound", "inbound"] as Tab[]).map((value) => (
+            <button
+              key={value}
+              type="button"
+              onClick={() => setTab(value)}
+              className={`border-r border-border px-5 py-2 font-mono text-[11px] uppercase tracking-[0.22em] transition last:border-r-0 ${
+                tab === value
+                  ? "bg-foreground text-background"
+                  : "text-muted-foreground hover:bg-foreground/[0.04] hover:text-foreground"
+              }`}
             >
-              Open a new exchange
-            </Link>
-          </div>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="flex flex-wrap gap-2">
-            {(["all", "outbound", "inbound"] as Tab[]).map((value) => (
-              <button
-                key={value}
-                type="button"
-                onClick={() => setTab(value)}
-                className={`rounded-full border px-3 py-1 text-xs font-medium transition ${
-                  tab === value
-                    ? "border-primary bg-primary/15 text-primary"
-                    : "border-border text-muted-foreground hover:border-primary/40"
-                }`}
-              >
-                {value === "all" ? "All" : value === "outbound" ? "Outbound" : "Inbound"}
-              </button>
-            ))}
-          </div>
-          {error ? <p className="text-sm text-red-300">{error}</p> : null}
-          {loading ? (
-            <p className="text-sm text-muted-foreground">Loading exchanges…</p>
-          ) : records.length === 0 ? (
-            <p className="text-sm text-muted-foreground">No exchanges recorded yet for this tab.</p>
-          ) : (
-            records.map((record) => (
+              {value === "all" ? "All" : value === "outbound" ? "Outbound" : "Inbound"}
+            </button>
+          ))}
+        </div>
+        {error ? (
+          <p className="font-mono text-xs uppercase tracking-[0.18em] text-destructive">
+            <span aria-hidden className="mr-2">┼</span>ERROR · {error}
+          </p>
+        ) : null}
+        {loading ? (
+          <p className="font-mono text-[11px] uppercase tracking-[0.22em] text-muted-foreground">
+            Loading exchanges…
+          </p>
+        ) : records.length === 0 ? (
+          <p className="font-mono text-[11px] uppercase tracking-[0.22em] text-muted-foreground">
+            No exchanges recorded yet for this tab
+          </p>
+        ) : (
+          <div className="space-y-3">
+            {records.map((record) => (
               <Link
                 key={record.id}
                 href={`/iers/${record.id}`}
-                className="block rounded-2xl border border-border/80 bg-background/50 p-4 transition hover:border-primary/60 hover:bg-background/70"
+                className="block border border-border bg-card px-5 py-4 transition hover:bg-foreground/[0.03]"
               >
                 <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
-                  <div className="space-y-1">
+                  <div className="space-y-2">
                     <div className="flex flex-wrap items-center gap-3">
-                      <p className="font-semibold">{record.reportRef}</p>
+                      <p className="font-mono text-sm text-foreground">{record.reportRef}</p>
                       <span
-                        className={`inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-widest ${
-                          record.direction === "outbound"
-                            ? "border-cyan-500/40 bg-cyan-500/10 text-cyan-300"
-                            : "border-amber-500/40 bg-amber-500/10 text-amber-300"
-                        }`}
+                        className={`inline-flex items-center border px-2.5 py-0.5 font-mono text-[10px] uppercase tracking-[0.22em] ${directionTone[record.direction]}`}
                       >
                         {record.direction}
                       </span>
-                      <span className="text-xs uppercase tracking-widest text-muted-foreground">
+                      <span className="font-mono text-[10px] uppercase tracking-[0.22em] text-muted-foreground">
                         {record.status.replaceAll("_", " ")}
                       </span>
                       {record.hasResponse ? (
-                        <span className="inline-flex items-center rounded-full border border-primary/40 bg-primary/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-widest text-primary">
+                        <span className="border border-accent/40 bg-accent/10 px-2.5 py-0.5 font-mono text-[10px] uppercase tracking-[0.22em] text-accent">
                           response logged
                         </span>
                       ) : null}
                     </div>
-                    <p className="text-sm">{record.counterpartyFiu}{record.counterpartyCountry ? ` · ${record.counterpartyCountry}` : ""}</p>
+                    <p className="text-sm text-foreground">
+                      {record.counterpartyFiu}
+                      {record.counterpartyCountry ? ` · ${record.counterpartyCountry}` : ""}
+                    </p>
                     {record.egmontRef ? (
-                      <p className="text-xs text-muted-foreground font-mono">{record.egmontRef}</p>
+                      <p className="font-mono text-[11px] uppercase tracking-[0.22em] text-muted-foreground">
+                        {record.egmontRef}
+                      </p>
                     ) : null}
                   </div>
-                  <div className="space-y-1 text-sm text-muted-foreground">
-                    {record.deadline ? <p>Deadline: {new Date(record.deadline).toLocaleDateString()}</p> : null}
-                    <p>Opened: {new Date(record.createdAt).toLocaleString()}</p>
+                  <div className="space-y-1 font-mono text-[11px] uppercase tracking-[0.22em] text-muted-foreground">
+                    {record.deadline ? (
+                      <p>
+                        Deadline ·{" "}
+                        <span className="text-foreground">
+                          {new Date(record.deadline).toLocaleDateString()}
+                        </span>
+                      </p>
+                    ) : null}
+                    <p>
+                      Opened ·{" "}
+                      <span className="text-foreground">
+                        {new Date(record.createdAt).toLocaleString()}
+                      </span>
+                    </p>
                   </div>
                 </div>
               </Link>
-            ))
-          )}
-        </CardContent>
-      </Card>
-    </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </section>
   );
 }

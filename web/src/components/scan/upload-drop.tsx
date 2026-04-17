@@ -3,7 +3,6 @@
 import { useRef } from "react";
 
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 
 export function UploadDrop({
@@ -22,35 +21,40 @@ export function UploadDrop({
   function handleFileSelected(event: React.ChangeEvent<HTMLInputElement>) {
     const selected = event.target.files?.[0] ?? null;
     onFileChange(selected);
-    if (selected) {
-      onFileNameChange(selected.name);
-    }
+    if (selected) onFileNameChange(selected.name);
   }
 
   return (
-    <Card className="grid-surface">
-      <CardHeader>
-        <CardTitle>Upload transactions</CardTitle>
-        <CardDescription>
-          Drop a CSV export to run detection on just those transactions. Expected columns:
-          posted_at, src_account, amount. Optional: dst_account, currency, channel, tx_type, description.
-        </CardDescription>
-      </CardHeader>
-      <CardContent className="space-y-4">
+    <section className="border border-border">
+      <div className="border-b border-border px-6 py-5">
+        <p className="font-mono text-[10px] uppercase tracking-[0.28em] text-muted-foreground">
+          <span aria-hidden className="mr-2 text-accent">┼</span>
+          Section · Upload transactions
+        </p>
+        <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
+          Drop a CSV export to run detection on just those transactions. Expected columns: posted_at,
+          src_account, amount. Optional: dst_account, currency, channel, tx_type, description.
+        </p>
+      </div>
+      <div className="space-y-5 p-6">
         <button
           type="button"
           onClick={() => inputRef.current?.click()}
-          className="block w-full rounded-2xl border border-dashed border-primary/40 bg-background/40 px-6 py-12 text-center text-sm text-muted-foreground transition hover:border-primary/60 hover:bg-background/60"
+          className="block w-full border border-dashed border-border bg-card/50 px-6 py-12 text-center font-mono text-[11px] uppercase tracking-[0.22em] text-muted-foreground transition hover:border-foreground hover:bg-foreground/[0.03]"
         >
           {file ? (
             <>
-              <span className="block font-medium text-primary">{file.name}</span>
-              <span className="text-xs">{(file.size / 1024).toFixed(1)} KB · click to replace</span>
+              <span className="block text-sm text-accent">{file.name}</span>
+              <span className="mt-1 inline-block text-[10px]">
+                {(file.size / 1024).toFixed(1)} KB · click to replace
+              </span>
             </>
           ) : (
             <>
-              <span className="block">Click to choose a CSV, or leave empty to scan the existing database.</span>
-              <span className="text-xs">(Drag &amp; drop support in a later cut.)</span>
+              <span className="block">Click to choose a CSV, or leave empty to scan the existing database</span>
+              <span className="mt-1 inline-block text-[10px] text-muted-foreground/70">
+                (drag &amp; drop support in a later cut)
+              </span>
             </>
           )}
         </button>
@@ -62,21 +66,21 @@ export function UploadDrop({
           onChange={handleFileSelected}
         />
         {file ? (
-          <div className="flex items-center gap-2 text-xs text-muted-foreground">
-            <Button type="button" variant="outline" onClick={() => onFileChange(null)}>
-              Remove file
-            </Button>
-          </div>
+          <Button type="button" variant="outline" onClick={() => onFileChange(null)}>
+            Remove file
+          </Button>
         ) : null}
         <div className="space-y-2">
-          <p className="text-xs uppercase tracking-[0.2em] text-primary">Source file label</p>
+          <label className="font-mono text-[10px] uppercase tracking-[0.28em] text-muted-foreground">
+            Source file label
+          </label>
           <Input
             value={fileName}
             onChange={(event) => onFileNameChange(event.target.value)}
             placeholder="dbbl-wallet-burst-apr03.csv"
           />
         </div>
-      </CardContent>
-    </Card>
+      </div>
+    </section>
   );
 }

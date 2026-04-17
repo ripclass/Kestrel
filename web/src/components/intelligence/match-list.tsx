@@ -1,6 +1,5 @@
 import Link from "next/link";
 
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import type { MatchSummary } from "@/types/domain";
 
 export function MatchList({
@@ -13,30 +12,39 @@ export function MatchList({
   const list = compact ? matches.slice(0, 2) : matches;
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Cross-bank matches</CardTitle>
-      </CardHeader>
-      <CardContent className="space-y-4">
-        {list.length === 0 ? (
-          <div className="rounded-xl border border-dashed border-border/70 bg-background/40 p-4 text-sm text-muted-foreground">
-            No cross-bank overlaps are available for this view yet.
-          </div>
-        ) : null}
-        {list.map((match) => (
-          <Link
-            key={match.id}
-            href={match.entityId ? `/investigate/entity/${match.entityId}` : "/intelligence/matches"}
-            className="block rounded-xl border border-border/70 bg-background/50 p-4"
-          >
-            <div className="flex items-center justify-between gap-4">
-              <p className="font-medium">{match.matchKey}</p>
-              <span className="text-sm text-primary">{match.matchCount} hits</span>
-            </div>
-            <p className="mt-2 text-sm text-muted-foreground">{match.involvedOrgs.join(", ")}</p>
-          </Link>
-        ))}
-      </CardContent>
-    </Card>
+    <section className="border border-border">
+      <div className="border-b border-border px-6 py-5">
+        <p className="font-mono text-[10px] uppercase tracking-[0.28em] text-muted-foreground">
+          <span aria-hidden className="mr-2 text-accent">┼</span>
+          Section · Cross-bank matches
+        </p>
+      </div>
+      {list.length === 0 ? (
+        <p className="px-6 py-6 font-mono text-xs uppercase tracking-[0.22em] text-muted-foreground">
+          No cross-bank overlaps resolved
+        </p>
+      ) : (
+        <ul className="divide-y divide-border">
+          {list.map((match) => (
+            <li key={match.id}>
+              <Link
+                href={match.entityId ? `/investigate/entity/${match.entityId}` : "/intelligence/matches"}
+                className="flex flex-col gap-2 px-6 py-4 transition hover:bg-foreground/[0.03]"
+              >
+                <div className="flex items-center justify-between gap-4">
+                  <p className="font-mono text-sm text-foreground">{match.matchKey}</p>
+                  <span className="font-mono text-[11px] uppercase tracking-[0.22em] text-accent">
+                    <span className="tabular-nums">{match.matchCount}</span> hits
+                  </span>
+                </div>
+                <p className="font-mono text-[11px] uppercase tracking-[0.22em] text-muted-foreground">
+                  {match.involvedOrgs.join(" · ")}
+                </p>
+              </Link>
+            </li>
+          ))}
+        </ul>
+      )}
+    </section>
   );
 }

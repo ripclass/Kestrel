@@ -4,11 +4,21 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { detailFromPayload, readResponsePayload } from "@/lib/http";
 import type { IERDetail, IERDirection } from "@/types/domain";
+
+function Field({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <label className="flex flex-col gap-2">
+      <span className="font-mono text-[10px] uppercase tracking-[0.28em] text-muted-foreground">
+        {label}
+      </span>
+      {children}
+    </label>
+  );
+}
 
 export function IERCreateForm() {
   const router = useRouter();
@@ -61,78 +71,78 @@ export function IERCreateForm() {
   }
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Open exchange</CardTitle>
-        <CardDescription>
-          Choose direction, identify the counterparty FIU, and describe what is being exchanged. Kestrel records this as an IER
-          report with its own ref and audit trail.
-        </CardDescription>
-      </CardHeader>
-      <CardContent className="space-y-4">
-        <div className="flex flex-wrap gap-2">
+    <section className="border border-border">
+      <div className="border-b border-border px-6 py-5">
+        <p className="font-mono text-[10px] uppercase tracking-[0.28em] text-muted-foreground">
+          <span aria-hidden className="mr-2 text-accent">┼</span>
+          Section · Open exchange
+        </p>
+        <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
+          Choose direction, identify the counterparty FIU, and describe what is being exchanged. Kestrel
+          records this as an IER report with its own ref and audit trail.
+        </p>
+      </div>
+      <div className="space-y-5 p-6">
+        <div className="flex flex-wrap gap-0 border border-border">
           {(["outbound", "inbound"] as IERDirection[]).map((value) => (
             <button
               key={value}
               type="button"
               onClick={() => setDirection(value)}
-              className={`rounded-full border px-3 py-1 text-xs font-medium transition ${
+              className={`border-r border-border px-5 py-2 font-mono text-[11px] uppercase tracking-[0.22em] transition last:border-r-0 ${
                 direction === value
-                  ? "border-primary bg-primary/15 text-primary"
-                  : "border-border text-muted-foreground hover:border-primary/40"
+                  ? "bg-foreground text-background"
+                  : "text-muted-foreground hover:bg-foreground/[0.04] hover:text-foreground"
               }`}
             >
-              {value === "outbound" ? "Outbound (BFIU requesting)" : "Inbound (foreign FIU requesting)"}
+              {value === "outbound" ? "Outbound · BFIU requesting" : "Inbound · Foreign FIU requesting"}
             </button>
           ))}
         </div>
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-          <div className="space-y-2">
-            <label className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Counterparty FIU</label>
+          <Field label="Counterparty FIU">
             <Input
               value={counterpartyFiu}
               onChange={(event) => setCounterpartyFiu(event.target.value)}
               placeholder="FINTRAC (Canada)"
             />
-          </div>
-          <div className="space-y-2">
-            <label className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Counterparty country</label>
+          </Field>
+          <Field label="Counterparty country">
             <Input
               value={counterpartyCountry}
               onChange={(event) => setCounterpartyCountry(event.target.value)}
               placeholder="Canada"
             />
-          </div>
-          <div className="space-y-2">
-            <label className="text-xs uppercase tracking-[0.18em] text-muted-foreground">
-              Egmont reference{direction === "inbound" ? " (required)" : ""}
-            </label>
+          </Field>
+          <Field label={`Egmont reference${direction === "inbound" ? " (required)" : ""}`}>
             <Input
               value={egmontRef}
               onChange={(event) => setEgmontRef(event.target.value)}
               placeholder="EG-2026-0419"
             />
-          </div>
-          <div className="space-y-2">
-            <label className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Response deadline</label>
+          </Field>
+          <Field label="Response deadline">
             <Input type="date" value={deadline} onChange={(event) => setDeadline(event.target.value)} />
-          </div>
+          </Field>
         </div>
-        <div className="space-y-2">
-          <label className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Request narrative</label>
+        <Field label="Request narrative">
           <Textarea
             value={requestNarrative}
             onChange={(event) => setRequestNarrative(event.target.value)}
             placeholder="What information is being requested and why."
           />
-        </div>
-        {error ? <p className="text-sm text-red-300">{error}</p> : null}
-        <div className="flex justify-end">
+        </Field>
+        {error ? (
+          <p className="font-mono text-xs uppercase tracking-[0.18em] text-destructive">
+            <span aria-hidden className="mr-2">┼</span>ERROR · {error}
+          </p>
+        ) : null}
+        <div className="flex justify-end border-t border-border pt-4">
           <Button type="button" disabled={submitting} onClick={() => void submit()}>
             {submitting ? "Opening…" : "Open exchange"}
           </Button>
         </div>
-      </CardContent>
-    </Card>
+      </div>
+    </section>
   );
 }

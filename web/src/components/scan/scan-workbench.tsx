@@ -11,9 +11,12 @@ import { ScanConfig, defaultSelectedRules } from "@/components/scan/scan-config"
 import { ScanProgress } from "@/components/scan/scan-progress";
 import { ScanResults } from "@/components/scan/scan-results";
 import { UploadDrop } from "@/components/scan/upload-drop";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { detailFromPayload, readResponsePayload } from "@/lib/http";
-import type { DetectionRunDetailResponse, DetectionRunListResponse, ScanQueueResponse } from "@/types/api";
+import type {
+  DetectionRunDetailResponse,
+  DetectionRunListResponse,
+  ScanQueueResponse,
+} from "@/types/api";
 import type { DetectionRunDetail, DetectionRunSummary } from "@/types/domain";
 
 async function fetchRunDetail(runId: string): Promise<DetectionRunDetail> {
@@ -55,11 +58,9 @@ export function ScanWorkbench() {
 
         const history = (payload as DetectionRunListResponse).runs;
         setRuns(history);
-
         if (history.length > 0) {
           setActiveRun(await fetchRunDetail(history[0].id));
         }
-
         setError(null);
       } catch (caughtError) {
         setError(caughtError instanceof Error ? caughtError.message : "Unable to load scan history.");
@@ -71,9 +72,7 @@ export function ScanWorkbench() {
 
   function toggleRule(code: string) {
     setSelectedRules((current) =>
-      current.includes(code)
-        ? current.filter((item) => item !== code)
-        : [...current, code],
+      current.includes(code) ? current.filter((item) => item !== code) : [...current, code],
     );
   }
 
@@ -97,18 +96,12 @@ export function ScanWorkbench() {
         const formData = new FormData();
         formData.append("file", file, file.name);
         formData.append("selected_rules", selectedRules.join(","));
-        response = await fetch("/api/scan/runs/upload", {
-          method: "POST",
-          body: formData,
-        });
+        response = await fetch("/api/scan/runs/upload", { method: "POST", body: formData });
       } else {
         response = await fetch("/api/scan/runs", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            fileName: fileName.trim() || undefined,
-            selectedRules,
-          }),
+          body: JSON.stringify({ fileName: fileName.trim() || undefined, selectedRules }),
         });
       }
       const payload = (await readResponsePayload<ScanQueueResponse>(response)) as
@@ -161,40 +154,57 @@ export function ScanWorkbench() {
         </div>
       </div>
 
-      <Card>
-        <CardHeader className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
-          <div className="space-y-2">
-            <CardTitle>Recent runs</CardTitle>
-            <p className="text-sm text-muted-foreground">
-              Persisted detection runs for the current scope. Open a past run to inspect the same flagged candidates again.
+      <section className="border border-border">
+        <div className="flex flex-col gap-3 border-b border-border px-6 py-5 lg:flex-row lg:items-end lg:justify-between">
+          <div>
+            <p className="font-mono text-[10px] uppercase tracking-[0.28em] text-muted-foreground">
+              <span aria-hidden className="mr-2 text-accent">┼</span>
+              Section · Recent runs
+            </p>
+            <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
+              Persisted detection runs for the current scope. Open a past run to inspect the same
+              flagged candidates again.
             </p>
           </div>
-          <Link href="/scan/history" className="text-sm text-primary transition hover:opacity-80">
-            View full history
+          <Link
+            href="/scan/history"
+            className="font-mono text-[11px] uppercase tracking-[0.22em] text-accent transition hover:text-foreground"
+          >
+            View full history →
           </Link>
-        </CardHeader>
-        <CardContent className="space-y-3">
+        </div>
+        <div className="space-y-3 p-6">
           {isLoading ? (
-            <LoadingState label="Loading recent detection runs..." />
+            <LoadingState label="Loading recent detection runs…" />
           ) : error && runs.length === 0 ? (
             <EmptyState title="Detection history unavailable" description={error} />
           ) : runs.length === 0 ? (
-            <EmptyState title="No detection runs yet" description="Queue the first scan to create a persistent run history." />
+            <EmptyState
+              title="No detection runs yet"
+              description="Queue the first scan to create a persistent run history."
+            />
           ) : (
             runs.slice(0, 4).map((run) => (
               <button
                 key={run.id}
                 type="button"
                 onClick={() => void loadRun(run.id)}
-                className="flex w-full flex-col gap-3 rounded-xl border border-border/70 bg-background/40 p-4 text-left transition hover:border-primary/40 lg:flex-row lg:items-center lg:justify-between"
+                className="flex w-full flex-col gap-3 border border-border bg-card px-5 py-4 text-left transition hover:bg-foreground/[0.03] lg:flex-row lg:items-center lg:justify-between"
               >
                 <div className="space-y-1">
-                  <p className="font-medium">{run.fileName}</p>
-                  <p className="text-sm text-muted-foreground">
-                    {run.accountsScanned.toLocaleString()} accounts scanned · {run.alertsGenerated.toLocaleString()} alerts
+                  <p className="font-mono text-sm text-foreground">{run.fileName}</p>
+                  <p className="font-mono text-[11px] uppercase tracking-[0.22em] text-muted-foreground">
+                    <span className="tabular-nums text-foreground">
+                      {run.accountsScanned.toLocaleString()}
+                    </span>{" "}
+                    accounts scanned ·{" "}
+                    <span className="tabular-nums text-foreground">
+                      {run.alertsGenerated.toLocaleString()}
+                    </span>{" "}
+                    alerts
                   </p>
                 </div>
-                <div className="flex flex-wrap items-center gap-3 text-sm text-muted-foreground">
+                <div className="flex flex-wrap items-center gap-3 font-mono text-[11px] uppercase tracking-[0.22em] text-muted-foreground">
                   <StatusBadge status={run.status} />
                   <span>
                     <RelativeTime value={run.createdAt} />
@@ -203,8 +213,8 @@ export function ScanWorkbench() {
               </button>
             ))
           )}
-        </CardContent>
-      </Card>
+        </div>
+      </section>
     </div>
   );
 }
