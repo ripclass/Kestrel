@@ -11,6 +11,7 @@ export interface NavItem {
 const navItems: NavItem[] = [
   { section: "Overview", label: "Overview", href: "/overview" },
   { section: "Intelligence Tools", label: "Investigate", href: "/investigate" },
+  { section: "Intelligence Tools", label: "Catalogue", href: "/investigate/catalogue" },
   { section: "Intelligence Tools", label: "Intelligence", href: "/intelligence/entities" },
   { section: "Intelligence Tools", label: "Disseminations", href: "/intelligence/disseminations" },
   { section: "Intelligence Tools", label: "Saved queries", href: "/intelligence/saved-queries" },
