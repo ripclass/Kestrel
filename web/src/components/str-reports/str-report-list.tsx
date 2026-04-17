@@ -8,6 +8,7 @@ import type { STRDraftPayload, STRListResponse, STRMutationResponse } from "@/ty
 import type { STRReportSummary, Viewer } from "@/types/domain";
 import { Currency } from "@/components/common/currency";
 import { StatusBadge } from "@/components/common/status-badge";
+import { XmlImportCard } from "@/components/str-reports/xml-import-card";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -171,6 +172,7 @@ export function STRReportList({ viewer }: { viewer: Viewer }) {
 
   return (
     <div className="space-y-6">
+      <XmlImportCard onImported={() => setFilter((prev) => prev)} />
       <Card>
         <CardHeader>
           <CardTitle>Open a native STR draft</CardTitle>
