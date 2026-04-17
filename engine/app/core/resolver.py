@@ -315,3 +315,24 @@ async def resolve_identifiers_from_str(
             await _upsert_same_owner_connection(session, from_entity=b, to_entity=a)
 
     return resolved
+
+
+async def link_subject_group(
+    session: AsyncSession,
+    *,
+    entities: list[Entity],
+) -> int:
+    """Emit pairwise same_owner connections across a group of entities.
+
+    Persons are excluded from the graph pairings (matches the existing
+    resolve_identifiers_from_str convention). Returns the number of
+    directed edges touched.
+    """
+    graph_entities = [entity for entity in entities if entity.entity_type != "person"]
+    touched = 0
+    for i, a in enumerate(graph_entities):
+        for b in graph_entities[i + 1:]:
+            await _upsert_same_owner_connection(session, from_entity=a, to_entity=b)
+            await _upsert_same_owner_connection(session, from_entity=b, to_entity=a)
+            touched += 2
+    return touched

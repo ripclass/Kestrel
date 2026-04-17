@@ -15,6 +15,7 @@ const navItems: NavItem[] = [
   { section: "Intelligence Tools", label: "Disseminations", href: "/intelligence/disseminations" },
   { section: "Intelligence Tools", label: "Saved queries", href: "/intelligence/saved-queries" },
   { section: "Intelligence Tools", label: "Diagram builder", href: "/investigate/diagram" },
+  { section: "Intelligence Tools", label: "New subject", href: "/intelligence/entities/new" },
   { section: "Operations", label: "STRs", href: "/strs" },
   { section: "Operations", label: "Alerts", href: "/alerts" },
   { section: "Operations", label: "Cases", href: "/cases" },

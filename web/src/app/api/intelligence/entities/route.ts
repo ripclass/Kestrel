@@ -26,3 +26,22 @@ export async function GET(request: NextRequest) {
     { status: response.status },
   );
 }
+
+export async function POST(request: NextRequest) {
+  const body = await request.json();
+  const response = await proxyEngineRequest("/intelligence/entities", {
+    method: "POST",
+    body: JSON.stringify({
+      primary_kind: body.primaryKind ?? "account",
+      identifiers: (body.identifiers ?? []).map((ident: { entityType: string; value: string; displayName?: string | null }) => ({
+        entity_type: ident.entityType,
+        value: ident.value,
+        display_name: ident.displayName ?? null,
+      })),
+      metadata: body.metadata ?? {},
+    }),
+  });
+  const payload = await readResponsePayload<unknown>(response);
+  if (!response.ok) return NextResponse.json(payload, { status: response.status });
+  return NextResponse.json(payload, { status: response.status });
+}
