@@ -12,6 +12,8 @@ Kestrel is the detective layer that sits on top. Banks and MFS providers feed tr
 
 Kestrel is built as a standalone product. It can interoperate with goAML via an optional adapter, but it does not depend on goAML for any core workflow.
 
+> **goAML coverage**: for a full feature-by-feature map of Kestrel to goAML — every screen, every workflow, every deliberate exclusion with its rationale — see [`docs/goaml-coverage.md`](docs/goaml-coverage.md). This is the procurement-facing answer to "can Kestrel replace goAML for BFIU?"
+
 ## Core capabilities
 
 - **Universal entity search** — find any account, phone, wallet, NID, name, or business across every reporting institution from one search box. *(live)*
