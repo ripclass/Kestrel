@@ -1,9 +1,25 @@
 from datetime import date, datetime
 from typing import Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 from app.schemas.ai import AIInvocationMeta, ExtractedEntity
+
+ReportType = Literal[
+    "str",
+    "sar",
+    "ctr",
+    "tbml",
+    "complaint",
+    "ier",
+    "internal",
+    "adverse_media_str",
+    "adverse_media_sar",
+    "escalated",
+    "additional_info",
+]
+
+IERDirection = Literal["inbound", "outbound"]
 
 
 class STRLifecycleEvent(BaseModel):
@@ -40,10 +56,10 @@ class STRReportSummary(BaseModel):
     org_id: str
     org_name: str
     report_ref: str
-    report_type: str = "str"
+    report_type: ReportType = "str"
     status: str
     subject_name: str | None = None
-    subject_account: str
+    subject_account: str | None = None
     subject_bank: str | None = None
     total_amount: float
     currency: str
@@ -55,6 +71,10 @@ class STRReportSummary(BaseModel):
     reported_at: datetime | None = None
     created_at: datetime
     updated_at: datetime | None = None
+    supplements_report_id: str | None = None
+    ier_direction: IERDirection | None = None
+    ier_counterparty_fiu: str | None = None
+    media_source: str | None = None
 
 
 class STRReportDetail(STRReportSummary):
@@ -72,11 +92,27 @@ class STRReportDetail(STRReportSummary):
     enrichment: STREnrichmentSnapshot | None = None
     review: STRReviewState = Field(default_factory=STRReviewState)
 
+    media_url: str | None = None
+    media_published_at: date | None = None
+
+    ier_counterparty_country: str | None = None
+    ier_egmont_ref: str | None = None
+    ier_request_narrative: str | None = None
+    ier_response_narrative: str | None = None
+    ier_deadline: date | None = None
+
+    tbml_invoice_value: float | None = None
+    tbml_declared_value: float | None = None
+    tbml_lc_reference: str | None = None
+    tbml_hs_code: str | None = None
+    tbml_commodity: str | None = None
+    tbml_counterparty_country: str | None = None
+
 
 class STRDraftUpsert(BaseModel):
-    report_type: str = "str"
+    report_type: ReportType = "str"
     subject_name: str | None = None
-    subject_account: str
+    subject_account: str | None = None
     subject_bank: str | None = None
     subject_phone: str | None = None
     subject_wallet: str | None = None
@@ -91,6 +127,52 @@ class STRDraftUpsert(BaseModel):
     date_range_end: date | None = None
     narrative: str | None = None
     metadata: dict[str, object] = Field(default_factory=dict)
+
+    supplements_report_id: str | None = None
+
+    media_source: str | None = None
+    media_url: str | None = None
+    media_published_at: date | None = None
+
+    ier_direction: IERDirection | None = None
+    ier_counterparty_fiu: str | None = None
+    ier_counterparty_country: str | None = None
+    ier_egmont_ref: str | None = None
+    ier_request_narrative: str | None = None
+    ier_response_narrative: str | None = None
+    ier_deadline: date | None = None
+
+    tbml_invoice_value: float | None = None
+    tbml_declared_value: float | None = None
+    tbml_lc_reference: str | None = None
+    tbml_hs_code: str | None = None
+    tbml_commodity: str | None = None
+    tbml_counterparty_country: str | None = None
+
+    @model_validator(mode="after")
+    def _enforce_type_requirements(self) -> "STRDraftUpsert":
+        rt = self.report_type
+        if rt == "ier":
+            if not self.ier_direction or not self.ier_counterparty_fiu:
+                raise ValueError(
+                    "IER reports require ier_direction and ier_counterparty_fiu."
+                )
+        elif rt == "additional_info":
+            if not self.supplements_report_id:
+                raise ValueError(
+                    "Additional Information Files require supplements_report_id."
+                )
+        elif rt == "tbml":
+            if not self.tbml_counterparty_country:
+                raise ValueError(
+                    "TBML reports require tbml_counterparty_country."
+                )
+        elif rt in ("adverse_media_str", "adverse_media_sar"):
+            if not self.media_source:
+                raise ValueError(
+                    "Adverse media reports require media_source."
+                )
+        return self
 
 
 class STRReviewRequest(BaseModel):

@@ -38,3 +38,26 @@ class STRReport(TimestampMixin, Base):
     reviewed_by: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True))
     metadata_json: Mapped[dict] = mapped_column("metadata", JSONB, default=dict)
     reported_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+    supplements_report_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("str_reports.id")
+    )
+
+    media_source: Mapped[str | None] = mapped_column(String)
+    media_url: Mapped[str | None] = mapped_column(String)
+    media_published_at: Mapped[date | None] = mapped_column(Date())
+
+    ier_direction: Mapped[str | None] = mapped_column(String(16))
+    ier_counterparty_fiu: Mapped[str | None] = mapped_column(String)
+    ier_counterparty_country: Mapped[str | None] = mapped_column(String)
+    ier_egmont_ref: Mapped[str | None] = mapped_column(String)
+    ier_request_narrative: Mapped[str | None] = mapped_column(String)
+    ier_response_narrative: Mapped[str | None] = mapped_column(String)
+    ier_deadline: Mapped[date | None] = mapped_column(Date())
+
+    tbml_invoice_value: Mapped[float | None] = mapped_column(Numeric(18, 2))
+    tbml_declared_value: Mapped[float | None] = mapped_column(Numeric(18, 2))
+    tbml_lc_reference: Mapped[str | None] = mapped_column(String)
+    tbml_hs_code: Mapped[str | None] = mapped_column(String)
+    tbml_commodity: Mapped[str | None] = mapped_column(String)
+    tbml_counterparty_country: Mapped[str | None] = mapped_column(String)

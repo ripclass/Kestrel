@@ -98,6 +98,10 @@ def _serialize_report(report: STRReport, org_name: str) -> STRReportSummary:
         reported_at=report.reported_at,
         created_at=report.created_at,
         updated_at=report.updated_at,
+        supplements_report_id=str(report.supplements_report_id) if report.supplements_report_id else None,
+        ier_direction=report.ier_direction,
+        ier_counterparty_fiu=report.ier_counterparty_fiu,
+        media_source=report.media_source,
     )
 
 
@@ -119,6 +123,19 @@ def serialize_report_detail(report: STRReport, org_name: str) -> STRReportDetail
         metadata=metadata,
         enrichment=_normalize_enrichment(metadata),
         review=_normalize_review(metadata),
+        media_url=report.media_url,
+        media_published_at=report.media_published_at,
+        ier_counterparty_country=report.ier_counterparty_country,
+        ier_egmont_ref=report.ier_egmont_ref,
+        ier_request_narrative=report.ier_request_narrative,
+        ier_response_narrative=report.ier_response_narrative,
+        ier_deadline=report.ier_deadline,
+        tbml_invoice_value=_as_float(report.tbml_invoice_value) if report.tbml_invoice_value is not None else None,
+        tbml_declared_value=_as_float(report.tbml_declared_value) if report.tbml_declared_value is not None else None,
+        tbml_lc_reference=report.tbml_lc_reference,
+        tbml_hs_code=report.tbml_hs_code,
+        tbml_commodity=report.tbml_commodity,
+        tbml_counterparty_country=report.tbml_counterparty_country,
     )
 
 
@@ -242,19 +259,69 @@ def _ensure_review_access(user: AuthenticatedUser) -> None:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Only regulator users can review STRs.")
 
 
+_NEW_REPORT_FIELDS: tuple[str, ...] = (
+    "supplements_report_id",
+    "media_source",
+    "media_url",
+    "media_published_at",
+    "ier_direction",
+    "ier_counterparty_fiu",
+    "ier_counterparty_country",
+    "ier_egmont_ref",
+    "ier_request_narrative",
+    "ier_response_narrative",
+    "ier_deadline",
+    "tbml_invoice_value",
+    "tbml_declared_value",
+    "tbml_lc_reference",
+    "tbml_hs_code",
+    "tbml_commodity",
+    "tbml_counterparty_country",
+)
+
+
 def _ensure_submission_ready(report: STRReport) -> None:
-    missing = []
-    if not report.subject_account:
-        missing.append("subject_account")
+    missing: list[str] = []
     if not report.category:
         missing.append("category")
-    if not report.narrative:
-        missing.append("narrative")
+
+    rt = report.report_type or "str"
+    if rt == "ier":
+        if not report.ier_direction:
+            missing.append("ier_direction")
+        if not report.ier_counterparty_fiu:
+            missing.append("ier_counterparty_fiu")
+        if not (
+            report.narrative
+            or report.ier_request_narrative
+            or report.ier_response_narrative
+        ):
+            missing.append("narrative")
+    elif rt == "additional_info":
+        if not report.supplements_report_id:
+            missing.append("supplements_report_id")
+        if not report.narrative:
+            missing.append("narrative")
+    else:
+        if not report.subject_account:
+            missing.append("subject_account")
+        if not report.narrative:
+            missing.append("narrative")
+
     if missing:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
             detail=f"Draft is incomplete. Missing required submission fields: {', '.join(missing)}.",
         )
+
+
+async def _fetch_parent_for_supplement(
+    session: AsyncSession, parent_id: UUID
+) -> STRReport | None:
+    result = await session.execute(
+        select(STRReport).where(STRReport.id == parent_id).limit(1)
+    )
+    return result.scalar_one_or_none()
 
 
 async def list_str_reports(
@@ -288,17 +355,60 @@ async def create_str_report(
     payload: dict[str, Any],
     ip: str | None,
 ) -> STRMutationResponse:
+    report_type = payload.get("report_type", "str")
+
+    subject_fields: dict[str, Any] = {
+        "subject_name": payload.get("subject_name"),
+        "subject_account": payload.get("subject_account"),
+        "subject_bank": payload.get("subject_bank"),
+        "subject_phone": payload.get("subject_phone"),
+        "subject_wallet": payload.get("subject_wallet"),
+        "subject_nid": payload.get("subject_nid"),
+    }
+    matched_entity_ids: list[UUID] = []
+
+    # Additional Information Files inherit subject identity + matched entities
+    # from the parent report when the caller hasn't overridden them.
+    supplements_raw = payload.get("supplements_report_id")
+    supplements_uuid: UUID | None = None
+    if report_type == "additional_info" and supplements_raw:
+        supplements_uuid = _require_uuid(
+            supplements_raw, "Invalid supplements_report_id."
+        )
+        parent = await _fetch_parent_for_supplement(session, supplements_uuid)
+        if parent is None:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Parent report for supplement not found.",
+            )
+        if str(parent.org_id) != user.org_id:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Cannot supplement a report owned by another organization.",
+            )
+        for key in subject_fields:
+            if subject_fields[key] is None:
+                subject_fields[key] = getattr(parent, key)
+        matched_entity_ids = list(parent.matched_entity_ids or [])
+
+    # IER doesn't require a subject_account — the "subject" is the
+    # counterparty FIU exchange, not an account number.
+    if report_type == "ier" and not subject_fields["subject_account"]:
+        subject_fields["subject_account"] = payload.get(
+            "ier_counterparty_fiu"
+        ) or "(IER)"
+
+    type_specific_fields: dict[str, Any] = {
+        field: payload.get(field) for field in _NEW_REPORT_FIELDS
+    }
+    type_specific_fields["supplements_report_id"] = supplements_uuid
+
     report = STRReport(
         org_id=_require_uuid(user.org_id, "Authenticated user is missing a valid organization id."),
         report_ref="",
-        report_type=payload.get("report_type", "str"),
+        report_type=report_type,
         status="draft",
-        subject_name=payload.get("subject_name"),
-        subject_account=payload["subject_account"],
-        subject_bank=payload.get("subject_bank"),
-        subject_phone=payload.get("subject_phone"),
-        subject_wallet=payload.get("subject_wallet"),
-        subject_nid=payload.get("subject_nid"),
+        **subject_fields,
         total_amount=payload.get("total_amount", 0),
         currency=payload.get("currency", "BDT"),
         transaction_count=payload.get("transaction_count", 0),
@@ -308,6 +418,7 @@ async def create_str_report(
         channels=payload.get("channels", []),
         date_range_start=payload.get("date_range_start"),
         date_range_end=payload.get("date_range_end"),
+        matched_entity_ids=matched_entity_ids,
         metadata_json=_append_lifecycle_event(
             payload.get("metadata", {}),
             action="created",
@@ -315,6 +426,7 @@ async def create_str_report(
             from_status=None,
             to_status="draft",
         ),
+        **type_specific_fields,
     )
     session.add(report)
     await session.flush()
@@ -360,6 +472,16 @@ async def update_str_report(
         "date_range_end",
     ]:
         setattr(report, field, payload.get(field))
+    for field in _NEW_REPORT_FIELDS:
+        if field == "supplements_report_id":
+            raw = payload.get(field)
+            setattr(
+                report,
+                field,
+                _require_uuid(raw, f"Invalid {field}.") if raw else None,
+            )
+        else:
+            setattr(report, field, payload.get(field))
     report.metadata_json = _append_lifecycle_event(
         {**(report.metadata_json or {}), **payload.get("metadata", {})},
         action="updated",
