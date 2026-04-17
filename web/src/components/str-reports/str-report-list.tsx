@@ -9,7 +9,6 @@ import type { STRReportSummary, Viewer } from "@/types/domain";
 import { Currency } from "@/components/common/currency";
 import { StatusBadge } from "@/components/common/status-badge";
 import { XmlImportCard } from "@/components/str-reports/xml-import-card";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -79,36 +78,46 @@ const reportTypeDescription: Record<string, string> = {
   additional_info: "Additional Information File",
 };
 
-const reportTypeBadgeClass: Record<string, string> = {
-  str: "bg-blue-500/20 text-blue-300 border-blue-500/30",
-  sar: "bg-purple-500/20 text-purple-300 border-purple-500/30",
-  ctr: "bg-emerald-500/20 text-emerald-300 border-emerald-500/30",
-  tbml: "bg-amber-500/20 text-amber-300 border-amber-500/30",
-  complaint: "bg-rose-500/20 text-rose-300 border-rose-500/30",
-  ier: "bg-cyan-500/20 text-cyan-300 border-cyan-500/30",
-  internal: "bg-slate-500/20 text-slate-300 border-slate-500/30",
-  adverse_media_str: "bg-orange-500/20 text-orange-300 border-orange-500/30",
-  adverse_media_sar: "bg-fuchsia-500/20 text-fuchsia-300 border-fuchsia-500/30",
-  escalated: "bg-red-500/20 text-red-300 border-red-500/30",
-  additional_info: "bg-teal-500/20 text-teal-300 border-teal-500/30",
+// Sovereign Ledger three-tone badging. Escalated + adverse-media are alarm;
+// IER + TBML are in-flight foreground; everything else is neutral.
+const reportTypeTone: Record<string, string> = {
+  str: "border-border text-muted-foreground",
+  sar: "border-border text-muted-foreground",
+  ctr: "border-border text-muted-foreground",
+  tbml: "border-foreground/30 text-foreground",
+  complaint: "border-foreground/30 text-foreground",
+  ier: "border-foreground/30 text-foreground",
+  internal: "border-border text-muted-foreground",
+  adverse_media_str: "border-accent/40 text-accent",
+  adverse_media_sar: "border-accent/40 text-accent",
+  escalated: "border-accent/50 text-accent",
+  additional_info: "border-border text-muted-foreground",
 };
 
 function canCreateDraft(draft: STRDraftPayload): boolean {
   const rt = draft.reportType ?? "str";
-  if (rt === "ier") {
-    return Boolean(draft.ierDirection && draft.ierCounterpartyFiu);
-  }
-  if (rt === "additional_info") {
-    return Boolean(draft.supplementsReportId);
-  }
-  if (rt === "tbml") {
-    return Boolean(draft.subjectAccount && draft.tbmlCounterpartyCountry);
-  }
+  if (rt === "ier") return Boolean(draft.ierDirection && draft.ierCounterpartyFiu);
+  if (rt === "additional_info") return Boolean(draft.supplementsReportId);
+  if (rt === "tbml") return Boolean(draft.subjectAccount && draft.tbmlCounterpartyCountry);
   if (rt === "adverse_media_str" || rt === "adverse_media_sar") {
     return Boolean(draft.subjectAccount && draft.mediaSource);
   }
   return Boolean(draft.subjectAccount);
 }
+
+function Field({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <label className="flex flex-col gap-2">
+      <span className="font-mono text-[10px] uppercase tracking-[0.28em] text-muted-foreground">
+        {label}
+      </span>
+      {children}
+    </label>
+  );
+}
+
+const selectClass =
+  "h-11 w-full rounded-none border border-input bg-card px-4 text-sm outline-none focus:border-foreground";
 
 export function STRReportList({ viewer }: { viewer: Viewer }) {
   const router = useRouter();
@@ -124,7 +133,9 @@ export function STRReportList({ viewer }: { viewer: Viewer }) {
       try {
         const url = filter === "all" ? "/api/str-reports" : `/api/str-reports?report_type=${filter}`;
         const response = await fetch(url, { cache: "no-store" });
-        const payload = (await readResponsePayload<STRListResponse>(response)) as STRListResponse | { detail?: string };
+        const payload = (await readResponsePayload<STRListResponse>(response)) as
+          | STRListResponse
+          | { detail?: string };
         if (!response.ok) {
           setError(detailFromPayload(payload, "Unable to load STR reports."));
           return;
@@ -143,24 +154,23 @@ export function STRReportList({ viewer }: { viewer: Viewer }) {
 
   async function createDraft() {
     setError(null);
-    setNotice("Creating STR draft...");
+    setNotice("Creating STR draft…");
     setIsCreating(true);
     try {
       const response = await fetch("/api/str-reports", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          ...draft,
-          channels: draft.channels ?? [],
-        }),
+        body: JSON.stringify({ ...draft, channels: draft.channels ?? [] }),
       });
-      const payload = (await readResponsePayload<STRMutationResponse>(response)) as STRMutationResponse | { detail?: string };
+      const payload = (await readResponsePayload<STRMutationResponse>(response)) as
+        | STRMutationResponse
+        | { detail?: string };
       if (!response.ok) {
         setError(detailFromPayload(payload, "Unable to create STR draft."));
         setNotice(null);
         return;
       }
-      setNotice("Draft created. Opening workspace...");
+      setNotice("Draft created. Opening workspace…");
       router.push(`/strs/${(payload as STRMutationResponse).report.id}`);
     } catch (caughtError) {
       setError(caughtError instanceof Error ? caughtError.message : "Unable to create STR draft.");
@@ -173,20 +183,23 @@ export function STRReportList({ viewer }: { viewer: Viewer }) {
   return (
     <div className="space-y-6">
       <XmlImportCard onImported={() => setFilter((prev) => prev)} />
-      <Card>
-        <CardHeader>
-          <CardTitle>Open a native STR draft</CardTitle>
-          <CardDescription>
-            Banks can file directly in Kestrel, enrich the narrative, then submit for regulator review. Regulators can
-            also open internal drafts for imported or reconstructed intelligence.
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
+
+      <section className="border border-border">
+        <div className="border-b border-border px-6 py-5">
+          <p className="font-mono text-[10px] uppercase tracking-[0.28em] text-muted-foreground">
+            <span aria-hidden className="mr-2 text-accent">┼</span>
+            Section · Open a native STR draft
+          </p>
+          <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
+            Banks can file directly in Kestrel, enrich the narrative, then submit for regulator review.
+            Regulators can also open internal drafts for imported or reconstructed intelligence.
+          </p>
+        </div>
+        <div className="space-y-5 p-6">
           <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-            <div className="space-y-2">
-              <label className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Report type</label>
+            <Field label="Report type">
               <select
-                className="h-11 w-full rounded-xl border border-input bg-background/60 px-4 text-sm outline-none focus:border-primary"
+                className={selectClass}
                 value={draft.reportType ?? "str"}
                 onChange={(event) => updateField("reportType", event.target.value)}
               >
@@ -196,29 +209,26 @@ export function STRReportList({ viewer }: { viewer: Viewer }) {
                   </option>
                 ))}
               </select>
-            </div>
+            </Field>
             {draft.reportType !== "ier" ? (
-              <div className="space-y-2">
-                <label className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Subject account</label>
+              <Field label="Subject account">
                 <Input
                   value={draft.subjectAccount ?? ""}
                   onChange={(event) => updateField("subjectAccount", event.target.value)}
                   placeholder="1781430000701"
                 />
-              </div>
+              </Field>
             ) : null}
-            <div className="space-y-2">
-              <label className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Subject name</label>
+            <Field label="Subject name">
               <Input
                 value={draft.subjectName}
                 onChange={(event) => updateField("subjectName", event.target.value)}
                 placeholder="RIZWANA ENTERPRISE"
               />
-            </div>
-            <div className="space-y-2">
-              <label className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Category</label>
+            </Field>
+            <Field label="Category">
               <select
-                className="h-11 w-full rounded-xl border border-input bg-background/60 px-4 text-sm outline-none focus:border-primary"
+                className={selectClass}
                 value={draft.category}
                 onChange={(event) => updateField("category", event.target.value)}
               >
@@ -229,255 +239,301 @@ export function STRReportList({ viewer }: { viewer: Viewer }) {
                 <option value="cyber_crime">Cyber crime</option>
                 <option value="other">Other</option>
               </select>
-            </div>
-            <div className="space-y-2">
-              <label className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Primary channel</label>
+            </Field>
+            <Field label="Primary channel">
               <Input
                 value={draft.primaryChannel}
                 onChange={(event) => updateField("primaryChannel", event.target.value)}
                 placeholder="RTGS"
               />
-            </div>
+            </Field>
           </div>
           <div className="grid gap-4 md:grid-cols-3">
-            <div className="space-y-2">
-              <label className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Exposure (BDT)</label>
+            <Field label="Exposure (BDT)">
               <Input
                 inputMode="decimal"
                 type="number"
                 value={draft.totalAmount}
                 onChange={(event) => updateField("totalAmount", Number(event.target.value))}
               />
-            </div>
-            <div className="space-y-2">
-              <label className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Transactions</label>
+            </Field>
+            <Field label="Transactions">
               <Input
                 inputMode="numeric"
                 type="number"
                 value={draft.transactionCount}
                 onChange={(event) => updateField("transactionCount", Number(event.target.value))}
               />
-            </div>
-            <div className="space-y-2">
-              <label className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Subject phone</label>
+            </Field>
+            <Field label="Subject phone">
               <Input
                 value={draft.subjectPhone}
                 onChange={(event) => updateField("subjectPhone", event.target.value)}
                 placeholder="017XXXXXXXX"
               />
-            </div>
+            </Field>
           </div>
+
           {draft.reportType === "ier" ? (
-            <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4 rounded-2xl border border-border/80 bg-background/40 p-4">
-              <div className="space-y-2">
-                <label className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Direction</label>
-                <select
-                  className="h-11 w-full rounded-xl border border-input bg-background/60 px-4 text-sm outline-none focus:border-primary"
-                  value={draft.ierDirection ?? ""}
-                  onChange={(event) => updateField("ierDirection", (event.target.value || undefined) as STRDraftPayload["ierDirection"])}
-                >
-                  <option value="">Select direction</option>
-                  <option value="outbound">Outbound (BFIU requesting)</option>
-                  <option value="inbound">Inbound (foreign FIU requesting)</option>
-                </select>
+            <TypeBlock label="Type-specific · Information Exchange Request">
+              <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+                <Field label="Direction">
+                  <select
+                    className={selectClass}
+                    value={draft.ierDirection ?? ""}
+                    onChange={(event) =>
+                      updateField(
+                        "ierDirection",
+                        (event.target.value || undefined) as STRDraftPayload["ierDirection"],
+                      )
+                    }
+                  >
+                    <option value="">Select direction</option>
+                    <option value="outbound">Outbound (BFIU requesting)</option>
+                    <option value="inbound">Inbound (foreign FIU requesting)</option>
+                  </select>
+                </Field>
+                <Field label="Counterparty FIU">
+                  <Input
+                    value={draft.ierCounterpartyFiu ?? ""}
+                    onChange={(event) => updateField("ierCounterpartyFiu", event.target.value)}
+                    placeholder="FINTRAC (Canada)"
+                  />
+                </Field>
+                <Field label="Counterparty country">
+                  <Input
+                    value={draft.ierCounterpartyCountry ?? ""}
+                    onChange={(event) => updateField("ierCounterpartyCountry", event.target.value)}
+                    placeholder="Canada"
+                  />
+                </Field>
+                <Field label="Egmont reference">
+                  <Input
+                    value={draft.ierEgmontRef ?? ""}
+                    onChange={(event) => updateField("ierEgmontRef", event.target.value)}
+                    placeholder="EG-2026-0419"
+                  />
+                </Field>
               </div>
-              <div className="space-y-2">
-                <label className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Counterparty FIU</label>
-                <Input
-                  value={draft.ierCounterpartyFiu ?? ""}
-                  onChange={(event) => updateField("ierCounterpartyFiu", event.target.value)}
-                  placeholder="FINTRAC (Canada)"
-                />
-              </div>
-              <div className="space-y-2">
-                <label className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Counterparty country</label>
-                <Input
-                  value={draft.ierCounterpartyCountry ?? ""}
-                  onChange={(event) => updateField("ierCounterpartyCountry", event.target.value)}
-                  placeholder="Canada"
-                />
-              </div>
-              <div className="space-y-2">
-                <label className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Egmont reference</label>
-                <Input
-                  value={draft.ierEgmontRef ?? ""}
-                  onChange={(event) => updateField("ierEgmontRef", event.target.value)}
-                  placeholder="EG-2026-0419"
-                />
-              </div>
-            </div>
+            </TypeBlock>
           ) : null}
+
           {draft.reportType === "tbml" ? (
-            <div className="grid gap-4 md:grid-cols-3 rounded-2xl border border-border/80 bg-background/40 p-4">
-              <div className="space-y-2">
-                <label className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Counterparty country</label>
-                <Input
-                  value={draft.tbmlCounterpartyCountry ?? ""}
-                  onChange={(event) => updateField("tbmlCounterpartyCountry", event.target.value)}
-                  placeholder="Hong Kong SAR"
-                />
+            <TypeBlock label="Type-specific · Trade-based money laundering">
+              <div className="grid gap-4 md:grid-cols-3">
+                <Field label="Counterparty country">
+                  <Input
+                    value={draft.tbmlCounterpartyCountry ?? ""}
+                    onChange={(event) => updateField("tbmlCounterpartyCountry", event.target.value)}
+                    placeholder="Hong Kong SAR"
+                  />
+                </Field>
+                <Field label="LC reference">
+                  <Input
+                    value={draft.tbmlLcReference ?? ""}
+                    onChange={(event) => updateField("tbmlLcReference", event.target.value)}
+                    placeholder="LC-000-2026-045"
+                  />
+                </Field>
+                <Field label="HS code">
+                  <Input
+                    value={draft.tbmlHsCode ?? ""}
+                    onChange={(event) => updateField("tbmlHsCode", event.target.value)}
+                    placeholder="6109.10"
+                  />
+                </Field>
               </div>
-              <div className="space-y-2">
-                <label className="text-xs uppercase tracking-[0.18em] text-muted-foreground">LC reference</label>
-                <Input
-                  value={draft.tbmlLcReference ?? ""}
-                  onChange={(event) => updateField("tbmlLcReference", event.target.value)}
-                  placeholder="LC-000-2026-045"
-                />
-              </div>
-              <div className="space-y-2">
-                <label className="text-xs uppercase tracking-[0.18em] text-muted-foreground">HS code</label>
-                <Input
-                  value={draft.tbmlHsCode ?? ""}
-                  onChange={(event) => updateField("tbmlHsCode", event.target.value)}
-                  placeholder="6109.10"
-                />
-              </div>
-            </div>
+            </TypeBlock>
           ) : null}
+
           {draft.reportType === "adverse_media_str" || draft.reportType === "adverse_media_sar" ? (
-            <div className="grid gap-4 md:grid-cols-3 rounded-2xl border border-border/80 bg-background/40 p-4">
-              <div className="space-y-2">
-                <label className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Source publication</label>
-                <Input
-                  value={draft.mediaSource ?? ""}
-                  onChange={(event) => updateField("mediaSource", event.target.value)}
-                  placeholder="The Daily Star"
-                />
+            <TypeBlock label="Type-specific · Adverse media provenance">
+              <div className="grid gap-4 md:grid-cols-3">
+                <Field label="Source publication">
+                  <Input
+                    value={draft.mediaSource ?? ""}
+                    onChange={(event) => updateField("mediaSource", event.target.value)}
+                    placeholder="The Daily Star"
+                  />
+                </Field>
+                <Field label="Source URL">
+                  <Input
+                    value={draft.mediaUrl ?? ""}
+                    onChange={(event) => updateField("mediaUrl", event.target.value)}
+                    placeholder="https://…"
+                  />
+                </Field>
+                <Field label="Published date">
+                  <Input
+                    type="date"
+                    value={draft.mediaPublishedAt ?? ""}
+                    onChange={(event) => updateField("mediaPublishedAt", event.target.value)}
+                  />
+                </Field>
               </div>
-              <div className="space-y-2">
-                <label className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Source URL</label>
-                <Input
-                  value={draft.mediaUrl ?? ""}
-                  onChange={(event) => updateField("mediaUrl", event.target.value)}
-                  placeholder="https://…"
-                />
-              </div>
-              <div className="space-y-2">
-                <label className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Published date</label>
-                <Input
-                  type="date"
-                  value={draft.mediaPublishedAt ?? ""}
-                  onChange={(event) => updateField("mediaPublishedAt", event.target.value)}
-                />
-              </div>
-            </div>
+            </TypeBlock>
           ) : null}
+
           {draft.reportType === "additional_info" ? (
-            <div className="rounded-2xl border border-border/80 bg-background/40 p-4">
-              <div className="space-y-2">
-                <label className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Supplements report ID</label>
+            <TypeBlock label="Type-specific · Additional Information File">
+              <Field label="Supplements report ID">
                 <Input
                   value={draft.supplementsReportId ?? ""}
                   onChange={(event) => updateField("supplementsReportId", event.target.value)}
                   placeholder="Parent report UUID"
                 />
-                <p className="text-xs text-muted-foreground">
-                  Subject identity carries over from the parent report automatically.
-                </p>
-              </div>
-            </div>
+              </Field>
+              <p className="mt-2 font-mono text-[10px] uppercase tracking-[0.22em] text-muted-foreground">
+                Subject identity carries over from the parent report automatically.
+              </p>
+            </TypeBlock>
           ) : null}
-          <div className="space-y-2">
-            <label className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Initial narrative</label>
+
+          <Field label="Initial narrative">
             <Textarea
               disabled={isCreating}
               value={draft.narrative}
               onChange={(event) => updateField("narrative", event.target.value)}
               placeholder="Describe the suspicious pattern, counterparties, and why this requires filing."
             />
-          </div>
-          {error ? <p className="text-sm text-red-300">{error}</p> : null}
-          {notice ? <p className="text-sm text-primary/80">{notice}</p> : null}
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <p className="text-sm text-muted-foreground">
-              Signed in as {viewer.fullName} at {viewer.orgName}.
+          </Field>
+
+          {error ? (
+            <p className="font-mono text-xs uppercase tracking-[0.18em] text-destructive">
+              <span aria-hidden className="mr-2">┼</span>ERROR · {error}
+            </p>
+          ) : null}
+          {notice ? (
+            <p className="font-mono text-xs uppercase tracking-[0.18em] text-accent">
+              <span aria-hidden className="mr-2">┼</span>
+              {notice}
+            </p>
+          ) : null}
+
+          <div className="flex flex-wrap items-center justify-between gap-3 border-t border-border pt-4">
+            <p className="font-mono text-[11px] uppercase tracking-[0.22em] text-muted-foreground">
+              Signed in as {viewer.fullName} · {viewer.orgName}
             </p>
             <Button
               type="button"
               disabled={isCreating || !canCreateDraft(draft)}
               onClick={() => void createDraft()}
             >
-              {isCreating ? "Creating draft..." : "Create draft"}
+              {isCreating ? "Creating draft…" : "Create draft"}
             </Button>
           </div>
-        </CardContent>
-      </Card>
+        </div>
+      </section>
 
-      <Card>
-        <CardHeader>
-          <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-            <div>
-              <CardTitle>Current report lifecycle</CardTitle>
-              <CardDescription>Every draft, submitted filing, and regulator review action lands here.</CardDescription>
-            </div>
-            <a
-              href={`/api/str-reports/export${filter === "all" ? "" : `?report_type=${filter}`}`}
-              className="inline-flex items-center justify-center rounded-xl border border-border bg-background/60 px-4 py-2 text-sm font-medium text-foreground transition hover:border-primary/40"
-            >
-              Export Excel
-            </a>
+      <section className="border border-border">
+        <div className="flex flex-col gap-3 border-b border-border px-6 py-5 lg:flex-row lg:items-center lg:justify-between">
+          <div>
+            <p className="font-mono text-[10px] uppercase tracking-[0.28em] text-muted-foreground">
+              <span aria-hidden className="mr-2 text-accent">┼</span>
+              Section · Current report lifecycle
+            </p>
+            <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
+              Every draft, submitted filing, and regulator review action lands here.
+            </p>
           </div>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="flex flex-wrap gap-2">
+          <a
+            href={`/api/str-reports/export${filter === "all" ? "" : `?report_type=${filter}`}`}
+            className="inline-flex items-center gap-2 border border-border bg-card px-4 py-2 font-mono text-[11px] uppercase tracking-[0.22em] text-foreground transition hover:border-foreground"
+          >
+            Export Excel
+          </a>
+        </div>
+        <div className="space-y-4 p-6">
+          <div className="flex flex-wrap gap-0 border border-border">
             {(["all", ...REPORT_TYPES] as ReportTypeFilter[]).map((type) => (
               <button
                 key={type}
                 type="button"
                 onClick={() => setFilter(type)}
-                className={`rounded-full border px-3 py-1 text-xs font-medium transition ${
+                className={`border-r border-border px-4 py-2 font-mono text-[11px] uppercase tracking-[0.22em] transition last:border-r-0 ${
                   filter === type
-                    ? "border-primary bg-primary/15 text-primary"
-                    : "border-border text-muted-foreground hover:border-primary/40"
+                    ? "bg-foreground text-background"
+                    : "text-muted-foreground hover:bg-foreground/[0.04] hover:text-foreground"
                 }`}
               >
                 {type === "all" ? "All" : reportTypeLabel[type]}
               </button>
             ))}
           </div>
+
           {reports.length === 0 ? (
-            <p className="text-sm text-muted-foreground">No reports yet. Create the first draft above.</p>
+            <p className="font-mono text-[11px] uppercase tracking-[0.22em] text-muted-foreground">
+              No reports yet · create the first draft above
+            </p>
           ) : (
-            reports.map((report) => (
-              <Link
-                key={report.id}
-                href={`/strs/${report.id}`}
-                className="block rounded-2xl border border-border/80 bg-background/50 p-4 transition hover:border-primary/60 hover:bg-background/70"
-              >
-                <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
-                  <div className="space-y-2">
-                    <div className="flex flex-wrap items-center gap-3">
-                      <h3 className="text-base font-semibold">{report.reportRef}</h3>
-                      <span
-                        className={`inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-semibold tracking-widest ${
-                          reportTypeBadgeClass[report.reportType] ?? "bg-muted text-muted-foreground border-border"
-                        }`}
-                      >
-                        {reportTypeLabel[report.reportType] ?? report.reportType.toUpperCase()}
-                      </span>
-                      <StatusBadge status={report.status} />
+            <div className="space-y-3">
+              {reports.map((report) => (
+                <Link
+                  key={report.id}
+                  href={`/strs/${report.id}`}
+                  className="block border border-border bg-card px-5 py-4 transition hover:bg-foreground/[0.03]"
+                >
+                  <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+                    <div className="space-y-2">
+                      <div className="flex flex-wrap items-center gap-3">
+                        <h3 className="font-mono text-base text-foreground">{report.reportRef}</h3>
+                        <span
+                          className={`inline-flex items-center border px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.22em] ${
+                            reportTypeTone[report.reportType] ?? "border-border text-muted-foreground"
+                          }`}
+                        >
+                          {reportTypeLabel[report.reportType] ?? report.reportType.toUpperCase()}
+                        </span>
+                        <StatusBadge status={report.status} />
+                      </div>
+                      <p className="text-sm leading-relaxed text-foreground">
+                        {report.subjectName || "Unnamed subject"} ·{" "}
+                        <span className="font-mono text-muted-foreground">
+                          {report.subjectAccount || "—"}
+                        </span>
+                      </p>
+                      <p className="font-mono text-[11px] uppercase tracking-[0.22em] text-muted-foreground">
+                        {report.orgName} · {report.category.replaceAll("_", " ")} ·{" "}
+                        {report.primaryChannel || "No channel"}
+                      </p>
                     </div>
-                    <p className="text-sm text-muted-foreground">
-                      {report.subjectName || "Unnamed subject"} · {report.subjectAccount || "—"}
-                    </p>
-                    <p className="text-sm text-muted-foreground">
-                      {report.orgName} · {report.category.replaceAll("_", " ")} · {report.primaryChannel || "No channel"}
-                    </p>
+                    <div className="space-y-1 font-mono text-[11px] uppercase tracking-[0.22em] text-muted-foreground">
+                      <p>
+                        Exposure ·{" "}
+                        <span className="tabular-nums text-foreground">
+                          <Currency amount={report.totalAmount} />
+                        </span>
+                      </p>
+                      <p>
+                        Transactions ·{" "}
+                        <span className="tabular-nums text-foreground">{report.transactionCount}</span>
+                      </p>
+                      <p>
+                        Reported ·{" "}
+                        <span className="text-foreground">
+                          {report.reportedAt ? new Date(report.reportedAt).toLocaleString() : "draft only"}
+                        </span>
+                      </p>
+                    </div>
                   </div>
-                  <div className="space-y-1 text-sm text-muted-foreground">
-                    <p>
-                      Exposure: <Currency amount={report.totalAmount} />
-                    </p>
-                    <p>Transactions: {report.transactionCount}</p>
-                    <p>Reported: {report.reportedAt ? new Date(report.reportedAt).toLocaleString() : "draft only"}</p>
-                  </div>
-                </div>
-              </Link>
-            ))
+                </Link>
+              ))}
+            </div>
           )}
-        </CardContent>
-      </Card>
+        </div>
+      </section>
+    </div>
+  );
+}
+
+function TypeBlock({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <div className="space-y-4 border border-border bg-card/40 p-4">
+      <p className="font-mono text-[10px] uppercase tracking-[0.28em] text-accent">
+        <span aria-hidden className="mr-2">┼</span>
+        {label}
+      </p>
+      {children}
     </div>
   );
 }
