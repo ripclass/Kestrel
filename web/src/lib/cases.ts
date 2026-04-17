@@ -45,6 +45,11 @@ type RawCaseSummary = {
   assigned_to?: string | null;
   linked_entity_ids: string[];
   linked_alert_ids?: string[];
+  variant?: CaseSummary["variant"];
+  parent_case_id?: string | null;
+  proposal_decision?: CaseSummary["proposalDecision"];
+  requested_by?: string | null;
+  requested_from?: string | null;
 };
 
 type RawCaseWorkspace = RawCaseSummary & {
@@ -52,6 +57,8 @@ type RawCaseWorkspace = RawCaseSummary & {
   evidence_entities: RawEntitySummary[];
   notes: RawCaseNote[];
   graph?: Parameters<typeof normalizeNetworkGraph>[0] | null;
+  proposal_decided_by?: string | null;
+  proposal_decided_at?: string | null;
 };
 
 export function normalizeCaseSummary(item: RawCaseSummary): CaseSummary {
@@ -66,6 +73,11 @@ export function normalizeCaseSummary(item: RawCaseSummary): CaseSummary {
     assignedTo: item.assigned_to ?? undefined,
     linkedEntityIds: item.linked_entity_ids,
     linkedAlertIds: item.linked_alert_ids ?? [],
+    variant: (item.variant ?? "standard") as CaseSummary["variant"],
+    parentCaseId: item.parent_case_id ?? null,
+    proposalDecision: item.proposal_decision ?? null,
+    requestedBy: item.requested_by ?? null,
+    requestedFrom: item.requested_from ?? null,
   };
 }
 
@@ -91,5 +103,7 @@ export function normalizeCaseWorkspace(item: RawCaseWorkspace): CaseWorkspace {
     evidenceEntities: item.evidence_entities.map(normalizeEntitySummary),
     notes: item.notes.map(normalizeCaseNote),
     graph: item.graph ? normalizeNetworkGraph(item.graph) : undefined,
+    proposalDecidedBy: item.proposal_decided_by ?? null,
+    proposalDecidedAt: item.proposal_decided_at ?? null,
   };
 }
