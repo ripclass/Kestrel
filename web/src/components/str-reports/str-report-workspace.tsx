@@ -5,6 +5,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import type { STRDraftPayload, STRMutationResponse, STRReviewPayload } from "@/types/api";
 import type { STRReportDetail, Viewer } from "@/types/domain";
 import { Currency } from "@/components/common/currency";
+import { DisseminateAction } from "@/components/disseminations/disseminate-action";
 import { StatusBadge } from "@/components/common/status-badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -280,6 +281,11 @@ export function STRReportWorkspace({
             <div className="flex flex-wrap items-center gap-3">
               <StatusBadge status={report.status} />
               <span className="text-sm text-muted-foreground">{report.category.replaceAll("_", " ")}</span>
+              <DisseminateAction
+                linkedReportId={report.id}
+                defaultSubject={`Report ${report.reportRef}: ${report.subjectName ?? "subject"}\n${report.narrative ?? ""}`}
+                variant="outline"
+              />
             </div>
           </div>
         </CardHeader>
