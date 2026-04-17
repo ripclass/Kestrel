@@ -324,6 +324,25 @@ async def _fetch_parent_for_supplement(
     return result.scalar_one_or_none()
 
 
+async def list_supplements_of(
+    session: AsyncSession,
+    *,
+    parent_id: str,
+) -> list[STRReportSummary]:
+    """Return every additional_info STR that supplements ``parent_id``."""
+    parent_uuid = _as_uuid(parent_id)
+    if parent_uuid is None:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid parent report id.")
+    stmt = (
+        select(STRReport, Organization.name.label("org_name"))
+        .join(Organization, Organization.id == STRReport.org_id)
+        .where(STRReport.supplements_report_id == parent_uuid)
+        .order_by(STRReport.reported_at.desc().nullslast(), STRReport.created_at.desc())
+    )
+    result = await session.execute(stmt)
+    return [_serialize_report(report, str(org_name)) for report, org_name in result.all()]
+
+
 async def list_str_reports(
     session: AsyncSession,
     *,

@@ -20,6 +20,7 @@ from app.services.str_reports import (
     enrich_str_report,
     get_str_report,
     list_str_reports,
+    list_supplements_of,
     review_str_report,
     submit_str_report,
     update_str_report,
@@ -156,3 +157,34 @@ async def enrich_report(
     )
     report = await get_str_report(session, report_id)
     return STREnrichmentResponse(report=report, enrichment=enrichment)
+
+
+@router.get("/{report_id}/supplements", response_model=STRListResponse)
+async def list_report_supplements(
+    report_id: str,
+    user: Annotated[AuthenticatedUser, Depends(get_current_user)],
+    session: Annotated[AsyncSession, Depends(get_current_session)],
+) -> STRListResponse:
+    reports = await list_supplements_of(session, parent_id=report_id)
+    return STRListResponse(reports=reports)
+
+
+@router.post("/{report_id}/supplements", response_model=STRMutationResponse)
+async def create_report_supplement(
+    report_id: str,
+    body: STRDraftUpsert,
+    request: Request,
+    user: Annotated[AuthenticatedUser, Depends(require_roles("analyst", "manager", "admin", "superadmin"))],
+    session: Annotated[AsyncSession, Depends(get_current_session)],
+) -> STRMutationResponse:
+    # Force the additional_info type + parent link so callers don't have to
+    # know the FK semantics — they just pick "Supplement this report".
+    payload = body.model_dump()
+    payload["report_type"] = "additional_info"
+    payload["supplements_report_id"] = report_id
+    return await create_str_report(
+        session,
+        user=user,
+        payload=payload,
+        ip=request.client.host if request.client else None,
+    )
