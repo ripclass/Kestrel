@@ -6,9 +6,9 @@ Kestrel is a standalone financial crime intelligence platform for Bangladesh. It
 
 ## Current state
 
-> **Active branch state (2026-04-17):** `feature/sovereign-ledger` is 9 commits ahead of `main`. It contains the full institutional-brutalist UI rebrand across every public + platform surface (auth, overview, investigate, alerts, cases, STRs, intel, ops, reports, admin, Recharts). Production (`main` + `kestrel-nine.vercel.app`) is still on the previous problem-first landing + teal/navy platform. The rebrand is described in §"Sovereign Ledger" below. Before merging `feature/sovereign-ledger` to `main`: (1) apply migration 010 to prod Supabase, (2) set `SUPABASE_SERVICE_ROLE_KEY` on the Vercel web project env.
+> **Prod state (2026-04-18):** Sovereign Ledger rebrand merged to `main` (`92164b1`) and live on `kestrel-nine.vercel.app`. Migration 010 (`access_requests`) applied to prod Supabase. `SUPABASE_SERVICE_ROLE_KEY` is set on the Vercel web project env. The landing intake form writes through to `access_requests`. The rebrand is described in §"Sovereign Ledger" below.
 
-Two full build-out sessions are shipped end-to-end on prod.
+Three full build-out sessions are shipped end-to-end on prod.
 
 **Session 1 — intelligence-core (2026-04-15 → 2026-04-16).** 10 roadmap items from `KESTREL-INTELLIGENCE-CORE-PROMPT.md`: real detection engine (8 YAML rules + evaluator + scorer + resolver + matcher + pipeline), scan upload path, WeasyPrint PDF case pack, SAR/CTR report types, AI alert auto-explanation + Draft STR, DB-backed typologies, CommandView polish, parked modifier conditions wired, incremental scan scope, Phase 10 hardening (request IDs + structured JSON logs + standardised error envelope + `docs/RUNBOOK.md`).
 
@@ -287,7 +287,7 @@ Institutional-brutalist UI rebrand living on `feature/sovereign-ledger`. **Desig
 - Recharts: mono Plex tick labels, zero-radius hairline tooltips, grid in 8% bone, monochromatic series palette (vermillion → bone → muted → dim greys).
 - React Flow nodes: `borderRadius: 0`, hairline border (vermillion when risk ≥ 90 or selection = alarm), Plex Mono label, bg `#15171C` (alarm-tinted when flagged). See `components/investigate/network-canvas.tsx` and `components/intel/diagram-builder.tsx` for the reference implementation.
 
-**KestrelMark component** (`web/src/components/common/kestrel-mark.tsx`) is the single source of truth for the wordmark. Currently renders `┼ KESTREL` as a placeholder. Variants: `lockup` / `mark` / `wordmark`. When the real SVG logo ships, swap the `┼` span in one file and every surface inherits it.
+**KestrelMark component** (`web/src/components/common/kestrel-mark.tsx`) is the single source of truth for the brand mark. Renders inline SVGs — bone bird silhouette + vermillion registration crosshair on dark surfaces (primary), slate bird + bone crosshair on light surfaces (inverse). Variants: `lockup` / `mark` / `wordmark`. Sizes sm/md/lg. Source SVGs live next to the component (`kestrel-mark.svg`, `kestrel-mark-dark.svg`, `kestrel-wordmark.svg`). Favicon at `web/src/app/icon.svg`, Apple touch icon via `web/src/app/apple-icon.tsx` (ImageResponse, 180×180), OG social card via `web/src/app/opengraph-image.tsx` (1200×630).
 
 **Phase 6 (polish, non-blocking):**
 1. Lighthouse ≥ 95 on public, ≥ 90 on in-app.
@@ -296,17 +296,11 @@ Institutional-brutalist UI rebrand living on `feature/sovereign-ledger`. **Desig
 4. Refresh screenshots in `docs/goaml-coverage.md`; replace SVG mocks in `web/src/components/public/product-mocks.tsx` with real Sovereign Ledger captures.
 5. Update kestrel-design SKILL.md with final helper-component patterns (Section/Field/Meta) + Recharts palette.
 
-**Blockers before merging `feature/sovereign-ledger` to `main`:**
-1. Apply `supabase/migrations/010_access_requests.sql` to prod Supabase (`bmlyqlkzeuoglyvfythg`). Creates the `access_requests` table with `insert-via-service-role`, `select-superadmin-only` RLS, `institution_type` CHECK, `use_case` ≥ 50 chars.
-2. Set `SUPABASE_SERVICE_ROLE_KEY` on the Vercel **web** project env (separate from the Render engine env, where it already exists). Without it the intake form's server action (`web/src/app/actions/access.ts`) falls through gracefully to `"Clearance channel offline. Contact the platform operator directly."` — renders clean but no database write happens.
+**Launch completed 2026-04-18.** Migration 010 is applied to prod Supabase `bmlyqlkzeuoglyvfythg` (the `access_requests` table, fixed from `profiles.user_id` → `profiles.id` mid-apply because the profiles table uses `id` as the `auth.uid()` FK). `SUPABASE_SERVICE_ROLE_KEY` is set on the Vercel web env. `feature/sovereign-ledger` merged `--no-ff` to `main` and pushed (`92164b1`); Vercel rebuilt prod automatically.
 
 ## What to work on next
 
-No KESTREL-*-PROMPT.md items remain. The Sovereign Ledger rebrand covers every UI surface; Phase 6 polish is the only UI work outstanding. Priorities for the next session:
-
-**Blocks shipping the Sovereign Ledger rebrand to production:**
-1. **Apply migration 010 + set the Vercel web service-role key** (see Sovereign Ledger § blockers above).
-2. **Merge `feature/sovereign-ledger` to `main`** once (1) is done. Vercel production rebuilds on push — expect a 45–90s window.
+No KESTREL-*-PROMPT.md items remain. The Sovereign Ledger rebrand is shipped; Phase 6 polish is the only UI work outstanding. Priorities for the next session:
 
 **Blocks first BFIU meeting:**
 1. **Demo film production.** Not a code task, but the most important next step. The platform is ready to be shown — a recorded walkthrough of Director → Analyst → CAMLCO personas hitting each of the 13 goAML-coverage items against the synthetic DBBL dataset would compress the first meeting from an hour to ten minutes.
