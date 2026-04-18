@@ -35,16 +35,20 @@ export function CaseExport({ caseId, caseRef }: { caseId: string; caseRef: strin
   }
 
   return (
-    <div className="flex flex-col gap-2">
-      <div className="flex gap-3">
+    <div className="flex flex-col gap-3">
+      <div className="flex flex-wrap gap-2">
         <Button type="button" disabled={isGenerating} onClick={() => void generatePdf()}>
-          {isGenerating ? "Generating PDF..." : "Generate PDF"}
+          {isGenerating ? "Generating PDF…" : "Generate case PDF"}
         </Button>
         <Button type="button" variant="outline" disabled>
           Export evidence pack
         </Button>
       </div>
-      {error ? <p className="text-sm text-red-300">{error}</p> : null}
+      {error ? (
+        <p className="font-mono text-xs uppercase tracking-[0.18em] text-destructive">
+          <span aria-hidden className="mr-2">┼</span>ERROR · {error}
+        </p>
+      ) : null}
     </div>
   );
 }

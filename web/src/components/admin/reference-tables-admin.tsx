@@ -2,7 +2,6 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { detailFromPayload, readResponsePayload } from "@/lib/http";
@@ -149,34 +148,39 @@ export function ReferenceTablesAdmin({
 
   return (
     <div className="space-y-6">
-      <Card>
-        <CardHeader>
-          <CardTitle>Lookup masters</CardTitle>
-          <CardDescription>
-            Choose a table to inspect. {canMutate
+      <section className="border border-border">
+        <div className="border-b border-border px-6 py-5">
+          <p className="font-mono text-[10px] uppercase tracking-[0.28em] text-muted-foreground">
+            <span aria-hidden className="mr-2 text-accent">┼</span>
+            Section · Lookup masters
+          </p>
+          <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
+            Choose a table to inspect.{" "}
+            {canMutate
               ? "As a regulator admin you can add, toggle, or remove entries."
               : "Regulator admins maintain this data — your view is read-only."}
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="flex flex-wrap gap-2">
+          </p>
+        </div>
+        <div className="space-y-4 p-6">
+          <div className="flex flex-wrap gap-0 border border-border">
             {TABLE_NAMES.map((table) => (
               <button
                 key={table.value}
                 type="button"
                 onClick={() => setActive(table.value)}
-                className={`rounded-full border px-3 py-1 text-xs font-medium transition ${
+                className={`border-r border-border px-4 py-2 font-mono text-[11px] uppercase tracking-[0.22em] transition last:border-r-0 ${
                   active === table.value
-                    ? "border-primary bg-primary/15 text-primary"
-                    : "border-border text-muted-foreground hover:border-primary/40"
+                    ? "bg-foreground text-background"
+                    : "text-muted-foreground hover:bg-foreground/[0.04] hover:text-foreground"
                 }`}
               >
-                {table.label} ({countFor(table.value)})
+                {table.label}{" "}
+                <span className="tabular-nums opacity-70">({countFor(table.value)})</span>
               </button>
             ))}
           </div>
           {canMutate ? (
-            <div className="grid gap-3 rounded-2xl border border-border/80 bg-background/40 p-4 md:grid-cols-4">
+            <div className="grid gap-3 border border-border bg-card/40 p-4 md:grid-cols-4">
               <Input value={newCode} onChange={(event) => setNewCode(event.target.value)} placeholder="Code" />
               <Input value={newValue} onChange={(event) => setNewValue(event.target.value)} placeholder="Value" />
               <Input
@@ -189,38 +193,58 @@ export function ReferenceTablesAdmin({
               </Button>
             </div>
           ) : null}
-          {error ? <p className="text-sm text-red-300">{error}</p> : null}
-          {notice ? <p className="text-sm text-primary/80">{notice}</p> : null}
-        </CardContent>
-      </Card>
+          {error ? (
+            <p className="font-mono text-xs uppercase tracking-[0.18em] text-destructive">
+              <span aria-hidden className="mr-2">┼</span>ERROR · {error}
+            </p>
+          ) : null}
+          {notice ? (
+            <p className="font-mono text-xs uppercase tracking-[0.18em] text-accent">
+              <span aria-hidden className="mr-2">┼</span>
+              {notice}
+            </p>
+          ) : null}
+        </div>
+      </section>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>{TABLE_NAMES.find((t) => t.value === active)?.label ?? active}</CardTitle>
-          <CardDescription>{entries.length} entries in scope.</CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-2">
+      <section className="border border-border">
+        <div className="border-b border-border px-6 py-5">
+          <p className="font-mono text-[10px] uppercase tracking-[0.28em] text-muted-foreground">
+            <span aria-hidden className="mr-2 text-accent">┼</span>
+            Section · {TABLE_NAMES.find((t) => t.value === active)?.label ?? active}
+          </p>
+          <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
+            <span className="tabular-nums text-foreground">{entries.length}</span> entries in scope.
+          </p>
+        </div>
+        <div className="p-6">
           {loading ? (
-            <p className="text-sm text-muted-foreground">Loading…</p>
+            <p className="font-mono text-[11px] uppercase tracking-[0.22em] text-muted-foreground">
+              Loading…
+            </p>
           ) : entries.length === 0 ? (
-            <p className="text-sm text-muted-foreground">No entries yet.</p>
+            <p className="font-mono text-[11px] uppercase tracking-[0.22em] text-muted-foreground">
+              No entries yet
+            </p>
           ) : (
-            entries.map((entry) => (
-              <div
-                key={entry.id}
-                className={`rounded-xl border px-4 py-3 ${
-                  entry.isActive ? "border-border/70 bg-background/60" : "border-border/40 bg-background/30 opacity-60"
-                }`}
-              >
-                <div className="flex flex-col gap-2 lg:flex-row lg:items-center lg:justify-between">
+            <ul className="divide-y divide-border border border-border">
+              {entries.map((entry) => (
+                <li
+                  key={entry.id}
+                  className={`flex flex-col gap-2 px-4 py-3 lg:flex-row lg:items-center lg:justify-between ${
+                    entry.isActive ? "" : "opacity-60"
+                  }`}
+                >
                   <div className="flex flex-wrap items-center gap-3">
-                    <span className="font-mono text-sm">{entry.code}</span>
-                    <span className="text-sm">{entry.value}</span>
+                    <span className="font-mono text-sm text-foreground">{entry.code}</span>
+                    <span className="text-sm text-foreground">{entry.value}</span>
                     {entry.description ? (
                       <span className="text-xs text-muted-foreground">{entry.description}</span>
                     ) : null}
                     {!entry.isActive ? (
-                      <span className="text-xs uppercase tracking-widest text-muted-foreground">inactive</span>
+                      <span className="font-mono text-[10px] uppercase tracking-[0.22em] text-muted-foreground">
+                        inactive
+                      </span>
                     ) : null}
                   </div>
                   {canMutate ? (
@@ -231,19 +255,19 @@ export function ReferenceTablesAdmin({
                       <Button
                         type="button"
                         variant="ghost"
-                        className="text-red-300 hover:text-red-200"
+                        className="text-destructive hover:text-destructive"
                         onClick={() => void remove(entry)}
                       >
                         Delete
                       </Button>
                     </div>
                   ) : null}
-                </div>
-              </div>
-            ))
+                </li>
+              ))}
+            </ul>
           )}
-        </CardContent>
-      </Card>
+        </div>
+      </section>
     </div>
   );
 }

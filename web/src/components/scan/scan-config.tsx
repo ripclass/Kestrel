@@ -1,11 +1,11 @@
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 
 const scanRuleCatalog = [
   {
     code: "rapid_cashout",
     label: "Rapid cashout",
-    description: "High-value inbound funds exit through beneficiaries or wallets within a compressed time window.",
+    description:
+      "High-value inbound funds exit through beneficiaries or wallets within a compressed time window.",
   },
   {
     code: "fan_in_burst",
@@ -58,46 +58,52 @@ export function ScanConfig({
   isSubmitting: boolean;
 }) {
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Scan configuration</CardTitle>
-        <CardDescription>
-          Choose the rules to evaluate for this run. The queued scan is persisted as a real detection run and reuses the
-          shared intelligence graph.
-        </CardDescription>
-      </CardHeader>
-      <CardContent className="space-y-4">
-        <div className="space-y-3">
+    <section className="border border-border">
+      <div className="border-b border-border px-6 py-5">
+        <p className="font-mono text-[10px] uppercase tracking-[0.28em] text-muted-foreground">
+          <span aria-hidden className="mr-2 text-accent">┼</span>
+          Section · Scan configuration
+        </p>
+        <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
+          Choose the rules to evaluate for this run. The queued scan is persisted as a real detection
+          run and reuses the shared intelligence graph.
+        </p>
+      </div>
+      <div className="space-y-5 p-6">
+        <ul className="divide-y divide-border border border-border">
           {scanRuleCatalog.map((rule) => {
             const checked = selectedRules.includes(rule.code);
             return (
-              <label
-                key={rule.code}
-                className="flex cursor-pointer items-start gap-3 rounded-xl border border-border/70 bg-background/40 p-3"
-              >
-                <input
-                  type="checkbox"
-                  className="mt-1 h-4 w-4 rounded border-input bg-background/60 accent-primary"
-                  checked={checked}
-                  onChange={() => onToggleRule(rule.code)}
-                />
-                <div className="space-y-1">
-                  <p className="text-sm font-medium">{rule.label}</p>
-                  <p className="text-sm text-muted-foreground">{rule.description}</p>
-                </div>
-              </label>
+              <li key={rule.code}>
+                <label className="flex cursor-pointer items-start gap-4 px-4 py-3 transition hover:bg-foreground/[0.03]">
+                  <input
+                    type="checkbox"
+                    className="mt-1 h-4 w-4 accent-accent"
+                    checked={checked}
+                    onChange={() => onToggleRule(rule.code)}
+                  />
+                  <div className="space-y-1">
+                    <p className="font-mono text-sm uppercase tracking-[0.12em] text-foreground">
+                      {rule.label}
+                    </p>
+                    <p className="text-sm leading-relaxed text-muted-foreground">{rule.description}</p>
+                  </div>
+                </label>
+              </li>
             );
           })}
-        </div>
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <p className="text-sm text-muted-foreground">
-            {selectedRules.length} of {scanRuleCatalog.length} rule families selected.
+        </ul>
+        <div className="flex flex-wrap items-center justify-between gap-3 border-t border-border pt-4">
+          <p className="font-mono text-[11px] uppercase tracking-[0.22em] text-muted-foreground">
+            <span className="tabular-nums text-foreground">{selectedRules.length}</span> of{" "}
+            <span className="tabular-nums text-foreground">{scanRuleCatalog.length}</span> rule families
+            selected
           </p>
           <Button type="button" disabled={isSubmitting} onClick={onRun}>
-            {isSubmitting ? "Running scan..." : "Run scan"}
+            {isSubmitting ? "Running scan…" : "Run scan"}
           </Button>
         </div>
-      </CardContent>
-    </Card>
+      </div>
+    </section>
   );
 }

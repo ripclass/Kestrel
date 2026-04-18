@@ -3,7 +3,6 @@
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Currency } from "@/components/common/currency";
 import { EmptyState } from "@/components/common/empty-state";
 import { LoadingState } from "@/components/common/loading";
@@ -34,15 +33,17 @@ const variantLabel: Record<CaseVariant, string> = {
   adverse_media: "Adverse Media",
 };
 
-const variantBadgeClass: Record<CaseVariant, string> = {
-  standard: "bg-slate-500/20 text-slate-300 border-slate-500/30",
-  proposal: "bg-amber-500/20 text-amber-300 border-amber-500/30",
-  rfi: "bg-cyan-500/20 text-cyan-300 border-cyan-500/30",
-  operation: "bg-purple-500/20 text-purple-300 border-purple-500/30",
-  project: "bg-blue-500/20 text-blue-300 border-blue-500/30",
-  escalated: "bg-red-500/20 text-red-300 border-red-500/30",
-  complaint: "bg-rose-500/20 text-rose-300 border-rose-500/30",
-  adverse_media: "bg-orange-500/20 text-orange-300 border-orange-500/30",
+// Collapsed to Sovereign Ledger's three tones. Escalated = alarm; most
+// others sit in foreground/neutral; RFI reads as in-flight.
+const variantTone: Record<CaseVariant, string> = {
+  standard: "border-border text-muted-foreground",
+  proposal: "border-foreground/30 text-foreground",
+  rfi: "border-foreground/30 text-foreground",
+  operation: "border-foreground/30 text-foreground",
+  project: "border-border text-muted-foreground",
+  escalated: "border-accent/50 text-accent",
+  complaint: "border-foreground/30 text-foreground",
+  adverse_media: "border-accent/40 text-accent",
 };
 
 type VariantFilter = "all" | CaseVariant;
@@ -57,33 +58,37 @@ function CaseTile({ item }: { item: CaseSummary }) {
   return (
     <Link
       href={`/cases/${item.id}`}
-      className="block rounded-xl border border-border/70 bg-background/50 p-4 transition hover:border-primary/50"
+      className="block border border-border bg-card px-5 py-4 transition hover:bg-foreground/[0.03]"
     >
       <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
         <div className="space-y-2">
           <div className="flex flex-wrap items-center gap-3">
-            <p className="font-medium">{item.caseRef}</p>
+            <p className="font-mono text-sm text-foreground">{item.caseRef}</p>
             <StatusBadge status={item.status} />
             <span
-              className={`inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-semibold tracking-widest ${variantBadgeClass[item.variant]}`}
+              className={`inline-flex items-center border px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.22em] ${variantTone[item.variant]}`}
             >
               {variantLabel[item.variant]}
             </span>
           </div>
-          <p className="text-sm">{item.title}</p>
-          <p className="text-sm text-muted-foreground">{item.summary}</p>
+          <p className="text-sm text-foreground">{item.title}</p>
+          <p className="text-sm leading-relaxed text-muted-foreground">{item.summary}</p>
           {item.variant === "rfi" ? (
-            <p className="text-xs text-muted-foreground">
+            <p className="font-mono text-[11px] uppercase tracking-[0.22em] text-muted-foreground">
               {item.requestedBy ? `From ${item.requestedBy}` : ""}
               {item.requestedBy && item.requestedFrom ? " → " : ""}
               {item.requestedFrom ? `To ${item.requestedFrom}` : ""}
             </p>
           ) : null}
         </div>
-        <div className="space-y-1 text-sm text-muted-foreground">
-          <p>Exposure: <Currency amount={item.totalExposure} /></p>
-          <p>{item.linkedEntityIds.length} linked entities</p>
-          {item.assignedTo ? <p>Assigned: {item.assignedTo}</p> : null}
+        <div className="space-y-1 font-mono text-[11px] uppercase tracking-[0.22em] text-muted-foreground">
+          <p>
+            Exposure · <span className="tabular-nums text-foreground"><Currency amount={item.totalExposure} /></span>
+          </p>
+          <p>
+            <span className="tabular-nums">{item.linkedEntityIds.length}</span> linked entities
+          </p>
+          {item.assignedTo ? <p>Assigned · {item.assignedTo}</p> : null}
         </div>
       </div>
     </Link>
@@ -141,22 +146,25 @@ export function CaseBoard({
   }, [visibleCases]);
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>{title}</CardTitle>
-      </CardHeader>
-      <CardContent className="space-y-4">
+    <section className="border border-border">
+      <div className="border-b border-border px-6 py-5">
+        <p className="font-mono text-[10px] uppercase tracking-[0.28em] text-muted-foreground">
+          <span aria-hidden className="mr-2 text-accent">┼</span>
+          Section · {title}
+        </p>
+      </div>
+      <div className="space-y-5 p-6">
         {!casesToShow ? (
-          <div className="flex flex-wrap gap-2">
+          <div className="flex flex-wrap gap-0 border border-border">
             {(["all", ...VARIANTS] as VariantFilter[]).map((type) => (
               <button
                 key={type}
                 type="button"
                 onClick={() => setFilter(type)}
-                className={`rounded-full border px-3 py-1 text-xs font-medium transition ${
+                className={`border-r border-border px-4 py-2 font-mono text-[11px] uppercase tracking-[0.22em] transition last:border-r-0 ${
                   filter === type
-                    ? "border-primary bg-primary/15 text-primary"
-                    : "border-border text-muted-foreground hover:border-primary/40"
+                    ? "bg-foreground text-background"
+                    : "text-muted-foreground hover:bg-foreground/[0.04] hover:text-foreground"
                 }`}
               >
                 {type === "all" ? "All" : variantLabel[type]}
@@ -166,33 +174,46 @@ export function CaseBoard({
         ) : null}
 
         {isLoading ? (
-          <LoadingState label="Loading case board..." />
+          <LoadingState label="Loading case board…" />
         ) : error ? (
           <EmptyState title="Case board unavailable" description={error} />
         ) : visibleCases.length === 0 ? (
-          <EmptyState title="No cases in this view" description="Adjust the variant filter or start a new proposal / RFI." />
+          <EmptyState
+            title="No cases in this view"
+            description="Adjust the variant filter or start a new proposal / RFI."
+          />
         ) : filter === "proposal" ? (
           <div className="grid gap-4 md:grid-cols-3">
             {PROPOSAL_COLUMNS.map((col) => (
-              <div key={col.id} className="space-y-3 rounded-xl border border-border/70 bg-background/40 p-3">
-                <div className="flex items-center justify-between">
-                  <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">
+              <div key={col.id} className="border border-border bg-card/40">
+                <div className="flex items-center justify-between border-b border-border px-4 py-2">
+                  <p className="font-mono text-[10px] uppercase tracking-[0.28em] text-muted-foreground">
                     {col.label}
                   </p>
-                  <span className="text-xs text-muted-foreground">{proposalsByDecision[col.id].length}</span>
+                  <span className="font-mono text-xs tabular-nums text-foreground">
+                    {String(proposalsByDecision[col.id].length).padStart(2, "0")}
+                  </span>
                 </div>
-                {proposalsByDecision[col.id].length === 0 ? (
-                  <p className="text-xs text-muted-foreground">No cases.</p>
-                ) : (
-                  proposalsByDecision[col.id].map((item) => <CaseTile key={item.id} item={item} />)
-                )}
+                <div className="space-y-3 p-3">
+                  {proposalsByDecision[col.id].length === 0 ? (
+                    <p className="font-mono text-[11px] uppercase tracking-[0.22em] text-muted-foreground">
+                      No cases
+                    </p>
+                  ) : (
+                    proposalsByDecision[col.id].map((item) => <CaseTile key={item.id} item={item} />)
+                  )}
+                </div>
               </div>
             ))}
           </div>
         ) : (
-          visibleCases.map((item) => <CaseTile key={item.id} item={item} />)
+          <div className="space-y-3">
+            {visibleCases.map((item) => (
+              <CaseTile key={item.id} item={item} />
+            ))}
+          </div>
         )}
-      </CardContent>
-    </Card>
+      </div>
+    </section>
   );
 }

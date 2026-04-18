@@ -3,9 +3,8 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Shield, Workflow } from "lucide-react";
 
-import { Badge } from "@/components/ui/badge";
+import { KestrelMark } from "@/components/common/kestrel-mark";
 import { cn } from "@/lib/utils";
 import { getNavigation } from "@/components/shell/nav-config";
 import { readResponsePayload } from "@/lib/http";
@@ -64,23 +63,20 @@ export function AppSidebar({ viewer }: { viewer: Viewer }) {
   );
 
   return (
-    <aside className="hidden w-72 shrink-0 border-r border-[var(--sidebar-border)] bg-[var(--sidebar)] text-[var(--sidebar-foreground)] lg:flex lg:flex-col">
+    <aside className="hidden w-72 shrink-0 flex-col border-r border-[var(--sidebar-border)] bg-[var(--sidebar)] text-[var(--sidebar-foreground)] lg:flex">
       <div className="border-b border-[var(--sidebar-border)] px-6 py-6">
-        <div className="flex items-center gap-3">
-          <div className="rounded-xl bg-primary/20 p-2 text-primary">
-            <Shield className="h-5 w-5" />
-          </div>
-          <div>
-            <p className="text-sm uppercase tracking-[0.24em] text-primary">Kestrel</p>
-            <p className="text-sm text-[var(--sidebar-foreground)]/80">{viewer.orgName}</p>
-          </div>
-        </div>
+        <KestrelMark variant="lockup" size="md" />
+        <p className="mt-3 font-mono text-[10px] uppercase tracking-[0.3em] text-[var(--sidebar-foreground)]/50">
+          {viewer.orgName}
+        </p>
       </div>
-      <div className="flex-1 space-y-8 overflow-y-auto px-4 py-6">
+      <div className="flex-1 space-y-10 overflow-y-auto px-5 py-6">
         {groups.map(([section, items]) => (
           <div key={section} className="space-y-3">
-            <p className="px-3 text-xs uppercase tracking-[0.2em] text-[var(--sidebar-foreground)]/40">{section}</p>
-            <div className="space-y-1">
+            <p className="px-2 font-mono text-[10px] uppercase tracking-[0.3em] text-[var(--sidebar-foreground)]/40">
+              {section}
+            </p>
+            <div className="space-y-0 border-t border-[var(--sidebar-border)]">
               {items.map((item) => {
                 const active = pathname.startsWith(item.href);
                 const badgeValue =
@@ -95,23 +91,33 @@ export function AppSidebar({ viewer }: { viewer: Viewer }) {
                     href={item.href}
                     title={item.aka}
                     className={cn(
-                      "flex items-center justify-between rounded-xl px-3 py-2.5 text-sm transition",
+                      "flex items-center justify-between border-b border-[var(--sidebar-border)] px-3 py-3 text-sm transition",
                       active
-                        ? "bg-[var(--sidebar-accent)] text-white"
-                        : "text-[var(--sidebar-foreground)]/70 hover:bg-white/5 hover:text-white",
+                        ? "bg-[var(--sidebar-accent)] text-foreground"
+                        : "text-[var(--sidebar-foreground)]/75 hover:bg-[var(--sidebar-accent)]/60 hover:text-foreground",
                     )}
                   >
-                    <span>{item.label}</span>
+                    <span className="flex items-center gap-2">
+                      {active ? (
+                        <span aria-hidden className="font-mono text-[10px] leading-none text-accent">
+                          ┼
+                        </span>
+                      ) : (
+                        <span aria-hidden className="w-[1ch] font-mono text-[10px] leading-none text-transparent">
+                          ·
+                        </span>
+                      )}
+                      {item.label}
+                    </span>
                     {badgeValue !== null ? (
-                      <Badge
-                        className={
-                          item.href === "/alerts"
-                            ? "bg-red-500/20 text-red-200"
-                            : "bg-amber-500/20 text-amber-200"
-                        }
+                      <span
+                        className={cn(
+                          "font-mono text-[10px] tabular-nums",
+                          item.href === "/alerts" ? "text-accent" : "text-muted-foreground",
+                        )}
                       >
-                        {badgeValue}
-                      </Badge>
+                        {badgeValue.toString().padStart(2, "0")}
+                      </span>
                     ) : null}
                   </Link>
                 );
@@ -121,13 +127,13 @@ export function AppSidebar({ viewer }: { viewer: Viewer }) {
         ))}
       </div>
       <div className="border-t border-[var(--sidebar-border)] px-6 py-5">
-        <div className="flex items-center gap-3 rounded-2xl bg-white/5 px-4 py-3">
-          <Workflow className="h-5 w-5 text-primary" />
-          <div>
-            <p className="text-sm font-medium">{viewer.fullName}</p>
-            <p className="text-xs text-[var(--sidebar-foreground)]/60">{viewer.designation}</p>
-          </div>
-        </div>
+        <p className="font-mono text-[10px] uppercase tracking-[0.3em] text-[var(--sidebar-foreground)]/40">
+          Operator
+        </p>
+        <p className="mt-2 text-sm text-foreground">{viewer.fullName}</p>
+        <p className="mt-0.5 font-mono text-[11px] uppercase tracking-[0.18em] text-[var(--sidebar-foreground)]/60">
+          {viewer.designation}
+        </p>
       </div>
     </aside>
   );

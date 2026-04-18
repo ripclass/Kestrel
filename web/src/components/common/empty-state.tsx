@@ -1,5 +1,3 @@
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-
 export function EmptyState({
   title,
   description,
@@ -8,14 +6,13 @@ export function EmptyState({
   description: string;
 }) {
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>{title}</CardTitle>
-        <CardDescription>{description}</CardDescription>
-      </CardHeader>
-      <CardContent className="text-sm text-muted-foreground">
-        Populate this surface with live intelligence, seeded demo data, or a system integration.
-      </CardContent>
-    </Card>
+    <div className="border border-border bg-card p-8">
+      <p className="font-mono text-[10px] uppercase tracking-[0.28em] text-muted-foreground">
+        <span aria-hidden className="mr-2 text-accent">┼</span>
+        No records
+      </p>
+      <h3 className="mt-4 text-lg font-semibold tracking-tight text-foreground">{title}</h3>
+      <p className="mt-2 text-sm leading-relaxed text-muted-foreground">{description}</p>
+    </div>
   );
 }

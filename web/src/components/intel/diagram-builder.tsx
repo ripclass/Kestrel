@@ -20,13 +20,27 @@ import "@xyflow/react/dist/style.css";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { detailFromPayload, readResponsePayload } from "@/lib/http";
 import type { DiagramSummary, EntitySummary } from "@/types/domain";
 
-type EntitySearchResponse = {
-  results: EntitySummary[];
-};
+type EntitySearchResponse = { results: EntitySummary[] };
+
+const NODE_FG = "#EAE6DA";
+const NODE_BG = "#15171C";
+const NODE_BG_ALARM = "rgba(255, 56, 35, 0.10)";
+const NODE_BORDER = "rgba(234, 230, 218, 0.18)";
+const NODE_BORDER_ALARM = "#FF3823";
+
+function Field({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <label className="flex flex-col gap-2">
+      <span className="font-mono text-[10px] uppercase tracking-[0.28em] text-muted-foreground">
+        {label}
+      </span>
+      {children}
+    </label>
+  );
+}
 
 export function DiagramBuilder() {
   const [title, setTitle] = useState("");
@@ -93,20 +107,26 @@ export function DiagramBuilder() {
   function addEntityNode(entity: EntitySummary) {
     if (nodes.some((node) => node.id === entity.id)) return;
     const index = nodes.length;
+    const isAlarm = entity.riskScore >= 70;
     setNodes((ns) => [
       ...ns,
       {
         id: entity.id,
         position: { x: (index % 3) * 240 + 40, y: Math.floor(index / 3) * 160 + 40 },
-        data: { label: `${entity.displayName ?? entity.displayValue}\n${entity.entityType}` },
+        data: {
+          label: `${entity.displayName ?? entity.displayValue}\n${entity.entityType}`,
+        },
         style: {
           width: 200,
           padding: 12,
-          borderRadius: 14,
-          border: "1px solid rgba(88, 166, 166, 0.45)",
-          background: entity.riskScore >= 70 ? "#381318" : "#101b2b",
-          color: "#ecf2ff",
+          borderRadius: 0,
+          border: `1px solid ${isAlarm ? NODE_BORDER_ALARM : NODE_BORDER}`,
+          background: isAlarm ? NODE_BG_ALARM : NODE_BG,
+          color: NODE_FG,
           whiteSpace: "pre-wrap",
+          fontFamily: "var(--font-plex-mono), ui-monospace, monospace",
+          fontSize: 12,
+          letterSpacing: "0.02em",
         },
       },
     ]);
@@ -144,7 +164,6 @@ export function DiagramBuilder() {
       setLinkedStrId("");
       setNodes([]);
       setEdges([]);
-      // Re-pull list
       const listResponse = await fetch("/api/diagrams", { cache: "no-store" });
       if (listResponse.ok) {
         const listPayload = (await readResponsePayload<{ diagrams: DiagramSummary[] }>(listResponse)) as {
@@ -163,33 +182,48 @@ export function DiagramBuilder() {
 
   return (
     <div className="space-y-6">
-      <Card>
-        <CardHeader>
-          <CardTitle>New diagram</CardTitle>
-          <CardDescription>
-            Search for entities, drop them on the canvas, drag to connect, then save. Link to a case or STR to attach as evidence.
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
+      <section className="border border-border">
+        <div className="border-b border-border px-6 py-5">
+          <p className="font-mono text-[10px] uppercase tracking-[0.28em] text-muted-foreground">
+            <span aria-hidden className="mr-2 text-accent">┼</span>
+            Section · New diagram
+          </p>
+          <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
+            Search for entities, drop them on the canvas, drag to connect, then save. Link to a case or
+            STR to attach as evidence.
+          </p>
+        </div>
+        <div className="space-y-5 p-6">
           <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-            <div className="space-y-2">
-              <label className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Title</label>
-              <Input value={title} onChange={(event) => setTitle(event.target.value)} placeholder="Shell company ring A" />
-            </div>
-            <div className="space-y-2">
-              <label className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Linked case ID</label>
-              <Input value={linkedCaseId} onChange={(event) => setLinkedCaseId(event.target.value)} placeholder="UUID — optional" />
-            </div>
-            <div className="space-y-2">
-              <label className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Linked STR ID</label>
-              <Input value={linkedStrId} onChange={(event) => setLinkedStrId(event.target.value)} placeholder="UUID — optional" />
-            </div>
+            <Field label="Title">
+              <Input
+                value={title}
+                onChange={(event) => setTitle(event.target.value)}
+                placeholder="Shell company ring A"
+              />
+            </Field>
+            <Field label="Linked case ID">
+              <Input
+                value={linkedCaseId}
+                onChange={(event) => setLinkedCaseId(event.target.value)}
+                placeholder="UUID — optional"
+              />
+            </Field>
+            <Field label="Linked STR ID">
+              <Input
+                value={linkedStrId}
+                onChange={(event) => setLinkedStrId(event.target.value)}
+                placeholder="UUID — optional"
+              />
+            </Field>
           </div>
-          <div className="space-y-2">
-            <label className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Description</label>
-            <Textarea value={description} onChange={(event) => setDescription(event.target.value)} />
-          </div>
-          <div className="space-y-3 rounded-2xl border border-border/80 bg-background/40 p-4">
+          <Field label="Description">
+            <Textarea
+              value={description}
+              onChange={(event) => setDescription(event.target.value)}
+            />
+          </Field>
+          <div className="space-y-3 border border-border bg-card/40 p-4">
             <div className="flex gap-2">
               <Input
                 value={searchTerm}
@@ -213,7 +247,7 @@ export function DiagramBuilder() {
                     key={entity.id}
                     type="button"
                     onClick={() => addEntityNode(entity)}
-                    className="rounded-full border border-border bg-background/60 px-3 py-1 text-xs hover:border-primary/50"
+                    className="border border-border bg-card px-3 py-1 font-mono text-[11px] uppercase tracking-[0.22em] text-foreground transition hover:border-foreground"
                   >
                     + {entity.displayName ?? entity.displayValue}
                   </button>
@@ -221,7 +255,7 @@ export function DiagramBuilder() {
               </div>
             ) : null}
           </div>
-          <div className="h-[480px] overflow-hidden rounded-2xl border border-border/70">
+          <div className="h-[480px] overflow-hidden border border-border bg-[var(--background)]">
             <ReactFlow
               nodes={nodes}
               edges={edges}
@@ -229,53 +263,81 @@ export function DiagramBuilder() {
               onEdgesChange={onEdgesChange}
               onConnect={onConnect}
               fitView
+              proOptions={{ hideAttribution: true }}
             >
-              <Background />
-              <Controls />
-              <MiniMap />
+              <Background color="rgba(234, 230, 218, 0.06)" gap={16} size={1} />
+              <Controls showInteractive={false} />
+              <MiniMap
+                maskColor="rgba(15, 17, 21, 0.85)"
+                nodeColor={NODE_FG}
+                nodeStrokeColor="transparent"
+                style={{ background: NODE_BG, border: `1px solid ${NODE_BORDER}` }}
+              />
             </ReactFlow>
           </div>
-          {error ? <p className="text-sm text-red-300">{error}</p> : null}
-          {notice ? <p className="text-sm text-primary/80">{notice}</p> : null}
-          <div className="flex justify-end">
+          {error ? (
+            <p className="font-mono text-xs uppercase tracking-[0.18em] text-destructive">
+              <span aria-hidden className="mr-2">┼</span>ERROR · {error}
+            </p>
+          ) : null}
+          {notice ? (
+            <p className="font-mono text-xs uppercase tracking-[0.18em] text-accent">
+              <span aria-hidden className="mr-2">┼</span>
+              {notice}
+            </p>
+          ) : null}
+          <div className="flex justify-end border-t border-border pt-4">
             <Button type="button" onClick={() => void save()} disabled={saving || !canSave}>
               {saving ? "Saving…" : "Save diagram"}
             </Button>
           </div>
-        </CardContent>
-      </Card>
+        </div>
+      </section>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Saved diagrams</CardTitle>
-          <CardDescription>Diagrams authored by your organization.</CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-3">
+      <section className="border border-border">
+        <div className="border-b border-border px-6 py-5">
+          <p className="font-mono text-[10px] uppercase tracking-[0.28em] text-muted-foreground">
+            <span aria-hidden className="mr-2 text-accent">┼</span>
+            Section · Saved diagrams
+          </p>
+          <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
+            Diagrams authored by your organisation.
+          </p>
+        </div>
+        <div className="space-y-3 p-6">
           {existing.length === 0 ? (
-            <p className="text-sm text-muted-foreground">No diagrams yet.</p>
+            <p className="font-mono text-[11px] uppercase tracking-[0.22em] text-muted-foreground">
+              No diagrams yet
+            </p>
           ) : (
             existing.map((diagram) => (
-              <div key={diagram.id} className="rounded-2xl border border-border/80 bg-background/50 p-4">
+              <div key={diagram.id} className="border border-border bg-card px-5 py-4">
                 <div className="flex flex-wrap items-center gap-3">
-                  <p className="font-medium">{diagram.title}</p>
+                  <p className="text-sm font-semibold text-foreground">{diagram.title}</p>
                   {diagram.linkedCaseId ? (
-                    <span className="text-xs text-primary">→ case {diagram.linkedCaseId.slice(0, 8)}</span>
+                    <span className="font-mono text-[11px] uppercase tracking-[0.22em] text-accent">
+                      → case {diagram.linkedCaseId.slice(0, 8)}
+                    </span>
                   ) : null}
                   {diagram.linkedStrId ? (
-                    <span className="text-xs text-primary">→ STR {diagram.linkedStrId.slice(0, 8)}</span>
+                    <span className="font-mono text-[11px] uppercase tracking-[0.22em] text-accent">
+                      → STR {diagram.linkedStrId.slice(0, 8)}
+                    </span>
                   ) : null}
                 </div>
                 {diagram.description ? (
-                  <p className="mt-1 text-sm text-muted-foreground">{diagram.description}</p>
+                  <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
+                    {diagram.description}
+                  </p>
                 ) : null}
-                <p className="mt-1 text-xs text-muted-foreground">
+                <p className="mt-2 font-mono text-[10px] uppercase tracking-[0.22em] text-muted-foreground">
                   Updated {new Date(diagram.updatedAt).toLocaleString()}
                 </p>
               </div>
             ))
           )}
-        </CardContent>
-      </Card>
+        </div>
+      </section>
     </div>
   );
 }

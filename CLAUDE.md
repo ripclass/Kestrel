@@ -6,6 +6,8 @@ Kestrel is a standalone financial crime intelligence platform for Bangladesh. It
 
 ## Current state
 
+> **Active branch state (2026-04-17):** `feature/sovereign-ledger` is 9 commits ahead of `main`. It contains the full institutional-brutalist UI rebrand across every public + platform surface (auth, overview, investigate, alerts, cases, STRs, intel, ops, reports, admin, Recharts). Production (`main` + `kestrel-nine.vercel.app`) is still on the previous problem-first landing + teal/navy platform. The rebrand is described in §"Sovereign Ledger" below. Before merging `feature/sovereign-ledger` to `main`: (1) apply migration 010 to prod Supabase, (2) set `SUPABASE_SERVICE_ROLE_KEY` on the Vercel web project env.
+
 Two full build-out sessions are shipped end-to-end on prod.
 
 **Session 1 — intelligence-core (2026-04-15 → 2026-04-16).** 10 roadmap items from `KESTREL-INTELLIGENCE-CORE-PROMPT.md`: real detection engine (8 YAML rules + evaluator + scorer + resolver + matcher + pipeline), scan upload path, WeasyPrint PDF case pack, SAR/CTR report types, AI alert auto-explanation + Draft STR, DB-backed typologies, CommandView polish, parked modifier conditions wired, incremental scan scope, Phase 10 hardening (request IDs + structured JSON logs + standardised error envelope + `docs/RUNBOOK.md`).
@@ -261,13 +263,53 @@ Source of truth: `.env.example`.
 - **AI providers (all optional):** `OPENAI_API_KEY` + `OPENAI_MODEL`, `ANTHROPIC_API_KEY` + `ANTHROPIC_MODEL`. **Neither is set on prod Render** — `/ready` shows both as `missing_config`; heuristic fallback handles every AI task. Set either key to flip provider routing live.
 - **Hardcoded defaults** not in `.env.example`: `ALGORITHM`, `APP_VERSION`, `ENVIRONMENT`.
 
+## Sovereign Ledger
+
+Institutional-brutalist UI rebrand living on `feature/sovereign-ledger`. **Design direction came from Gemini 3.1** ("national security infrastructure, not SaaS"). Preview URL auto-updates on push: `https://kestrel-git-feature-sovereign-ledger-enso-intelligence.vercel.app` (Vercel SSO-protected).
+
+**Canonical design doc:** `.claude/skills/kestrel-design/SKILL.md` — always read it before any UI work.
+
+**Tokens** (scoped under `.platform-surface` in `globals.css`):
+- bg `#0F1115` · foreground `#EAE6DA` (bone) · card `#15171C` · border `rgba(234, 230, 218, 0.10)`
+- accent + destructive = vermillion `#FF3823` (alarm-only)
+- `--radius: 0` (zero rounding inside the scope) · rounded-full pills flattened via global override
+- font-sans → IBM Plex Sans (humanist body) · font-mono → IBM Plex Mono (IDs, timestamps, amounts, eyebrows)
+- The landing uses a parallel `--landing-*` family in the same globals.css — same visual, separate scope.
+
+**Patterns established:**
+- Section frame: `<section className="border border-border">` with a `border-b border-border px-6 py-5` header containing a `font-mono text-[10px] uppercase tracking-[0.28em] text-muted-foreground` eyebrow prefixed with `<span className="text-accent">┼</span>`. Use shared helpers `Section` / `Field` / `Meta` where they exist in the rewritten components.
+- Eyebrow → title → description cadence is mandatory on every dressed surface.
+- Badges / pills inverted-on-active mono strips (filter rows, variant tabs, tab navigation).
+- Error strings render as `font-mono text-xs uppercase tracking-[0.18em] text-destructive` with `<span>┼</span> ERROR · {detail}`.
+- Notice strings render as `font-mono text-xs uppercase tracking-[0.18em] text-accent` with `<span>┼</span>` prefix.
+- Three-tone status (muted / foreground / accent) replaces every rainbow badge map. See `StatusBadge`, `RiskScore`, `SeverityPill`.
+- Data cells: mono for IDs (truncated with `··` middle ellipsis), mono tabular-nums for amounts, mono uppercase tracking-[0.18em] for timestamps.
+- Recharts: mono Plex tick labels, zero-radius hairline tooltips, grid in 8% bone, monochromatic series palette (vermillion → bone → muted → dim greys).
+- React Flow nodes: `borderRadius: 0`, hairline border (vermillion when risk ≥ 90 or selection = alarm), Plex Mono label, bg `#15171C` (alarm-tinted when flagged). See `components/investigate/network-canvas.tsx` and `components/intel/diagram-builder.tsx` for the reference implementation.
+
+**KestrelMark component** (`web/src/components/common/kestrel-mark.tsx`) is the single source of truth for the wordmark. Currently renders `┼ KESTREL` as a placeholder. Variants: `lockup` / `mark` / `wordmark`. When the real SVG logo ships, swap the `┼` span in one file and every surface inherits it.
+
+**Phase 6 (polish, non-blocking):**
+1. Lighthouse ≥ 95 on public, ≥ 90 on in-app.
+2. a11y sweep — keyboard, contrast, `prefers-reduced-motion`, screen-reader labels on icon-only buttons.
+3. Mobile breakpoint pass.
+4. Refresh screenshots in `docs/goaml-coverage.md`; replace SVG mocks in `web/src/components/public/product-mocks.tsx` with real Sovereign Ledger captures.
+5. Update kestrel-design SKILL.md with final helper-component patterns (Section/Field/Meta) + Recharts palette.
+
+**Blockers before merging `feature/sovereign-ledger` to `main`:**
+1. Apply `supabase/migrations/010_access_requests.sql` to prod Supabase (`bmlyqlkzeuoglyvfythg`). Creates the `access_requests` table with `insert-via-service-role`, `select-superadmin-only` RLS, `institution_type` CHECK, `use_case` ≥ 50 chars.
+2. Set `SUPABASE_SERVICE_ROLE_KEY` on the Vercel **web** project env (separate from the Render engine env, where it already exists). Without it the intake form's server action (`web/src/app/actions/access.ts`) falls through gracefully to `"Clearance channel offline. Contact the platform operator directly."` — renders clean but no database write happens.
+
 ## What to work on next
 
-No KESTREL-*-PROMPT.md items remain. The capability surface meets the procurement bar described in `docs/goaml-coverage.md`. Priorities for the next session, ordered by whether they block the first BFIU meeting:
+No KESTREL-*-PROMPT.md items remain. The Sovereign Ledger rebrand covers every UI surface; Phase 6 polish is the only UI work outstanding. Priorities for the next session:
+
+**Blocks shipping the Sovereign Ledger rebrand to production:**
+1. **Apply migration 010 + set the Vercel web service-role key** (see Sovereign Ledger § blockers above).
+2. **Merge `feature/sovereign-ledger` to `main`** once (1) is done. Vercel production rebuilds on push — expect a 45–90s window.
 
 **Blocks first BFIU meeting:**
-1. **Landing page hero rewrite.** `kestrel-nine.vercel.app` still leads with deployment health (the `/ready` probe) — fine for ops but wrong for a BFIU director landing cold. Needs an intelligence-story hero: the goAML replacement claim, the AI-native capabilities list, the 13-item coverage matrix summary, and a persona-aware demo CTA. Reference `docs/goaml-coverage.md`.
-2. **Demo film production.** Not a code task, but the most important next step. The platform is ready to be shown — a recorded walkthrough of Director → Analyst → CAMLCO personas hitting each of the 13 goAML-coverage items against the synthetic DBBL dataset would compress the first meeting from an hour to ten minutes.
+1. **Demo film production.** Not a code task, but the most important next step. The platform is ready to be shown — a recorded walkthrough of Director → Analyst → CAMLCO personas hitting each of the 13 goAML-coverage items against the synthetic DBBL dataset would compress the first meeting from an hour to ten minutes.
 
 **Post-first-meeting polish:**
 3. **Scheduled rule execution wiring.** `/admin/schedules` surfaces three declared jobs with status `not_configured` because no Celery Beat schedule is populated. Move `run_scan_pipeline` into a Celery task, wire the nightly + daily-digest + weekly-compliance jobs into `app.tasks.celery_app.celery_app.conf.beat_schedule`, flip the declared entries from `not_configured` to `scheduled`.

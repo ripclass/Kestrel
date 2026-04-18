@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from "react";
 
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { detailFromPayload, readResponsePayload } from "@/lib/http";
 import type { ScheduleList } from "@/types/domain";
 
@@ -26,89 +25,106 @@ export function SchedulesView() {
 
   if (error) {
     return (
-      <Card>
-        <CardContent className="py-10 text-sm text-red-300">{error}</CardContent>
-      </Card>
+      <p className="font-mono text-xs uppercase tracking-[0.18em] text-destructive">
+        <span aria-hidden className="mr-2">┼</span>ERROR · {error}
+      </p>
     );
   }
   if (!data) {
     return (
-      <Card>
-        <CardContent className="py-10 text-sm text-muted-foreground">Loading schedule status…</CardContent>
-      </Card>
+      <p className="font-mono text-xs uppercase tracking-[0.22em] text-muted-foreground">
+        <span aria-hidden className="mr-2 text-accent">┼</span>Loading schedule status…
+      </p>
     );
   }
 
   return (
     <div className="space-y-6">
-      <Card>
-        <CardHeader>
-          <CardTitle>Declared schedules</CardTitle>
-          <CardDescription>
-            These jobs are declared in the engine. Operators wire them into the Celery beat schedule when ready;
-            until then the status is <span className="font-semibold">not_configured</span>.
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-3">
+      <section className="border border-border">
+        <div className="border-b border-border px-6 py-5">
+          <p className="font-mono text-[10px] uppercase tracking-[0.28em] text-muted-foreground">
+            <span aria-hidden className="mr-2 text-accent">┼</span>
+            Section · Declared schedules
+          </p>
+          <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
+            These jobs are declared in the engine. Operators wire them into the Celery beat schedule
+            when ready; until then the status is{" "}
+            <span className="font-mono uppercase tracking-[0.18em] text-accent">not_configured</span>.
+          </p>
+        </div>
+        <div className="p-6">
           {data.schedules.length === 0 ? (
-            <p className="text-sm text-muted-foreground">No schedules declared.</p>
+            <p className="font-mono text-[11px] uppercase tracking-[0.22em] text-muted-foreground">
+              No schedules declared
+            </p>
           ) : (
-            data.schedules.map((schedule) => (
-              <div key={schedule.name} className="rounded-2xl border border-border/80 bg-background/60 p-4">
-                <div className="flex flex-col gap-2 lg:flex-row lg:items-start lg:justify-between">
+            <ul className="divide-y divide-border border border-border">
+              {data.schedules.map((schedule) => (
+                <li key={schedule.name} className="flex flex-col gap-2 px-4 py-3 lg:flex-row lg:items-start lg:justify-between">
                   <div className="space-y-1">
-                    <p className="font-medium">{schedule.name}</p>
-                    <p className="text-sm text-muted-foreground">{schedule.description}</p>
-                    <p className="text-xs font-mono text-muted-foreground">
+                    <p className="text-sm font-semibold text-foreground">{schedule.name}</p>
+                    <p className="text-sm leading-relaxed text-muted-foreground">
+                      {schedule.description}
+                    </p>
+                    <p className="font-mono text-[11px] uppercase tracking-[0.22em] text-muted-foreground">
                       {schedule.cron} · {schedule.task}
                     </p>
                   </div>
                   <span
-                    className={`inline-flex items-center rounded-full border px-3 py-1 text-xs font-semibold uppercase tracking-widest ${
+                    className={`border px-3 py-1 font-mono text-[10px] uppercase tracking-[0.22em] ${
                       schedule.status === "running"
-                        ? "border-primary/40 bg-primary/10 text-primary"
+                        ? "border-accent/40 bg-accent/10 text-accent"
                         : "border-border text-muted-foreground"
                     }`}
                   >
                     {schedule.status.replaceAll("_", " ")}
                   </span>
-                </div>
-              </div>
-            ))
+                </li>
+              ))}
+            </ul>
           )}
-        </CardContent>
-      </Card>
+        </div>
+      </section>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Active workers</CardTitle>
-          <CardDescription>Celery workers currently attached to the broker.</CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-2">
+      <section className="border border-border">
+        <div className="border-b border-border px-6 py-5">
+          <p className="font-mono text-[10px] uppercase tracking-[0.28em] text-muted-foreground">
+            <span aria-hidden className="mr-2 text-accent">┼</span>
+            Section · Active workers
+          </p>
+          <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
+            Celery workers currently attached to the broker.
+          </p>
+        </div>
+        <div className="p-6">
           {data.workers.length === 0 ? (
-            <p className="text-sm text-muted-foreground">
-              No live workers responded to ping. Check `celery -A app.tasks.celery_app.celery_app worker` on the worker service.
+            <p className="font-mono text-[11px] uppercase tracking-[0.22em] text-muted-foreground">
+              No live workers responded to ping · check{" "}
+              <span className="text-foreground">
+                celery -A app.tasks.celery_app.celery_app worker
+              </span>{" "}
+              on the worker service
             </p>
           ) : (
-            data.workers.map((worker) => (
-              <div key={worker.hostname} className="rounded-xl border border-border/70 bg-background/60 p-3">
-                <div className="flex items-center justify-between">
-                  <span className="font-mono text-sm">{worker.hostname}</span>
+            <ul className="divide-y divide-border border border-border">
+              {data.workers.map((worker) => (
+                <li key={worker.hostname} className="flex items-center justify-between px-4 py-3">
+                  <span className="font-mono text-sm text-foreground">{worker.hostname}</span>
                   <span
-                    className={`text-xs uppercase tracking-widest ${
-                      worker.alive ? "text-primary" : "text-muted-foreground"
+                    className={`font-mono text-[10px] uppercase tracking-[0.22em] ${
+                      worker.alive ? "text-accent" : "text-muted-foreground"
                     }`}
                   >
                     {worker.alive ? "alive" : "silent"}
                   </span>
-                </div>
-              </div>
-            ))
+                </li>
+              ))}
+            </ul>
           )}
-        </CardContent>
-      </Card>
+        </div>
+      </section>
 
-      <p className="text-xs text-muted-foreground">
+      <p className="font-mono text-[10px] uppercase tracking-[0.22em] text-muted-foreground">
         Generated {new Date(data.generatedAt).toLocaleString()}
       </p>
     </div>

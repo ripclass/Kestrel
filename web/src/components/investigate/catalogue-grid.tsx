@@ -1,7 +1,5 @@
 import Link from "next/link";
 
-import { Card, CardContent } from "@/components/ui/card";
-
 type Tile = {
   label: string;
   description: string;
@@ -14,96 +12,111 @@ const TILES: Tile[] = [
     label: "Account Lookup",
     description: "Find an account across banks and MFS.",
     href: "/investigate?type=account",
-    legend: "Omnisearch with entity_type=account preset.",
+    legend: "Omnisearch · entity_type=account preset",
   },
   {
     label: "Person Lookup",
     description: "Search individuals by name or NID.",
     href: "/investigate?type=person",
-    legend: "Omnisearch with entity_type=person preset.",
+    legend: "Omnisearch · entity_type=person preset",
   },
   {
     label: "Entity Lookup",
     description: "Find businesses across the shared pool.",
     href: "/investigate?type=business",
-    legend: "Omnisearch with entity_type=business preset.",
+    legend: "Omnisearch · entity_type=business preset",
   },
   {
     label: "Address Lookup",
     description: "Find subjects by registered address.",
     href: "/investigate?type=address",
-    legend: "Backed by pg_trgm over metadata.address — free-text.",
+    legend: "pg_trgm over metadata.address",
   },
   {
     label: "Text Lookup",
     description: "Full-text across narratives, notes, descriptions.",
     href: "/investigate?type=text",
-    legend: "Same omnisearch, free-form query.",
+    legend: "Same omnisearch, free-form query",
   },
   {
     label: "Quick Finder",
     description: "Unfiltered omnisearch — whatever you type.",
     href: "/investigate",
-    legend: "The default /investigate view.",
+    legend: "Default /investigate view",
   },
   {
     label: "Transaction Lookup",
     description: "Search transactions by reference, amount, or date.",
     href: "/scan/history",
-    legend: "Transactions surface by scan run for now.",
+    legend: "Transactions surface by scan run",
   },
   {
     label: "Report Lookup",
-    description: "Find any STR/SAR/CTR/IER/TBML/complaint/etc. by ref.",
+    description: "Any STR/SAR/CTR/IER/TBML/complaint by ref.",
     href: "/strs",
-    legend: "Filters every report type from one list.",
+    legend: "Filters every report type from one list",
   },
   {
-    label: "Intelligence Report Lookup",
+    label: "Intelligence Report",
     description: "BFIU internal reports and escalated intelligence.",
     href: "/strs?report_type=internal",
-    legend: "Filtered STR list by report_type=internal.",
+    legend: "STR list filtered to report_type=internal",
   },
   {
-    label: "Templates Lookup",
+    label: "Templates",
     description: "Saved queries and narrative templates.",
     href: "/intelligence/saved-queries",
-    legend: "Your personal + org-shared saved queries.",
+    legend: "Personal + org-shared saved queries",
   },
   {
-    label: "Journal Lookup",
+    label: "Journal",
     description: "Audit trail — every mutation, who did it, when.",
     href: "/admin?section=audit",
-    legend: "Admin audit log surface.",
+    legend: "Admin audit log surface",
   },
   {
-    label: "Dissemination Lookup",
-    description: "Outbound intelligence to law enforcement, regulators, foreign FIUs.",
+    label: "Dissemination",
+    description: "Outbound intelligence to LE, regulators, foreign FIUs.",
     href: "/intelligence/disseminations",
-    legend: "Full dissemination ledger.",
+    legend: "Full dissemination ledger",
   },
 ];
 
 export function CatalogueGrid() {
   return (
-    <div className="space-y-6">
-      <Card>
-        <CardContent className="py-4 text-sm text-muted-foreground">
-          Each tile below is a labelled entry into the same unified search. The preset keeps the goAML vocabulary while Kestrel&apos;s
-          pg_trgm-backed omnisearch handles the actual matching — one index, twelve familiar doorways.
-        </CardContent>
-      </Card>
+    <div className="space-y-8">
+      <p className="max-w-3xl text-sm leading-relaxed text-muted-foreground">
+        Each tile is a labelled entry into the same unified search. The goAML vocabulary is preserved;
+        Kestrel&apos;s pg_trgm-backed omnisearch handles the actual matching — one index, twelve familiar
+        doorways.
+      </p>
 
-      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-        {TILES.map((tile) => (
-          <Link key={tile.label} href={tile.href} title={tile.legend}>
-            <Card className="h-full transition hover:border-primary/40 hover:bg-card">
-              <CardContent className="space-y-2 p-5">
-                <h3 className="text-base font-semibold">{tile.label}</h3>
-                <p className="text-sm text-muted-foreground">{tile.description}</p>
-                <p className="text-xs text-muted-foreground/80">{tile.legend}</p>
-              </CardContent>
-            </Card>
+      <div className="grid gap-0 border border-border sm:grid-cols-2 xl:grid-cols-3">
+        {TILES.map((tile, i) => (
+          <Link
+            key={tile.label}
+            href={tile.href}
+            title={tile.legend}
+            className="group relative flex flex-col gap-3 border-b border-r border-border px-6 py-6 transition hover:bg-foreground/[0.03] [&:nth-child(3n)]:border-r-0 [&:nth-last-child(-n+3)]:border-b-0 sm:[&:nth-child(even)]:border-r-0 sm:[&:nth-child(3n)]:border-r sm:[&:nth-last-child(-n+3)]:border-b xl:[&:nth-last-child(-n+3)]:border-b-0 xl:[&:nth-child(even)]:border-r"
+          >
+            <div className="flex items-baseline justify-between">
+              <span className="font-mono text-[10px] uppercase tracking-[0.28em] text-muted-foreground">
+                {`Tile ${String(i + 1).padStart(2, "0")}`}
+              </span>
+              <span
+                aria-hidden
+                className="font-mono text-xs leading-none text-muted-foreground transition group-hover:text-accent"
+              >
+                ┼
+              </span>
+            </div>
+            <h3 className="font-mono text-base uppercase tracking-[0.12em] text-foreground">
+              {tile.label}
+            </h3>
+            <p className="text-sm leading-relaxed text-muted-foreground">{tile.description}</p>
+            <p className="mt-auto pt-2 font-mono text-[10px] uppercase tracking-[0.22em] text-muted-foreground/70">
+              {tile.legend}
+            </p>
           </Link>
         ))}
       </div>

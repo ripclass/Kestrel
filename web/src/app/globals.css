@@ -58,6 +58,13 @@
   --radius-md: calc(var(--radius) * 0.875);
   --radius-lg: var(--radius);
   --radius-xl: calc(var(--radius) * 1.25);
+
+  --color-landing-bg: var(--landing-bg);
+  --color-landing-foreground: var(--landing-foreground);
+  --color-landing-alarm: var(--landing-alarm);
+  --color-landing-rule: var(--landing-rule);
+  --color-landing-rule-solid: var(--landing-rule-solid);
+  --color-landing-muted: var(--landing-muted);
 }
 
 body {
@@ -85,6 +92,72 @@ html.dark {
   --border: #22324b;
   --input: #22324b;
   --ring: #58a6a6;
+
+  /* Landing Page (Sovereign Ledger) Tokens */
+  --landing-bg: #0F1115;
+  --landing-foreground: #EAE6DA;
+  --landing-alarm: #FF3823;
+  --landing-rule: rgba(234, 230, 218, 0.08); /* hairline */
+  --landing-rule-solid: #2A2C30; /* structural bounds */
+  --landing-muted: #8E929A;
+}
+
+/*
+ * Sovereign Ledger — authenticated product surface.
+ *
+ * Scope: any descendant of `.platform-surface`. This overrides the
+ * `html.dark` tokens so the platform renders in Sovereign Ledger without
+ * touching the landing (which uses its own `--landing-*` tokens and isn't
+ * wrapped in this class).
+ *
+ * Adding .platform-surface to the platform layout (web/src/app/(platform)/
+ * layout.tsx) cascades the palette to every component using
+ * bg-background / text-foreground / border-border / text-primary / etc.
+ */
+.platform-surface {
+  --background: #0F1115;
+  --foreground: #EAE6DA;
+  --card: #15171C;
+  --card-foreground: #EAE6DA;
+  --popover: #15171C;
+  --popover-foreground: #EAE6DA;
+
+  /* Primary is the foreground — buttons are inverted bone-white tiles. */
+  --primary: #EAE6DA;
+  --primary-foreground: #0F1115;
+
+  --secondary: #1A1C21;
+  --secondary-foreground: #EAE6DA;
+  --muted: #15171C;
+  --muted-foreground: #8E929A;
+
+  /* Accent + destructive are BOTH vermillion — used sparingly for alarm. */
+  --accent: #FF3823;
+  --accent-foreground: #0F1115;
+  --destructive: #FF3823;
+  --destructive-foreground: #0F1115;
+
+  --border: rgba(234, 230, 218, 0.10);
+  --input: rgba(234, 230, 218, 0.10);
+  --ring: #FF3823;
+
+  /* Brutalism: zero radius everywhere. rounded-lg / rounded-xl / rounded-3xl
+     all compute to 0 via the @theme inline calcs above. */
+  --radius: 0rem;
+
+  --sidebar: #0B0C10;
+  --sidebar-foreground: #EAE6DA;
+  --sidebar-accent: #15171C;
+  --sidebar-border: rgba(234, 230, 218, 0.08);
+
+  /* Swap the default font stack for IBM Plex pair. Plex Sans is the
+     humanist body face; Plex Mono carries IDs, timestamps, amounts, codes. */
+  --font-sans: var(--font-plex-sans), ui-sans-serif, system-ui, sans-serif;
+  --font-mono: var(--font-plex-mono), ui-monospace, monospace;
+
+  background: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-sans);
 }
 
 * {
@@ -105,4 +178,21 @@ a {
 
 .panel-glow {
   box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.03), 0 24px 80px rgba(4, 13, 27, 0.3);
+}
+
+/* Hairline overlay used by the platform shell to suggest a 1px Swiss grid. */
+.platform-surface .platform-grid-overlay {
+  background-image:
+    linear-gradient(to right, rgba(234, 230, 218, 0.035) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(234, 230, 218, 0.035) 1px, transparent 1px);
+  background-size: 4rem 4rem;
+}
+
+/* Brutalism: flatten rounded-full pills inside the platform surface.
+ * Tailwind's rounded-full is 9999px literal — it's not tied to --radius, so
+ * it survives the radius: 0 reset. This override catches every pill (filter
+ * tabs, persona switchers, small roundels) and squares them. Opt back into
+ * roundels with an explicit rounded-[999px] when you need one. */
+.platform-surface [class~="rounded-full"] {
+  border-radius: 0;
 }

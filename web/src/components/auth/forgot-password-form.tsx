@@ -38,18 +38,28 @@ export function ForgotPasswordForm() {
   }
 
   return (
-    <form className="space-y-4" onSubmit={handleSubmit}>
+    <form className="space-y-5" onSubmit={handleSubmit}>
       <Input
-        placeholder="Email"
+        placeholder="user@institution.gov.bd"
         type="email"
         value={email}
         onChange={(event) => setEmail(event.target.value)}
         autoComplete="email"
       />
-      {error ? <p className="text-sm text-destructive">{error}</p> : null}
-      {message ? <p className="text-sm text-muted-foreground">{message}</p> : null}
+      {error ? (
+        <p className="font-mono text-xs uppercase tracking-[0.18em] text-destructive">
+          <span aria-hidden className="mr-2">┼</span>
+          ERROR · {error}
+        </p>
+      ) : null}
+      {message ? (
+        <p className="font-mono text-xs uppercase tracking-[0.18em] text-muted-foreground">
+          <span aria-hidden className="mr-2 text-accent">┼</span>
+          {message}
+        </p>
+      ) : null}
       <Button className="w-full" disabled={isSubmitting || !email} type="submit">
-        {isSubmitting ? "Sending..." : "Send reset link"}
+        {isSubmitting ? "Sending…" : "Send reset link"}
       </Button>
     </form>
   );

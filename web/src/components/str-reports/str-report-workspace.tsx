@@ -10,7 +10,6 @@ import { StatusBadge } from "@/components/common/status-badge";
 import { ExportDropdown } from "@/components/str-reports/export-dropdown";
 import { SupplementAction } from "@/components/str-reports/supplement-action";
 import { SupplementList } from "@/components/str-reports/supplement-list";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -55,6 +54,56 @@ function toDraftPayload(report: STRReportDetail): STRDraftPayload {
   };
 }
 
+const selectClass =
+  "h-11 w-full rounded-none border border-input bg-card px-4 text-sm outline-none focus:border-foreground disabled:opacity-60";
+
+function Field({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <label className="flex flex-col gap-2">
+      <span className="font-mono text-[10px] uppercase tracking-[0.28em] text-muted-foreground">
+        {label}
+      </span>
+      {children}
+    </label>
+  );
+}
+
+function Section({
+  label,
+  description,
+  children,
+}: {
+  label: string;
+  description?: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <section className="border border-border">
+      <div className="border-b border-border px-6 py-5">
+        <p className="font-mono text-[10px] uppercase tracking-[0.28em] text-muted-foreground">
+          <span aria-hidden className="mr-2 text-accent">┼</span>
+          Section · {label}
+        </p>
+        {description ? (
+          <p className="mt-2 text-sm leading-relaxed text-muted-foreground">{description}</p>
+        ) : null}
+      </div>
+      <div className="space-y-5 p-6">{children}</div>
+    </section>
+  );
+}
+
+function Meta({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <div className="flex flex-col gap-3 p-5">
+      <span className="font-mono text-[10px] uppercase tracking-[0.28em] text-muted-foreground">
+        {label}
+      </span>
+      {children}
+    </div>
+  );
+}
+
 export function STRReportWorkspace({
   reportId,
   viewer,
@@ -76,7 +125,9 @@ export function STRReportWorkspace({
     void (async () => {
       try {
         const response = await fetch(`/api/str-reports/${reportId}`, { cache: "no-store" });
-        const payload = (await readResponsePayload<STRReportDetail>(response)) as STRReportDetail | { detail?: string };
+        const payload = (await readResponsePayload<STRReportDetail>(response)) as
+          | STRReportDetail
+          | { detail?: string };
         if (!response.ok) {
           setError(detailFromPayload(payload, "Unable to load STR report."));
           return;
@@ -96,34 +147,30 @@ export function STRReportWorkspace({
   }
 
   const canEdit = useMemo(() => {
-    if (!report) {
-      return false;
-    }
+    if (!report) return false;
     return report.orgId === viewer.orgId && report.status === "draft" && viewer.role !== "viewer";
   }, [report, viewer]);
 
   const canReview = useMemo(() => viewer.orgType === "regulator" && !!report, [viewer, report]);
   const enrichmentAlreadyApplied = useMemo(() => {
-    if (!report?.enrichment) {
-      return false;
-    }
+    if (!report?.enrichment) return false;
     return (draft?.narrative ?? "").trim() === report.enrichment.draftNarrative.trim();
   }, [draft?.narrative, report?.enrichment]);
 
   async function saveDraft() {
-    if (!draft) {
-      return;
-    }
+    if (!draft) return;
     setPendingAction("save");
     setError(null);
-    setNotice("Saving draft...");
+    setNotice("Saving draft…");
     try {
       const response = await fetch(`/api/str-reports/${reportId}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(draft),
       });
-      const payload = (await readResponsePayload<STRMutationResponse>(response)) as STRMutationResponse | { detail?: string };
+      const payload = (await readResponsePayload<STRMutationResponse>(response)) as
+        | STRMutationResponse
+        | { detail?: string };
       if (!response.ok) {
         setError(detailFromPayload(payload, "Unable to save STR draft."));
         setNotice(null);
@@ -143,12 +190,12 @@ export function STRReportWorkspace({
   async function submitDraft() {
     setPendingAction("submit");
     setError(null);
-    setNotice("Submitting STR...");
+    setNotice("Submitting STR…");
     try {
-      const response = await fetch(`/api/str-reports/${reportId}/submit`, {
-        method: "POST",
-      });
-      const payload = (await readResponsePayload<STRMutationResponse>(response)) as STRMutationResponse | { detail?: string };
+      const response = await fetch(`/api/str-reports/${reportId}/submit`, { method: "POST" });
+      const payload = (await readResponsePayload<STRMutationResponse>(response)) as
+        | STRMutationResponse
+        | { detail?: string };
       if (!response.ok) {
         setError(detailFromPayload(payload, "Unable to submit STR."));
         setNotice(null);
@@ -168,11 +215,9 @@ export function STRReportWorkspace({
   async function generateEnrichment() {
     setPendingAction("enrich");
     setError(null);
-    setNotice("Generating AI enrichment...");
+    setNotice("Generating AI enrichment…");
     try {
-      const response = await fetch(`/api/str-reports/${reportId}/enrich`, {
-        method: "POST",
-      });
+      const response = await fetch(`/api/str-reports/${reportId}/enrich`, { method: "POST" });
       const payload = (await readResponsePayload<{ report: STRReportDetail; detail?: string }>(response)) as {
         report: STRReportDetail;
         detail?: string;
@@ -184,9 +229,7 @@ export function STRReportWorkspace({
       }
       setReport(payload.report);
       setDraft((current) => {
-        if (!current || !payload.report.enrichment) {
-          return current;
-        }
+        if (!current || !payload.report.enrichment) return current;
         return {
           ...current,
           narrative: current.narrative || payload.report.enrichment.draftNarrative,
@@ -208,7 +251,7 @@ export function STRReportWorkspace({
   async function runReview(action: STRReviewPayload["action"]) {
     setPendingAction(`review:${action}`);
     setError(null);
-    setNotice(action === "assign" ? "Applying assignment..." : "Applying review action...");
+    setNotice(action === "assign" ? "Applying assignment…" : "Applying review action…");
     try {
       const response = await fetch(`/api/str-reports/${reportId}/review`, {
         method: "POST",
@@ -219,7 +262,9 @@ export function STRReportWorkspace({
           assignedTo: assignee || undefined,
         }),
       });
-      const payload = (await readResponsePayload<STRMutationResponse>(response)) as STRMutationResponse | { detail?: string };
+      const payload = (await readResponsePayload<STRMutationResponse>(response)) as
+        | STRMutationResponse
+        | { detail?: string };
       if (!response.ok) {
         setError(detailFromPayload(payload, "Unable to apply review action."));
         setNotice(null);
@@ -248,14 +293,11 @@ export function STRReportWorkspace({
   }
 
   function applyDraftNarrative() {
-    if (!report?.enrichment) {
-      return;
-    }
+    if (!report?.enrichment) return;
     updateDraft("narrative", report.enrichment.draftNarrative);
     setApplyCount((current) => current + 1);
     setError(null);
     setNotice("AI draft copied into the narrative editor. Save draft to persist it.");
-
     requestAnimationFrame(() => {
       narrativeRef.current?.focus();
       narrativeRef.current?.setSelectionRange(0, report.enrichment?.draftNarrative.length ?? 0);
@@ -264,530 +306,562 @@ export function STRReportWorkspace({
 
   if (!report || !draft) {
     return (
-      <Card>
-        <CardContent className="py-10 text-sm text-muted-foreground">Loading STR workspace…</CardContent>
-      </Card>
+      <section className="border border-border bg-card">
+        <p className="px-6 py-10 font-mono text-xs uppercase tracking-[0.22em] text-muted-foreground">
+          <span aria-hidden className="mr-2 text-accent">┼</span>Loading STR workspace…
+        </p>
+      </section>
     );
   }
 
   return (
     <div className="space-y-6">
-      <Card>
-        <CardHeader>
-          <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-            <div className="space-y-2">
-              <CardTitle>{report.reportRef}</CardTitle>
-              <CardDescription>
-                {report.orgName} · {report.subjectName || "Unnamed subject"} · {report.subjectAccount || "—"}
-              </CardDescription>
-            </div>
-            <div className="flex flex-wrap items-center gap-3">
-              <StatusBadge status={report.status} />
-              <span className="text-sm text-muted-foreground">{report.category.replaceAll("_", " ")}</span>
-              <DisseminateAction
-                linkedReportId={report.id}
-                defaultSubject={`Report ${report.reportRef}: ${report.subjectName ?? "subject"}\n${report.narrative ?? ""}`}
-                variant="outline"
-              />
-              {report.reportType !== "additional_info" ? <SupplementAction parent={report} /> : null}
-              <ExportDropdown
-                options={[
-                  {
-                    label: "Export as goAML XML",
-                    href: `/api/str-reports/${report.id}/export-xml`,
-                    hint: "Inverse of the goAML XML import — hands off to peer FIUs.",
-                  },
-                  {
-                    label: "Export reports list (Excel)",
-                    href: "/api/str-reports/export",
-                    hint: "Every report visible in the current scope.",
-                  },
-                ]}
-              />
-            </div>
+      <section className="border border-border">
+        <div className="flex flex-col gap-6 border-b border-border px-6 py-6 lg:flex-row lg:items-start lg:justify-between">
+          <div className="space-y-3">
+            <p className="flex items-center gap-2 font-mono text-[10px] uppercase tracking-[0.28em] text-muted-foreground">
+              <span aria-hidden className="leading-none text-accent">┼</span>
+              Report · {report.reportRef} · {report.reportType.toUpperCase()}
+            </p>
+            <h2 className="font-mono text-2xl text-foreground">{report.reportRef}</h2>
+            <p className="max-w-3xl text-sm leading-relaxed text-muted-foreground">
+              {report.orgName} · {report.subjectName || "Unnamed subject"} ·{" "}
+              <span className="font-mono">{report.subjectAccount || "—"}</span>
+            </p>
           </div>
-        </CardHeader>
-        <CardContent className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-          <div>
-            <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Exposure</p>
-            <p className="mt-1 text-sm font-medium">
+          <div className="flex flex-col items-start gap-2 lg:items-end">
+            <StatusBadge status={report.status} />
+            <span className="border border-border px-3 py-1 font-mono text-[10px] uppercase tracking-[0.22em] text-muted-foreground">
+              {report.category.replaceAll("_", " ")}
+            </span>
+          </div>
+        </div>
+        <div className="grid grid-cols-2 divide-x divide-y divide-border lg:grid-cols-4 lg:divide-y-0">
+          <Meta label="Exposure">
+            <span className="font-mono text-lg tabular-nums text-foreground">
               <Currency amount={report.totalAmount} />
-            </p>
-          </div>
-          <div>
-            <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Transactions</p>
-            <p className="mt-1 text-sm font-medium">{report.transactionCount}</p>
-          </div>
-          <div>
-            <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Primary channel</p>
-            <p className="mt-1 text-sm font-medium">{report.primaryChannel || "Not set"}</p>
-          </div>
-          <div>
-            <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Last updated</p>
-            <p className="mt-1 text-sm font-medium">
+            </span>
+          </Meta>
+          <Meta label="Transactions">
+            <span className="font-mono text-lg tabular-nums text-foreground">
+              {report.transactionCount}
+            </span>
+          </Meta>
+          <Meta label="Primary channel">
+            <span className="text-sm text-foreground">{report.primaryChannel || "—"}</span>
+          </Meta>
+          <Meta label="Last updated">
+            <span className="font-mono text-[11px] uppercase tracking-[0.18em] text-foreground">
               {new Date(report.updatedAt || report.createdAt).toLocaleString()}
-            </p>
-          </div>
-        </CardContent>
-      </Card>
+            </span>
+          </Meta>
+        </div>
+        <div className="flex flex-wrap items-center gap-2 border-t border-border px-6 py-4">
+          <DisseminateAction
+            linkedReportId={report.id}
+            defaultSubject={`Report ${report.reportRef}: ${report.subjectName ?? "subject"}\n${report.narrative ?? ""}`}
+            variant="outline"
+          />
+          {report.reportType !== "additional_info" ? <SupplementAction parent={report} /> : null}
+          <ExportDropdown
+            options={[
+              {
+                label: "Export as goAML XML",
+                href: `/api/str-reports/${report.id}/export-xml`,
+                hint: "Inverse of the goAML XML import — hands off to peer FIUs.",
+              },
+              {
+                label: "Export reports list (Excel)",
+                href: "/api/str-reports/export",
+                hint: "Every report visible in the current scope.",
+              },
+            ]}
+          />
+        </div>
+      </section>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Draft content</CardTitle>
-          <CardDescription>Edit the STR, generate AI enrichment, and submit when the narrative is complete.</CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-            {report.reportType !== "ier" ? (
-              <div className="space-y-2">
-                <label className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Subject account</label>
-                <Input
-                  disabled={!canEdit}
-                  value={draft.subjectAccount ?? ""}
-                  onChange={(event) => updateDraft("subjectAccount", event.target.value)}
-                />
-              </div>
-            ) : null}
-            <div className="space-y-2">
-              <label className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Subject name</label>
+      <Section
+        label="Draft content"
+        description="Edit the STR, generate AI enrichment, and submit when the narrative is complete."
+      >
+        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+          {report.reportType !== "ier" ? (
+            <Field label="Subject account">
               <Input
                 disabled={!canEdit}
-                value={draft.subjectName}
-                onChange={(event) => updateDraft("subjectName", event.target.value)}
+                value={draft.subjectAccount ?? ""}
+                onChange={(event) => updateDraft("subjectAccount", event.target.value)}
               />
-            </div>
-            <div className="space-y-2">
-              <label className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Subject phone</label>
-              <Input
-                disabled={!canEdit}
-                value={draft.subjectPhone}
-                onChange={(event) => updateDraft("subjectPhone", event.target.value)}
-              />
-            </div>
-            <div className="space-y-2">
-              <label className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Subject wallet</label>
-              <Input
-                disabled={!canEdit}
-                value={draft.subjectWallet}
-                onChange={(event) => updateDraft("subjectWallet", event.target.value)}
-              />
-            </div>
-          </div>
-          <div className="grid gap-4 md:grid-cols-3">
-            <div className="space-y-2">
-              <label className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Category</label>
-              <select
-                disabled={!canEdit}
-                className="h-11 w-full rounded-xl border border-input bg-background/60 px-4 text-sm outline-none focus:border-primary disabled:opacity-60"
-                value={draft.category}
-                onChange={(event) => updateDraft("category", event.target.value)}
-              >
-                <option value="fraud">Fraud</option>
-                <option value="money_laundering">Money laundering</option>
-                <option value="terrorist_financing">Terrorist financing</option>
-                <option value="tbml">TBML</option>
-                <option value="cyber_crime">Cyber crime</option>
-                <option value="other">Other</option>
-              </select>
-            </div>
-            <div className="space-y-2">
-              <label className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Exposure</label>
-              <Input
-                disabled={!canEdit}
-                type="number"
-                value={draft.totalAmount}
-                onChange={(event) => updateDraft("totalAmount", Number(event.target.value))}
-              />
-            </div>
-            <div className="space-y-2">
-              <label className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Transactions</label>
-              <Input
-                disabled={!canEdit}
-                type="number"
-                value={draft.transactionCount}
-                onChange={(event) => updateDraft("transactionCount", Number(event.target.value))}
-              />
-            </div>
-          </div>
-          <div className="space-y-2">
-            <label className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Narrative</label>
-            <Textarea
-              ref={narrativeRef}
+            </Field>
+          ) : null}
+          <Field label="Subject name">
+            <Input
               disabled={!canEdit}
-              value={draft.narrative}
-              onChange={(event) => updateDraft("narrative", event.target.value)}
+              value={draft.subjectName}
+              onChange={(event) => updateDraft("subjectName", event.target.value)}
             />
-          </div>
-          {error ? <p className="text-sm text-red-300">{error}</p> : null}
-          {notice ? <p className="text-sm text-primary/80">{notice}</p> : null}
-          <div className="flex flex-wrap gap-3">
-            {canEdit ? (
-              <>
-                <Button type="button" disabled={pendingAction !== null} onClick={() => void saveDraft()}>
-                  {pendingAction === "save" ? "Saving draft..." : "Save draft"}
-                </Button>
-                <Button
-                  type="button"
-                  disabled={pendingAction !== null}
-                  variant="secondary"
-                  onClick={() => void generateEnrichment()}
-                >
-                  {pendingAction === "enrich" ? "Generating..." : "Generate enrichment"}
-                </Button>
-                <Button type="button" disabled={pendingAction !== null} variant="outline" onClick={() => void submitDraft()}>
-                  {pendingAction === "submit" ? "Submitting..." : "Submit STR"}
-                </Button>
-              </>
-            ) : (
-              <p className="text-sm text-muted-foreground">
-                This STR is no longer editable by {viewer.orgName}. Review actions continue below if your role allows it.
-              </p>
-            )}
-          </div>
-        </CardContent>
-      </Card>
+          </Field>
+          <Field label="Subject phone">
+            <Input
+              disabled={!canEdit}
+              value={draft.subjectPhone}
+              onChange={(event) => updateDraft("subjectPhone", event.target.value)}
+            />
+          </Field>
+          <Field label="Subject wallet">
+            <Input
+              disabled={!canEdit}
+              value={draft.subjectWallet}
+              onChange={(event) => updateDraft("subjectWallet", event.target.value)}
+            />
+          </Field>
+        </div>
+        <div className="grid gap-4 md:grid-cols-3">
+          <Field label="Category">
+            <select
+              disabled={!canEdit}
+              className={selectClass}
+              value={draft.category}
+              onChange={(event) => updateDraft("category", event.target.value)}
+            >
+              <option value="fraud">Fraud</option>
+              <option value="money_laundering">Money laundering</option>
+              <option value="terrorist_financing">Terrorist financing</option>
+              <option value="tbml">TBML</option>
+              <option value="cyber_crime">Cyber crime</option>
+              <option value="other">Other</option>
+            </select>
+          </Field>
+          <Field label="Exposure">
+            <Input
+              disabled={!canEdit}
+              type="number"
+              value={draft.totalAmount}
+              onChange={(event) => updateDraft("totalAmount", Number(event.target.value))}
+            />
+          </Field>
+          <Field label="Transactions">
+            <Input
+              disabled={!canEdit}
+              type="number"
+              value={draft.transactionCount}
+              onChange={(event) => updateDraft("transactionCount", Number(event.target.value))}
+            />
+          </Field>
+        </div>
+        <Field label="Narrative">
+          <Textarea
+            ref={narrativeRef}
+            disabled={!canEdit}
+            value={draft.narrative}
+            onChange={(event) => updateDraft("narrative", event.target.value)}
+          />
+        </Field>
+
+        {error ? (
+          <p className="font-mono text-xs uppercase tracking-[0.18em] text-destructive">
+            <span aria-hidden className="mr-2">┼</span>ERROR · {error}
+          </p>
+        ) : null}
+        {notice ? (
+          <p className="font-mono text-xs uppercase tracking-[0.18em] text-accent">
+            <span aria-hidden className="mr-2">┼</span>
+            {notice}
+          </p>
+        ) : null}
+
+        <div className="flex flex-wrap gap-2 border-t border-border pt-4">
+          {canEdit ? (
+            <>
+              <Button type="button" disabled={pendingAction !== null} onClick={() => void saveDraft()}>
+                {pendingAction === "save" ? "Saving draft…" : "Save draft"}
+              </Button>
+              <Button
+                type="button"
+                disabled={pendingAction !== null}
+                variant="secondary"
+                onClick={() => void generateEnrichment()}
+              >
+                {pendingAction === "enrich" ? "Generating…" : "Generate enrichment"}
+              </Button>
+              <Button
+                type="button"
+                disabled={pendingAction !== null}
+                variant="outline"
+                onClick={() => void submitDraft()}
+              >
+                {pendingAction === "submit" ? "Submitting…" : "Submit STR"}
+              </Button>
+            </>
+          ) : (
+            <p className="font-mono text-[11px] uppercase tracking-[0.22em] text-muted-foreground">
+              This STR is no longer editable by {viewer.orgName}. Review actions continue below if your role allows it.
+            </p>
+          )}
+        </div>
+      </Section>
 
       {report.reportType === "ier" ? (
-        <Card>
-          <CardHeader>
-            <CardTitle>Information Exchange Request</CardTitle>
-            <CardDescription>
-              Egmont Group cooperation with a foreign FIU. Direction and counterparty are required; attach request and response narratives as the exchange progresses.
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-              <div className="space-y-2">
-                <label className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Direction</label>
-                <select
-                  disabled={!canEdit}
-                  className="h-11 w-full rounded-xl border border-input bg-background/60 px-4 text-sm outline-none focus:border-primary disabled:opacity-60"
-                  value={draft.ierDirection ?? ""}
-                  onChange={(event) => updateDraft("ierDirection", (event.target.value || undefined) as STRDraftPayload["ierDirection"])}
-                >
-                  <option value="">Select direction</option>
-                  <option value="outbound">Outbound (BFIU requesting)</option>
-                  <option value="inbound">Inbound (foreign FIU requesting)</option>
-                </select>
-              </div>
-              <div className="space-y-2">
-                <label className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Counterparty FIU</label>
-                <Input
-                  disabled={!canEdit}
-                  value={draft.ierCounterpartyFiu ?? ""}
-                  onChange={(event) => updateDraft("ierCounterpartyFiu", event.target.value)}
-                  placeholder="FINTRAC (Canada)"
-                />
-              </div>
-              <div className="space-y-2">
-                <label className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Counterparty country</label>
-                <Input
-                  disabled={!canEdit}
-                  value={draft.ierCounterpartyCountry ?? ""}
-                  onChange={(event) => updateDraft("ierCounterpartyCountry", event.target.value)}
-                  placeholder="Canada"
-                />
-              </div>
-              <div className="space-y-2">
-                <label className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Egmont reference</label>
-                <Input
-                  disabled={!canEdit}
-                  value={draft.ierEgmontRef ?? ""}
-                  onChange={(event) => updateDraft("ierEgmontRef", event.target.value)}
-                  placeholder="EG-2026-0419"
-                />
-              </div>
-              <div className="space-y-2">
-                <label className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Response deadline</label>
-                <Input
-                  disabled={!canEdit}
-                  type="date"
-                  value={draft.ierDeadline ?? ""}
-                  onChange={(event) => updateDraft("ierDeadline", event.target.value)}
-                />
-              </div>
-            </div>
-            <div className="space-y-2">
-              <label className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Request narrative</label>
-              <Textarea
+        <Section
+          label="Information Exchange Request"
+          description="Egmont Group cooperation with a foreign FIU. Direction and counterparty are required; attach request and response narratives as the exchange progresses."
+        >
+          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+            <Field label="Direction">
+              <select
                 disabled={!canEdit}
-                value={draft.ierRequestNarrative ?? ""}
-                onChange={(event) => updateDraft("ierRequestNarrative", event.target.value)}
-                placeholder="What information is being requested and why."
-              />
-            </div>
-            <div className="space-y-2">
-              <label className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Response narrative</label>
-              <Textarea
+                className={selectClass}
+                value={draft.ierDirection ?? ""}
+                onChange={(event) =>
+                  updateDraft(
+                    "ierDirection",
+                    (event.target.value || undefined) as STRDraftPayload["ierDirection"],
+                  )
+                }
+              >
+                <option value="">Select direction</option>
+                <option value="outbound">Outbound (BFIU requesting)</option>
+                <option value="inbound">Inbound (foreign FIU requesting)</option>
+              </select>
+            </Field>
+            <Field label="Counterparty FIU">
+              <Input
                 disabled={!canEdit}
-                value={draft.ierResponseNarrative ?? ""}
-                onChange={(event) => updateDraft("ierResponseNarrative", event.target.value)}
-                placeholder="Captured response from the counterparty FIU."
+                value={draft.ierCounterpartyFiu ?? ""}
+                onChange={(event) => updateDraft("ierCounterpartyFiu", event.target.value)}
+                placeholder="FINTRAC (Canada)"
               />
-            </div>
-          </CardContent>
-        </Card>
+            </Field>
+            <Field label="Counterparty country">
+              <Input
+                disabled={!canEdit}
+                value={draft.ierCounterpartyCountry ?? ""}
+                onChange={(event) => updateDraft("ierCounterpartyCountry", event.target.value)}
+                placeholder="Canada"
+              />
+            </Field>
+            <Field label="Egmont reference">
+              <Input
+                disabled={!canEdit}
+                value={draft.ierEgmontRef ?? ""}
+                onChange={(event) => updateDraft("ierEgmontRef", event.target.value)}
+                placeholder="EG-2026-0419"
+              />
+            </Field>
+            <Field label="Response deadline">
+              <Input
+                disabled={!canEdit}
+                type="date"
+                value={draft.ierDeadline ?? ""}
+                onChange={(event) => updateDraft("ierDeadline", event.target.value)}
+              />
+            </Field>
+          </div>
+          <Field label="Request narrative">
+            <Textarea
+              disabled={!canEdit}
+              value={draft.ierRequestNarrative ?? ""}
+              onChange={(event) => updateDraft("ierRequestNarrative", event.target.value)}
+              placeholder="What information is being requested and why."
+            />
+          </Field>
+          <Field label="Response narrative">
+            <Textarea
+              disabled={!canEdit}
+              value={draft.ierResponseNarrative ?? ""}
+              onChange={(event) => updateDraft("ierResponseNarrative", event.target.value)}
+              placeholder="Captured response from the counterparty FIU."
+            />
+          </Field>
+        </Section>
       ) : null}
 
       {report.reportType === "tbml" ? (
-        <Card>
-          <CardHeader>
-            <CardTitle>Trade-based money laundering details</CardTitle>
-            <CardDescription>
-              LC reference, HS code, and the invoice-vs-declared variance drive the automated TBML risk indicators.
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-              <div className="space-y-2">
-                <label className="text-xs uppercase tracking-[0.18em] text-muted-foreground">LC reference</label>
-                <Input
-                  disabled={!canEdit}
-                  value={draft.tbmlLcReference ?? ""}
-                  onChange={(event) => updateDraft("tbmlLcReference", event.target.value)}
-                  placeholder="LC-000-2026-045"
-                />
-              </div>
-              <div className="space-y-2">
-                <label className="text-xs uppercase tracking-[0.18em] text-muted-foreground">HS code</label>
-                <Input
-                  disabled={!canEdit}
-                  value={draft.tbmlHsCode ?? ""}
-                  onChange={(event) => updateDraft("tbmlHsCode", event.target.value)}
-                  placeholder="6109.10"
-                />
-              </div>
-              <div className="space-y-2">
-                <label className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Commodity</label>
-                <Input
-                  disabled={!canEdit}
-                  value={draft.tbmlCommodity ?? ""}
-                  onChange={(event) => updateDraft("tbmlCommodity", event.target.value)}
-                  placeholder="Knit cotton T-shirts"
-                />
-              </div>
-              <div className="space-y-2">
-                <label className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Counterparty country</label>
-                <Input
-                  disabled={!canEdit}
-                  value={draft.tbmlCounterpartyCountry ?? ""}
-                  onChange={(event) => updateDraft("tbmlCounterpartyCountry", event.target.value)}
-                  placeholder="Hong Kong SAR"
-                />
-              </div>
-              <div className="space-y-2">
-                <label className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Invoice value (BDT)</label>
-                <Input
-                  disabled={!canEdit}
-                  type="number"
-                  value={draft.tbmlInvoiceValue ?? ""}
-                  onChange={(event) => updateDraft("tbmlInvoiceValue", Number(event.target.value) || undefined)}
-                />
-              </div>
-              <div className="space-y-2">
-                <label className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Declared value (BDT)</label>
-                <Input
-                  disabled={!canEdit}
-                  type="number"
-                  value={draft.tbmlDeclaredValue ?? ""}
-                  onChange={(event) => updateDraft("tbmlDeclaredValue", Number(event.target.value) || undefined)}
-                />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+        <Section
+          label="Trade-based money laundering details"
+          description="LC reference, HS code, and the invoice-vs-declared variance drive the automated TBML risk indicators."
+        >
+          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+            <Field label="LC reference">
+              <Input
+                disabled={!canEdit}
+                value={draft.tbmlLcReference ?? ""}
+                onChange={(event) => updateDraft("tbmlLcReference", event.target.value)}
+                placeholder="LC-000-2026-045"
+              />
+            </Field>
+            <Field label="HS code">
+              <Input
+                disabled={!canEdit}
+                value={draft.tbmlHsCode ?? ""}
+                onChange={(event) => updateDraft("tbmlHsCode", event.target.value)}
+                placeholder="6109.10"
+              />
+            </Field>
+            <Field label="Commodity">
+              <Input
+                disabled={!canEdit}
+                value={draft.tbmlCommodity ?? ""}
+                onChange={(event) => updateDraft("tbmlCommodity", event.target.value)}
+                placeholder="Knit cotton T-shirts"
+              />
+            </Field>
+            <Field label="Counterparty country">
+              <Input
+                disabled={!canEdit}
+                value={draft.tbmlCounterpartyCountry ?? ""}
+                onChange={(event) => updateDraft("tbmlCounterpartyCountry", event.target.value)}
+                placeholder="Hong Kong SAR"
+              />
+            </Field>
+            <Field label="Invoice value (BDT)">
+              <Input
+                disabled={!canEdit}
+                type="number"
+                value={draft.tbmlInvoiceValue ?? ""}
+                onChange={(event) => updateDraft("tbmlInvoiceValue", Number(event.target.value) || undefined)}
+              />
+            </Field>
+            <Field label="Declared value (BDT)">
+              <Input
+                disabled={!canEdit}
+                type="number"
+                value={draft.tbmlDeclaredValue ?? ""}
+                onChange={(event) => updateDraft("tbmlDeclaredValue", Number(event.target.value) || undefined)}
+              />
+            </Field>
+          </div>
+        </Section>
       ) : null}
 
       {report.reportType === "adverse_media_str" || report.reportType === "adverse_media_sar" ? (
-        <Card>
-          <CardHeader>
-            <CardTitle>Adverse media provenance</CardTitle>
-            <CardDescription>Cite the publication that triggered this report so reviewers can verify the source.</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="grid gap-4 md:grid-cols-3">
-              <div className="space-y-2">
-                <label className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Source publication</label>
-                <Input
-                  disabled={!canEdit}
-                  value={draft.mediaSource ?? ""}
-                  onChange={(event) => updateDraft("mediaSource", event.target.value)}
-                  placeholder="The Daily Star"
-                />
-              </div>
-              <div className="space-y-2">
-                <label className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Source URL</label>
-                <Input
-                  disabled={!canEdit}
-                  value={draft.mediaUrl ?? ""}
-                  onChange={(event) => updateDraft("mediaUrl", event.target.value)}
-                  placeholder="https://…"
-                />
-              </div>
-              <div className="space-y-2">
-                <label className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Published date</label>
-                <Input
-                  disabled={!canEdit}
-                  type="date"
-                  value={draft.mediaPublishedAt ?? ""}
-                  onChange={(event) => updateDraft("mediaPublishedAt", event.target.value)}
-                />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+        <Section
+          label="Adverse media provenance"
+          description="Cite the publication that triggered this report so reviewers can verify the source."
+        >
+          <div className="grid gap-4 md:grid-cols-3">
+            <Field label="Source publication">
+              <Input
+                disabled={!canEdit}
+                value={draft.mediaSource ?? ""}
+                onChange={(event) => updateDraft("mediaSource", event.target.value)}
+                placeholder="The Daily Star"
+              />
+            </Field>
+            <Field label="Source URL">
+              <Input
+                disabled={!canEdit}
+                value={draft.mediaUrl ?? ""}
+                onChange={(event) => updateDraft("mediaUrl", event.target.value)}
+                placeholder="https://…"
+              />
+            </Field>
+            <Field label="Published date">
+              <Input
+                disabled={!canEdit}
+                type="date"
+                value={draft.mediaPublishedAt ?? ""}
+                onChange={(event) => updateDraft("mediaPublishedAt", event.target.value)}
+              />
+            </Field>
+          </div>
+        </Section>
       ) : null}
 
       {report.reportType === "additional_info" && report.supplementsReportId ? (
-        <Card>
-          <CardHeader>
-            <CardTitle>Supplements an earlier report</CardTitle>
-            <CardDescription>Additional Information Files inherit subject identity from their parent; edits here only affect the supplement.</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <a
-              href={`/strs/${report.supplementsReportId}`}
-              className="inline-flex items-center gap-2 rounded-xl border border-border/80 bg-background/60 px-4 py-2 text-sm font-medium text-primary hover:border-primary/60"
-            >
-              ← Open parent report
-            </a>
-          </CardContent>
-        </Card>
+        <Section
+          label="Supplements an earlier report"
+          description="Additional Information Files inherit subject identity from their parent; edits here only affect the supplement."
+        >
+          <a
+            href={`/strs/${report.supplementsReportId}`}
+            className="inline-flex items-center gap-2 border border-border bg-card px-4 py-2 font-mono text-[11px] uppercase tracking-[0.22em] text-accent transition hover:border-foreground hover:text-foreground"
+          >
+            ← Open parent report
+          </a>
+        </Section>
       ) : null}
 
       {report.enrichment ? (
-        <Card>
-          <CardHeader>
-            <CardTitle>AI enrichment snapshot</CardTitle>
-            <CardDescription>
-              Stored assistance remains advisory. Analysts must still approve the narrative and category before submission.
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
+        <Section
+          label="AI enrichment snapshot"
+          description="Stored assistance remains advisory. Analysts must still approve the narrative and category before submission."
+        >
+          <div className="space-y-2">
+            <p className="font-mono text-[10px] uppercase tracking-[0.28em] text-muted-foreground">
+              Draft narrative
+            </p>
+            <p className="text-sm leading-relaxed text-foreground">
+              {report.enrichment.draftNarrative}
+            </p>
+          </div>
+          <div className="grid gap-5 md:grid-cols-2">
             <div className="space-y-2">
-              <p className="text-sm font-medium">Draft narrative</p>
-              <p className="text-sm text-muted-foreground">{report.enrichment.draftNarrative}</p>
-            </div>
-            <div className="grid gap-4 md:grid-cols-2">
-              <div className="space-y-2">
-                <p className="text-sm font-medium">Suggested classification</p>
-                <p className="text-sm text-muted-foreground">
-                  {report.enrichment.categorySuggestion.replaceAll("_", " ")} · {report.enrichment.severitySuggestion}
-                </p>
-              </div>
-              <div className="space-y-2">
-                <p className="text-sm font-medium">Missing fields</p>
-                <p className="text-sm text-muted-foreground">
-                  {report.enrichment.missingFields.length
-                    ? report.enrichment.missingFields.join(", ")
-                    : "No critical gaps detected."}
-                </p>
-              </div>
+              <p className="font-mono text-[10px] uppercase tracking-[0.28em] text-muted-foreground">
+                Suggested classification
+              </p>
+              <p className="text-sm text-foreground">
+                {report.enrichment.categorySuggestion.replaceAll("_", " ")} ·{" "}
+                <span className="font-mono">{report.enrichment.severitySuggestion}</span>
+              </p>
             </div>
             <div className="space-y-2">
-              <p className="text-sm font-medium">Trigger facts</p>
-              <ul className="space-y-1 text-sm text-muted-foreground">
-                {report.enrichment.triggerFacts.map((fact) => (
-                  <li key={fact}>{fact}</li>
-                ))}
-              </ul>
+              <p className="font-mono text-[10px] uppercase tracking-[0.28em] text-muted-foreground">
+                Missing fields
+              </p>
+              <p className="text-sm text-foreground">
+                {report.enrichment.missingFields.length
+                  ? report.enrichment.missingFields.join(", ")
+                  : "No critical gaps detected."}
+              </p>
             </div>
-            <div className="space-y-2">
-              <p className="text-sm font-medium">Extracted entities</p>
-              <div className="flex flex-wrap gap-2">
-                {report.enrichment.extractedEntities.map((entity) => (
-                  <span
-                    key={`${entity.entityType}-${entity.value}`}
-                    className="rounded-full border border-border/80 bg-background/60 px-3 py-1 text-xs text-muted-foreground"
-                  >
-                    {entity.entityType}: {entity.value} ({Math.round(entity.confidence * 100)}%)
-                  </span>
-                ))}
-              </div>
+          </div>
+          <div className="space-y-2">
+            <p className="font-mono text-[10px] uppercase tracking-[0.28em] text-muted-foreground">
+              Trigger facts
+            </p>
+            <ul className="space-y-1.5">
+              {report.enrichment.triggerFacts.map((fact) => (
+                <li key={fact} className="flex items-start gap-3 text-sm text-foreground">
+                  <span aria-hidden className="pt-1 font-mono leading-none text-accent">┼</span>
+                  <span>{fact}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+          <div className="space-y-2">
+            <p className="font-mono text-[10px] uppercase tracking-[0.28em] text-muted-foreground">
+              Extracted entities
+            </p>
+            <div className="flex flex-wrap gap-2">
+              {report.enrichment.extractedEntities.map((entity) => (
+                <span
+                  key={`${entity.entityType}-${entity.value}`}
+                  className="border border-border bg-card px-3 py-1 font-mono text-[11px] uppercase tracking-[0.22em] text-muted-foreground"
+                >
+                  {entity.entityType}:{" "}
+                  <span className="text-foreground">{entity.value}</span> (
+                  {Math.round(entity.confidence * 100)}%)
+                </span>
+              ))}
             </div>
-            {canEdit ? (
+          </div>
+          {canEdit ? (
+            <div className="pt-2">
               <Button
                 type="button"
                 variant="ghost"
                 disabled={pendingAction !== null}
                 onClick={applyDraftNarrative}
               >
-                {enrichmentAlreadyApplied ? "AI narrative applied" : applyCount > 0 ? "Apply again" : "Apply draft narrative to editor"}
+                {enrichmentAlreadyApplied
+                  ? "AI narrative applied"
+                  : applyCount > 0
+                    ? "Apply again"
+                    : "Apply draft narrative to editor"}
               </Button>
-            ) : null}
-          </CardContent>
-        </Card>
+            </div>
+          ) : null}
+        </Section>
       ) : null}
 
       {report.reportType !== "additional_info" ? <SupplementList parentId={report.id} /> : null}
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Review trail</CardTitle>
-          <CardDescription>Every transition is stored on the STR itself and mirrored to the audit log.</CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          {report.review.statusHistory.length ? (
-            report.review.statusHistory
+      <Section
+        label="Review trail"
+        description="Every transition is stored on the STR itself and mirrored to the audit log."
+      >
+        {report.review.statusHistory.length ? (
+          <ol className="divide-y divide-border border border-border">
+            {report.review.statusHistory
               .slice()
               .reverse()
               .map((event) => (
-                <div key={`${event.occurredAt}-${event.action}`} className="rounded-xl border border-border/80 bg-background/50 p-4">
-                  <div className="flex flex-wrap items-center gap-2 text-sm">
-                    <span className="font-medium">{event.action.replaceAll("_", " ")}</span>
+                <li
+                  key={`${event.occurredAt}-${event.action}`}
+                  className="space-y-2 px-4 py-3"
+                >
+                  <div className="flex flex-wrap items-center gap-3">
+                    <span className="font-mono text-sm text-foreground">
+                      {event.action.replaceAll("_", " ")}
+                    </span>
                     {event.toStatus ? <StatusBadge status={event.toStatus} /> : null}
-                    <span className="text-muted-foreground">{new Date(event.occurredAt).toLocaleString()}</span>
+                    <span className="font-mono text-[10px] uppercase tracking-[0.22em] text-muted-foreground">
+                      {new Date(event.occurredAt).toLocaleString()}
+                    </span>
                   </div>
-                  {event.note ? <p className="mt-2 text-sm text-muted-foreground">{event.note}</p> : null}
-                </div>
-              ))
-          ) : (
-            <p className="text-sm text-muted-foreground">No review actions recorded yet.</p>
-          )}
-        </CardContent>
-      </Card>
+                  {event.note ? (
+                    <p className="text-sm leading-relaxed text-muted-foreground">{event.note}</p>
+                  ) : null}
+                </li>
+              ))}
+          </ol>
+        ) : (
+          <p className="font-mono text-[11px] uppercase tracking-[0.22em] text-muted-foreground">
+            No review actions recorded yet
+          </p>
+        )}
+      </Section>
 
       {canReview ? (
-        <Card>
-          <CardHeader>
-            <CardTitle>Regulator review actions</CardTitle>
-            <CardDescription>Start review, assign, and disposition the filing without leaving the STR workspace.</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="grid gap-4 md:grid-cols-2">
-              <div className="space-y-2">
-                <label className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Assignment user id</label>
-                <Input value={assignee} onChange={(event) => setAssignee(event.target.value)} placeholder="UUID or leave blank" />
-              </div>
-              <div className="space-y-2">
-                <label className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Review note</label>
-                <Textarea value={reviewNote} onChange={(event) => setReviewNote(event.target.value)} />
-              </div>
-            </div>
-            <div className="flex flex-wrap gap-3">
-              <Button
-                type="button"
-                variant="secondary"
-                disabled={pendingAction !== null}
-                onClick={() => void runReview("start_review")}
-              >
-                {pendingAction === "review:start_review" ? "Starting..." : "Start review"}
-              </Button>
-              <Button type="button" variant="ghost" disabled={pendingAction !== null} onClick={() => void runReview("assign")}>
-                {pendingAction === "review:assign" ? "Assigning..." : "Assign"}
-              </Button>
-              <Button type="button" variant="outline" disabled={pendingAction !== null} onClick={() => void runReview("flag")}>
-                {pendingAction === "review:flag" ? "Flagging..." : "Flag"}
-              </Button>
-              <Button type="button" disabled={pendingAction !== null} onClick={() => void runReview("confirm")}>
-                {pendingAction === "review:confirm" ? "Confirming..." : "Confirm"}
-              </Button>
-              <Button type="button" variant="destructive" disabled={pendingAction !== null} onClick={() => void runReview("dismiss")}>
-                {pendingAction === "review:dismiss" ? "Dismissing..." : "Dismiss"}
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
+        <Section
+          label="Regulator review actions"
+          description="Start review, assign, and disposition the filing without leaving the STR workspace."
+        >
+          <div className="grid gap-4 md:grid-cols-2">
+            <Field label="Assignment user id">
+              <Input
+                value={assignee}
+                onChange={(event) => setAssignee(event.target.value)}
+                placeholder="UUID or leave blank"
+              />
+            </Field>
+            <Field label="Review note">
+              <Textarea value={reviewNote} onChange={(event) => setReviewNote(event.target.value)} />
+            </Field>
+          </div>
+          <div className="flex flex-wrap gap-2 border-t border-border pt-4">
+            <Button
+              type="button"
+              variant="secondary"
+              disabled={pendingAction !== null}
+              onClick={() => void runReview("start_review")}
+            >
+              {pendingAction === "review:start_review" ? "Starting…" : "Start review"}
+            </Button>
+            <Button
+              type="button"
+              variant="ghost"
+              disabled={pendingAction !== null}
+              onClick={() => void runReview("assign")}
+            >
+              {pendingAction === "review:assign" ? "Assigning…" : "Assign"}
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              disabled={pendingAction !== null}
+              onClick={() => void runReview("flag")}
+            >
+              {pendingAction === "review:flag" ? "Flagging…" : "Flag"}
+            </Button>
+            <Button
+              type="button"
+              disabled={pendingAction !== null}
+              onClick={() => void runReview("confirm")}
+            >
+              {pendingAction === "review:confirm" ? "Confirming…" : "Confirm"}
+            </Button>
+            <Button
+              type="button"
+              variant="destructive"
+              disabled={pendingAction !== null}
+              onClick={() => void runReview("dismiss")}
+            >
+              {pendingAction === "review:dismiss" ? "Dismissing…" : "Dismiss"}
+            </Button>
+          </div>
+        </Section>
       ) : null}
     </div>
   );

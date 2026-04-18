@@ -4,7 +4,6 @@ import Link from "next/link";
 import { useRef, useState } from "react";
 
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { detailFromPayload, readResponsePayload } from "@/lib/http";
 
 type ImportResult = {
@@ -79,63 +78,82 @@ export function XmlImportCard({ onImported }: { onImported?: () => void }) {
   }
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Import goAML XML</CardTitle>
-        <CardDescription>
-          Banks can continue emitting goAML-format reports from their existing pipelines and upload them here. Kestrel parses the
-          submission, creates the draft STR/SAR/CTR, ingests transactions, and resolves subjects into the shared entity pool.
-        </CardDescription>
-      </CardHeader>
-      <CardContent className="space-y-4">
+    <section className="border border-border">
+      <div className="border-b border-border px-6 py-5">
+        <p className="font-mono text-[10px] uppercase tracking-[0.28em] text-muted-foreground">
+          <span aria-hidden className="mr-2 text-accent">┼</span>
+          Section · Import goAML XML
+        </p>
+        <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
+          Banks can continue emitting goAML-format reports from their existing pipelines and upload them
+          here. Kestrel parses the submission, creates the draft STR/SAR/CTR, ingests transactions, and
+          resolves subjects into the shared entity pool.
+        </p>
+      </div>
+      <div className="space-y-5 p-6">
         <div className="flex flex-wrap items-center gap-3">
           <input
             ref={inputRef}
             type="file"
             accept=".xml,application/xml,text/xml"
             onChange={(event) => setFileName(event.target.files?.[0]?.name ?? "")}
-            className="text-sm file:mr-3 file:rounded-xl file:border file:border-border file:bg-background/60 file:px-3 file:py-2 file:text-xs file:text-foreground hover:file:border-primary/50"
+            className="text-sm file:mr-3 file:border file:border-border file:bg-card file:px-3 file:py-2 file:font-mono file:text-[11px] file:uppercase file:tracking-[0.22em] file:text-foreground hover:file:border-foreground"
           />
-          {fileName ? <span className="text-xs text-muted-foreground">{fileName}</span> : null}
+          {fileName ? (
+            <span className="font-mono text-[11px] uppercase tracking-[0.22em] text-muted-foreground">
+              {fileName}
+            </span>
+          ) : null}
           <div className="flex-1" />
           <Button type="button" disabled={submitting || !fileName} onClick={() => void upload()}>
             {submitting ? "Importing…" : "Import XML"}
           </Button>
         </div>
-        {error ? <p className="text-sm text-red-300">{error}</p> : null}
+        {error ? (
+          <p className="font-mono text-xs uppercase tracking-[0.18em] text-destructive">
+            <span aria-hidden className="mr-2">┼</span>ERROR · {error}
+          </p>
+        ) : null}
         {result ? (
-          <div className="rounded-2xl border border-primary/30 bg-primary/5 p-4 text-sm">
+          <div className="border border-accent/40 bg-accent/[0.04] p-4">
             <div className="flex flex-wrap items-center gap-3">
-              <span className="font-semibold">{result.reportRef}</span>
-              <span className="text-xs uppercase tracking-widest text-muted-foreground">
+              <span className="font-mono text-sm text-foreground">{result.reportRef}</span>
+              <span className="font-mono text-[10px] uppercase tracking-[0.22em] text-muted-foreground">
                 {result.reportType.replaceAll("_", " ")}
               </span>
               {result.status === "partial" ? (
-                <span className="text-xs uppercase tracking-widest text-amber-300">partial</span>
+                <span className="font-mono text-[10px] uppercase tracking-[0.22em] text-accent">
+                  partial
+                </span>
               ) : null}
             </div>
-            <p className="mt-2 text-sm text-muted-foreground">
-              Ingested {result.transactionsIngested} transaction{result.transactionsIngested === 1 ? "" : "s"} and resolved{" "}
-              {result.subjectsResolved} subject{result.subjectsResolved === 1 ? "" : "s"}.
+            <p className="mt-2 text-sm leading-relaxed text-foreground">
+              Ingested <span className="font-mono tabular-nums">{result.transactionsIngested}</span>{" "}
+              transaction{result.transactionsIngested === 1 ? "" : "s"} and resolved{" "}
+              <span className="font-mono tabular-nums">{result.subjectsResolved}</span> subject
+              {result.subjectsResolved === 1 ? "" : "s"}.
             </p>
             {result.warnings.length ? (
-              <ul className="mt-2 space-y-1 text-xs text-amber-300">
+              <ul className="mt-2 space-y-1">
                 {result.warnings.map((warning, index) => (
-                  <li key={index}>⚠ {warning}</li>
+                  <li key={index} className="font-mono text-[11px] uppercase tracking-[0.22em] text-accent">
+                    <span aria-hidden className="mr-2">┼</span>
+                    {warning}
+                  </li>
                 ))}
               </ul>
             ) : null}
-            <div className="mt-3">
+            <div className="mt-4">
               <Link
                 href={`/strs/${result.reportId}`}
-                className="inline-flex items-center gap-2 rounded-xl border border-border/80 bg-background/60 px-4 py-2 text-xs font-medium text-primary hover:border-primary/60"
+                className="inline-flex items-center gap-2 border border-border bg-card px-4 py-2 font-mono text-[11px] uppercase tracking-[0.22em] text-accent transition hover:border-foreground hover:text-foreground"
               >
                 Open draft →
               </Link>
             </div>
           </div>
         ) : null}
-      </CardContent>
-    </Card>
+      </div>
+    </section>
   );
 }

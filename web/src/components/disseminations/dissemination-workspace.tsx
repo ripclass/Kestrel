@@ -3,9 +3,36 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { detailFromPayload, readResponsePayload } from "@/lib/http";
 import type { DisseminationDetail } from "@/types/domain";
+
+function Meta({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <div className="flex flex-col gap-3 p-5">
+      <span className="font-mono text-[10px] uppercase tracking-[0.28em] text-muted-foreground">
+        {label}
+      </span>
+      {children}
+    </div>
+  );
+}
+
+function Section({ label, description, children }: { label: string; description?: string; children: React.ReactNode }) {
+  return (
+    <section className="border border-border">
+      <div className="border-b border-border px-6 py-5">
+        <p className="font-mono text-[10px] uppercase tracking-[0.28em] text-muted-foreground">
+          <span aria-hidden className="mr-2 text-accent">┼</span>
+          Section · {label}
+        </p>
+        {description ? (
+          <p className="mt-2 text-sm leading-relaxed text-muted-foreground">{description}</p>
+        ) : null}
+      </div>
+      <div className="p-6">{children}</div>
+    </section>
+  );
+}
 
 export function DisseminationWorkspace({ disseminationId }: { disseminationId: string }) {
   const [record, setRecord] = useState<DisseminationDetail | null>(null);
@@ -32,124 +59,135 @@ export function DisseminationWorkspace({ disseminationId }: { disseminationId: s
 
   if (error) {
     return (
-      <Card>
-        <CardContent className="py-10 text-sm text-red-300">{error}</CardContent>
-      </Card>
+      <p className="font-mono text-xs uppercase tracking-[0.18em] text-destructive">
+        <span aria-hidden className="mr-2">┼</span>ERROR · {error}
+      </p>
     );
   }
   if (!record) {
     return (
-      <Card>
-        <CardContent className="py-10 text-sm text-muted-foreground">Loading dissemination…</CardContent>
-      </Card>
+      <p className="font-mono text-xs uppercase tracking-[0.22em] text-muted-foreground">
+        <span aria-hidden className="mr-2 text-accent">┼</span>Loading dissemination…
+      </p>
     );
   }
 
   return (
     <div className="space-y-6">
-      <Card>
-        <CardHeader>
-          <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
-            <div>
-              <CardTitle>{record.disseminationRef}</CardTitle>
-              <CardDescription>
-                {record.recipientAgency} · {record.classification}
-              </CardDescription>
-            </div>
-            <Link
-              href="/intelligence/disseminations"
-              className="text-sm text-muted-foreground hover:text-primary"
-            >
-              ← Back to disseminations
-            </Link>
+      <section className="border border-border">
+        <div className="flex flex-col gap-3 border-b border-border px-6 py-5 lg:flex-row lg:items-start lg:justify-between">
+          <div className="space-y-3">
+            <p className="flex items-center gap-2 font-mono text-[10px] uppercase tracking-[0.28em] text-muted-foreground">
+              <span aria-hidden className="leading-none text-accent">┼</span>
+              Dissemination · {record.disseminationRef}
+            </p>
+            <h2 className="font-mono text-2xl text-foreground">{record.disseminationRef}</h2>
+            <p className="text-sm leading-relaxed text-muted-foreground">
+              {record.recipientAgency} ·{" "}
+              <span className="font-mono uppercase">{record.classification}</span>
+            </p>
           </div>
-        </CardHeader>
-        <CardContent className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-          <div>
-            <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Recipient</p>
-            <p className="mt-1 text-sm font-medium">{record.recipientAgency}</p>
-          </div>
-          <div>
-            <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Recipient type</p>
-            <p className="mt-1 text-sm font-medium">{record.recipientType.replace("_", " ")}</p>
-          </div>
-          <div>
-            <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Classification</p>
-            <p className="mt-1 text-sm font-medium">{record.classification}</p>
-          </div>
-          <div>
-            <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Disseminated</p>
-            <p className="mt-1 text-sm font-medium">{new Date(record.disseminatedAt).toLocaleString()}</p>
-          </div>
-        </CardContent>
-      </Card>
+          <Link
+            href="/intelligence/disseminations"
+            className="font-mono text-[11px] uppercase tracking-[0.22em] text-accent transition hover:text-foreground"
+          >
+            ← Back to disseminations
+          </Link>
+        </div>
+        <div className="grid grid-cols-2 divide-x divide-y divide-border lg:grid-cols-4 lg:divide-y-0">
+          <Meta label="Recipient">
+            <span className="text-sm text-foreground">{record.recipientAgency}</span>
+          </Meta>
+          <Meta label="Recipient type">
+            <span className="font-mono text-sm uppercase tracking-[0.18em] text-foreground">
+              {record.recipientType.replace("_", " ")}
+            </span>
+          </Meta>
+          <Meta label="Classification">
+            <span className="font-mono text-sm uppercase tracking-[0.18em] text-foreground">
+              {record.classification}
+            </span>
+          </Meta>
+          <Meta label="Disseminated">
+            <span className="font-mono text-[11px] uppercase tracking-[0.18em] text-foreground">
+              {new Date(record.disseminatedAt).toLocaleString()}
+            </span>
+          </Meta>
+        </div>
+      </section>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Subject summary</CardTitle>
-          <CardDescription>The narrative sent alongside the underlying reports and entities.</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <p className="whitespace-pre-wrap text-sm">{record.subjectSummary}</p>
-        </CardContent>
-      </Card>
+      <Section
+        label="Subject summary"
+        description="The narrative sent alongside the underlying reports and entities."
+      >
+        <p className="whitespace-pre-wrap text-sm leading-relaxed text-foreground">
+          {record.subjectSummary}
+        </p>
+      </Section>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Linked records</CardTitle>
-          <CardDescription>Every report, entity, and case that accompanied this handoff.</CardDescription>
-        </CardHeader>
-        <CardContent className="grid gap-4 md:grid-cols-3">
-          <div className="space-y-2">
-            <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Reports ({record.linkedReportIds.length})</p>
-            <ul className="space-y-1 text-sm">
-              {record.linkedReportIds.length === 0 ? (
-                <li className="text-muted-foreground">None</li>
-              ) : (
-                record.linkedReportIds.map((id) => (
-                  <li key={id}>
-                    <Link href={`/strs/${id}`} className="text-primary hover:underline">
-                      {id}
-                    </Link>
-                  </li>
-                ))
-              )}
-            </ul>
-          </div>
-          <div className="space-y-2">
-            <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Entities ({record.linkedEntityIds.length})</p>
-            <ul className="space-y-1 text-sm">
-              {record.linkedEntityIds.length === 0 ? (
-                <li className="text-muted-foreground">None</li>
-              ) : (
-                record.linkedEntityIds.map((id) => (
-                  <li key={id}>
-                    <Link href={`/investigate/entity/${id}`} className="text-primary hover:underline">
-                      {id}
-                    </Link>
-                  </li>
-                ))
-              )}
-            </ul>
-          </div>
-          <div className="space-y-2">
-            <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Cases ({record.linkedCaseIds.length})</p>
-            <ul className="space-y-1 text-sm">
-              {record.linkedCaseIds.length === 0 ? (
-                <li className="text-muted-foreground">None</li>
-              ) : (
-                record.linkedCaseIds.map((id) => (
-                  <li key={id}>
-                    <Link href={`/cases/${id}`} className="text-primary hover:underline">
-                      {id}
-                    </Link>
-                  </li>
-                ))
-              )}
-            </ul>
-          </div>
-        </CardContent>
-      </Card>
+      <Section
+        label="Linked records"
+        description="Every report, entity, and case that accompanied this handoff."
+      >
+        <div className="grid gap-6 md:grid-cols-3">
+          <LinkedList
+            label="Reports"
+            count={record.linkedReportIds.length}
+            ids={record.linkedReportIds}
+            hrefPrefix="/strs/"
+          />
+          <LinkedList
+            label="Entities"
+            count={record.linkedEntityIds.length}
+            ids={record.linkedEntityIds}
+            hrefPrefix="/investigate/entity/"
+          />
+          <LinkedList
+            label="Cases"
+            count={record.linkedCaseIds.length}
+            ids={record.linkedCaseIds}
+            hrefPrefix="/cases/"
+          />
+        </div>
+      </Section>
+    </div>
+  );
+}
+
+function LinkedList({
+  label,
+  count,
+  ids,
+  hrefPrefix,
+}: {
+  label: string;
+  count: number;
+  ids: string[];
+  hrefPrefix: string;
+}) {
+  return (
+    <div className="space-y-3">
+      <p className="font-mono text-[10px] uppercase tracking-[0.28em] text-muted-foreground">
+        {label} · <span className="tabular-nums text-foreground">{count}</span>
+      </p>
+      {ids.length === 0 ? (
+        <p className="font-mono text-[11px] uppercase tracking-[0.22em] text-muted-foreground">
+          None
+        </p>
+      ) : (
+        <ul className="divide-y divide-border border border-border">
+          {ids.map((id) => (
+            <li key={id}>
+              <Link
+                href={`${hrefPrefix}${id}`}
+                className="block px-3 py-2 font-mono text-xs text-accent transition hover:bg-foreground/[0.03]"
+              >
+                {id.length > 16 ? `${id.slice(0, 4)}··${id.slice(-4)}` : id}
+              </Link>
+            </li>
+          ))}
+        </ul>
+      )}
     </div>
   );
 }

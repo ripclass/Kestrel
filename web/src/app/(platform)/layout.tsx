@@ -13,11 +13,11 @@ export default async function PlatformLayout({
   const showDemoSwitcher = isDemoModeEnabled();
 
   return (
-    <div className="min-h-screen bg-background text-foreground lg:flex">
+    <div className="platform-surface min-h-screen lg:flex">
       <AppSidebar viewer={viewer} />
       <div className="min-w-0 flex-1">
         <AppTopbar viewer={viewer} showDemoSwitcher={showDemoSwitcher} />
-        <main className="mx-auto max-w-7xl px-4 py-8 xl:px-8">{children}</main>
+        <main className="mx-auto max-w-7xl px-6 py-10 xl:px-10">{children}</main>
       </div>
     </div>
   );

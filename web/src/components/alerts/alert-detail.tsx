@@ -12,7 +12,7 @@ import { EmptyState } from "@/components/common/empty-state";
 import { LoadingState } from "@/components/common/loading";
 import { StatusBadge } from "@/components/common/status-badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { NetworkCanvas } from "@/components/investigate/network-canvas";
 import { RiskScore } from "@/components/common/risk-score";
 import { detailFromPayload, readResponsePayload } from "@/lib/http";
@@ -41,6 +41,11 @@ function actionLabel(action: AlertMutationPayload["action"]) {
     case "create_case":
       return "Case created from alert.";
   }
+}
+
+function shortId(id: string) {
+  if (id.length <= 10) return id;
+  return `${id.slice(0, 4)}··${id.slice(-4)}`;
 }
 
 export function AlertDetail({ alertId }: { alertId: string }) {
@@ -134,7 +139,6 @@ export function AlertDetail({ alertId }: { alertId: string }) {
     setStrDrafting(true);
     setError(null);
     try {
-      // Step 1: Generate narrative via AI
       const narrativeRes = await fetch("/api/ai/str-narrative", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -155,7 +159,6 @@ export function AlertDetail({ alertId }: { alertId: string }) {
         category = narrativePayload.result.categorySuggestion || category;
       }
 
-      // Step 2: Create STR draft
       const strRes = await fetch("/api/str-reports", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -188,7 +191,7 @@ export function AlertDetail({ alertId }: { alertId: string }) {
   }
 
   if (isLoading) {
-    return <LoadingState label="Loading alert detail..." />;
+    return <LoadingState label="Loading alert detail…" />;
   }
 
   if (!alert) {
@@ -204,26 +207,66 @@ export function AlertDetail({ alertId }: { alertId: string }) {
     <div className="space-y-6">
       <Card>
         <CardHeader>
-          <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-            <div className="space-y-2">
-              <CardTitle>{alert.title}</CardTitle>
-              <p className="text-sm text-muted-foreground">{alert.description}</p>
+          <div className="flex flex-col gap-6 lg:flex-row lg:items-start lg:justify-between">
+            <div className="space-y-3">
+              <p className="flex items-center gap-2 font-mono text-[10px] uppercase tracking-[0.28em] text-muted-foreground">
+                <span aria-hidden className="leading-none text-accent">┼</span>
+                Alert · {shortId(alert.id)} · {alert.alertType}
+              </p>
+              <h2 className="text-2xl font-semibold tracking-tight text-foreground">{alert.title}</h2>
+              <p className="max-w-3xl text-sm leading-relaxed text-muted-foreground">{alert.description}</p>
             </div>
             <RiskScore score={alert.riskScore} severity={alert.severity} />
           </div>
         </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="flex flex-wrap items-center gap-3 text-sm text-muted-foreground">
-            <StatusBadge status={alert.status} />
-            <span>{alert.orgName}</span>
-            {alert.assignedTo ? <span>Assigned: {alert.assignedTo}</span> : null}
-            {alert.caseId ? <Link href={`/cases/${alert.caseId}`} className="text-primary">Linked case</Link> : null}
-            {alert.entity ? (
-              <Link href={`/investigate/entity/${alert.entity.id}`} className="text-primary">
-                Open entity dossier
-              </Link>
-            ) : null}
+        <CardContent className="space-y-6">
+          <div className="grid grid-cols-1 gap-0 border border-border md:grid-cols-4">
+            <Meta label="Status">
+              <StatusBadge status={alert.status} />
+            </Meta>
+            <Meta label="Org">
+              <span className="text-sm text-foreground">{alert.orgName}</span>
+            </Meta>
+            <Meta label="Assigned">
+              <span className="text-sm text-foreground">{alert.assignedTo ?? "—"}</span>
+            </Meta>
+            <Meta label="Linked case">
+              {alert.caseId ? (
+                <Link
+                  href={`/cases/${alert.caseId}`}
+                  className="font-mono text-sm text-foreground underline decoration-accent decoration-2 underline-offset-4 transition hover:text-accent"
+                >
+                  Open case
+                </Link>
+              ) : (
+                <span className="text-sm text-muted-foreground">—</span>
+              )}
+            </Meta>
           </div>
+
+          {alert.entity ? (
+            <div className="flex items-center justify-between border border-border bg-white/[0.02] px-4 py-3">
+              <div className="flex items-center gap-3 text-sm">
+                <span className="font-mono text-[10px] uppercase tracking-[0.28em] text-muted-foreground">
+                  Subject
+                </span>
+                <span className="font-mono text-foreground">
+                  {alert.entity.entityType}
+                </span>
+                <span className="text-muted-foreground">·</span>
+                <span className="font-mono text-foreground">
+                  {alert.entity.displayName ?? alert.entity.displayValue}
+                </span>
+              </div>
+              <Link
+                href={`/investigate/entity/${alert.entity.id}`}
+                className="font-mono text-[11px] uppercase tracking-[0.22em] text-accent transition hover:text-foreground"
+              >
+                Open dossier →
+              </Link>
+            </div>
+          ) : null}
+
           <AlertActions
             alert={alert}
             pendingAction={pendingAction}
@@ -231,7 +274,8 @@ export function AlertDetail({ alertId }: { alertId: string }) {
             error={error}
             onAction={runAction}
           />
-          <div className="flex flex-wrap gap-3">
+
+          <div className="flex flex-wrap gap-3 border-t border-border pt-4">
             {alert.entity && !alert.caseId ? (
               <Button
                 type="button"
@@ -239,7 +283,7 @@ export function AlertDetail({ alertId }: { alertId: string }) {
                 disabled={strDrafting || pendingAction !== null}
                 onClick={() => void draftStr()}
               >
-                {strDrafting ? "Drafting STR..." : "Draft STR from alert"}
+                {strDrafting ? "Drafting STR…" : "Draft STR from alert"}
               </Button>
             ) : null}
             <DisseminateAction
@@ -254,6 +298,15 @@ export function AlertDetail({ alertId }: { alertId: string }) {
       <AiExplanation explanation={aiExplanation} isLoading={aiLoading} error={aiError} />
       <Explainability reasons={alert.reasons} />
       <NetworkCanvas graph={alert.graph} />
+    </div>
+  );
+}
+
+function Meta({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <div className="flex flex-col gap-2 border-b border-border p-4 last:border-b-0 md:border-b-0 md:border-r md:last:border-r-0">
+      <span className="font-mono text-[10px] uppercase tracking-[0.28em] text-muted-foreground">{label}</span>
+      {children}
     </div>
   );
 }

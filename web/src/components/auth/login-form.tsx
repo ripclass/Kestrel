@@ -41,24 +41,39 @@ export function LoginForm() {
   }
 
   return (
-    <form className="space-y-4" onSubmit={handleSubmit}>
-      <Input
-        placeholder="Email"
-        type="email"
-        value={email}
-        onChange={(event) => setEmail(event.target.value)}
-        autoComplete="email"
-      />
-      <Input
-        placeholder="Password"
-        type="password"
-        value={password}
-        onChange={(event) => setPassword(event.target.value)}
-        autoComplete="current-password"
-      />
-      {error ? <p className="text-sm text-destructive">{error}</p> : null}
+    <form className="space-y-5" onSubmit={handleSubmit}>
+      <label className="flex flex-col gap-2">
+        <span className="font-mono text-[10px] uppercase tracking-[0.28em] text-muted-foreground">
+          Email
+        </span>
+        <Input
+          placeholder="user@institution.gov.bd"
+          type="email"
+          value={email}
+          onChange={(event) => setEmail(event.target.value)}
+          autoComplete="email"
+        />
+      </label>
+      <label className="flex flex-col gap-2">
+        <span className="font-mono text-[10px] uppercase tracking-[0.28em] text-muted-foreground">
+          Password
+        </span>
+        <Input
+          placeholder="••••••••"
+          type="password"
+          value={password}
+          onChange={(event) => setPassword(event.target.value)}
+          autoComplete="current-password"
+        />
+      </label>
+      {error ? (
+        <p className="font-mono text-xs uppercase tracking-[0.18em] text-destructive">
+          <span aria-hidden className="mr-2">┼</span>
+          ERROR · {error}
+        </p>
+      ) : null}
       <Button className="w-full" disabled={isPending || !email || !password} type="submit">
-        {isPending ? "Signing in..." : "Continue"}
+        {isPending ? "Signing in…" : "Continue"}
       </Button>
     </form>
   );

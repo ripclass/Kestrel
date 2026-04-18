@@ -3,9 +3,7 @@
 import { useState } from "react";
 
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { Badge } from "@/components/ui/badge";
 import { detailFromPayload, readResponsePayload } from "@/lib/http";
 import type { AdminRuleMutationResponse } from "@/types/api";
 import type { AdminRuleSummary } from "@/types/domain";
@@ -35,11 +33,18 @@ function sameDraft(left: RuleDraft, right: RuleDraft) {
   );
 }
 
-export function RuleCatalogManager({
-  initialRules,
-}: {
-  initialRules: AdminRuleSummary[];
-}) {
+function Field({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <label className="flex flex-col gap-2">
+      <span className="font-mono text-[10px] uppercase tracking-[0.28em] text-muted-foreground">
+        {label}
+      </span>
+      {children}
+    </label>
+  );
+}
+
+export function RuleCatalogManager({ initialRules }: { initialRules: AdminRuleSummary[] }) {
   const [rules, setRules] = useState(initialRules);
   const [drafts, setDrafts] = useState<Record<string, RuleDraft>>(
     Object.fromEntries(initialRules.map((rule) => [rule.code, toDraft(rule)])),
@@ -49,17 +54,11 @@ export function RuleCatalogManager({
   const [error, setError] = useState<string | null>(null);
 
   function updateDraft(code: string, patch: Partial<RuleDraft>) {
-    setDrafts((current) => ({
-      ...current,
-      [code]: { ...current[code], ...patch },
-    }));
+    setDrafts((current) => ({ ...current, [code]: { ...current[code], ...patch } }));
   }
 
   function resetDraft(rule: AdminRuleSummary) {
-    setDrafts((current) => ({
-      ...current,
-      [rule.code]: toDraft(rule),
-    }));
+    setDrafts((current) => ({ ...current, [rule.code]: toDraft(rule) }));
   }
 
   async function saveRule(rule: AdminRuleSummary) {
@@ -87,52 +86,72 @@ export function RuleCatalogManager({
     }
 
     const updatedRule = (payload as AdminRuleMutationResponse).rule;
-    setRules((current) => current.map((entry) => (entry.code === updatedRule.code ? updatedRule : entry)));
-    setDrafts((current) => ({
-      ...current,
-      [updatedRule.code]: toDraft(updatedRule),
-    }));
+    setRules((current) =>
+      current.map((entry) => (entry.code === updatedRule.code ? updatedRule : entry)),
+    );
+    setDrafts((current) => ({ ...current, [updatedRule.code]: toDraft(updatedRule) }));
     setNotice(`${updatedRule.name} updated.`);
     setPendingCode(null);
   }
 
   return (
     <div className="space-y-4">
-      {notice ? <p className="text-sm text-primary">{notice}</p> : null}
-      {error ? <p className="text-sm text-destructive">{error}</p> : null}
+      {notice ? (
+        <p className="font-mono text-xs uppercase tracking-[0.18em] text-accent">
+          <span aria-hidden className="mr-2">┼</span>
+          {notice}
+        </p>
+      ) : null}
+      {error ? (
+        <p className="font-mono text-xs uppercase tracking-[0.18em] text-destructive">
+          <span aria-hidden className="mr-2">┼</span>ERROR · {error}
+        </p>
+      ) : null}
       <div className="grid gap-4">
         {rules.map((rule) => {
           const draft = drafts[rule.code];
           const dirty = !sameDraft(draft, toDraft(rule));
 
           return (
-            <Card key={rule.code}>
-              <CardHeader className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+            <section key={rule.code} className="border border-border">
+              <div className="flex flex-col gap-3 border-b border-border px-6 py-5 lg:flex-row lg:items-start lg:justify-between">
                 <div className="space-y-2">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <CardTitle>{rule.name}</CardTitle>
-                    <Badge>{rule.code}</Badge>
-                    <Badge className={rule.isSystem ? "" : "border-primary/30 bg-primary/15 text-primary"}>
-                      {rule.source}
-                    </Badge>
+                  <div className="flex flex-wrap items-center gap-3">
+                    <p className="font-mono text-[10px] uppercase tracking-[0.28em] text-muted-foreground">
+                      <span aria-hidden className="mr-2 text-accent">┼</span>
+                      Rule · {rule.code}
+                    </p>
                   </div>
-                  <p className="text-sm text-muted-foreground">{rule.category}</p>
+                  <h3 className="text-base font-semibold text-foreground">{rule.name}</h3>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="border border-border px-2.5 py-0.5 font-mono text-[10px] uppercase tracking-[0.22em] text-muted-foreground">
+                      {rule.category}
+                    </span>
+                    <span
+                      className={`border px-2.5 py-0.5 font-mono text-[10px] uppercase tracking-[0.22em] ${
+                        rule.isSystem
+                          ? "border-border text-muted-foreground"
+                          : "border-accent/40 text-accent"
+                      }`}
+                    >
+                      {rule.source}
+                    </span>
+                  </div>
                 </div>
-                <Badge
-                  className={
+                <span
+                  className={`border px-3 py-1 font-mono text-[10px] uppercase tracking-[0.22em] ${
                     draft.isActive
-                      ? "border-emerald-400/30 bg-emerald-500/15 text-emerald-100"
-                      : "border-slate-400/30 bg-slate-500/15 text-slate-200"
-                  }
+                      ? "border-accent/40 bg-accent/10 text-accent"
+                      : "border-border text-muted-foreground"
+                  }`}
                 >
-                  {draft.isActive ? `live v${rule.version}` : `inactive v${rule.version}`}
-                </Badge>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <p className="text-sm text-muted-foreground">{rule.description}</p>
+                  {draft.isActive ? `live · v${rule.version}` : `inactive · v${rule.version}`}
+                </span>
+              </div>
+              <div className="space-y-5 p-6">
+                <p className="text-sm leading-relaxed text-muted-foreground">{rule.description}</p>
                 <div className="grid gap-4 md:grid-cols-[0.7fr_0.7fr_1fr_auto]">
-                  <label className="space-y-2 text-sm">
-                    <span className="text-muted-foreground">Weight</span>
+                  <Field label="Weight">
                     <Input
                       type="number"
                       step="0.1"
@@ -140,9 +159,8 @@ export function RuleCatalogManager({
                       value={draft.weight}
                       onChange={(event) => updateDraft(rule.code, { weight: event.target.value })}
                     />
-                  </label>
-                  <label className="space-y-2 text-sm">
-                    <span className="text-muted-foreground">Threshold</span>
+                  </Field>
+                  <Field label="Threshold">
                     <Input
                       type="number"
                       step="1"
@@ -151,30 +169,31 @@ export function RuleCatalogManager({
                       onChange={(event) => updateDraft(rule.code, { threshold: event.target.value })}
                       placeholder="Inherited"
                     />
-                  </label>
-                  <label className="space-y-2 text-sm">
-                    <span className="text-muted-foreground">Description override</span>
+                  </Field>
+                  <Field label="Description override">
                     <Input
                       value={draft.description}
                       onChange={(event) => updateDraft(rule.code, { description: event.target.value })}
                     />
-                  </label>
-                  <label className="flex items-end gap-2 pb-3 text-sm">
+                  </Field>
+                  <label className="flex items-end gap-2 pb-3 font-mono text-[11px] uppercase tracking-[0.22em] text-muted-foreground">
                     <input
                       type="checkbox"
                       checked={draft.isActive}
-                      onChange={(event) => updateDraft(rule.code, { isActive: event.target.checked })}
+                      onChange={(event) =>
+                        updateDraft(rule.code, { isActive: event.target.checked })
+                      }
                     />
-                    <span className="text-muted-foreground">Active</span>
+                    <span>Active</span>
                   </label>
                 </div>
-                <div className="flex gap-3">
+                <div className="flex gap-2 border-t border-border pt-4">
                   <Button
                     type="button"
                     disabled={!dirty || pendingCode === rule.code}
                     onClick={() => void saveRule(rule)}
                   >
-                    {pendingCode === rule.code ? "Saving..." : "Save rule"}
+                    {pendingCode === rule.code ? "Saving…" : "Save rule"}
                   </Button>
                   <Button
                     type="button"
@@ -185,8 +204,8 @@ export function RuleCatalogManager({
                     Reset
                   </Button>
                 </div>
-              </CardContent>
-            </Card>
+              </div>
+            </section>
           );
         })}
       </div>

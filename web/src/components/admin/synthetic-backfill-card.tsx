@@ -4,10 +4,20 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { detailFromPayload, readResponsePayload } from "@/lib/http";
 import type { SyntheticBackfillApplyResponse } from "@/types/api";
 import type { SyntheticBackfillPlan, SyntheticBackfillResult } from "@/types/domain";
+
+function Stat({ label, value }: { label: string; value: number }) {
+  return (
+    <div className="flex flex-col gap-3 border-r border-b border-border p-5 last:border-r-0">
+      <span className="font-mono text-[10px] uppercase tracking-[0.28em] text-muted-foreground">
+        {label}
+      </span>
+      <span className="font-mono text-2xl tabular-nums text-foreground">{value.toLocaleString()}</span>
+    </div>
+  );
+}
 
 export function SyntheticBackfillCard({
   initialPlan,
@@ -24,9 +34,7 @@ export function SyntheticBackfillCard({
     setIsRunning(true);
     setNotice(null);
     setError(null);
-    const response = await fetch("/api/admin/synthetic-backfill", {
-      method: "POST",
-    });
+    const response = await fetch("/api/admin/synthetic-backfill", { method: "POST" });
     const payload = await readResponsePayload<SyntheticBackfillApplyResponse>(response);
 
     if (!response.ok) {
@@ -37,54 +45,71 @@ export function SyntheticBackfillCard({
 
     const nextResult = (payload as SyntheticBackfillApplyResponse).result;
     setResult(nextResult);
-    setNotice(`Synthetic backfill applied: ${nextResult.entities} entities and ${nextResult.strReports} STRs refreshed.`);
+    setNotice(
+      `Synthetic backfill applied · ${nextResult.entities} entities and ${nextResult.strReports} STRs refreshed.`,
+    );
     setIsRunning(false);
     router.refresh();
   }
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Synthetic intelligence backfill</CardTitle>
-      </CardHeader>
-      <CardContent className="space-y-4 text-sm text-muted-foreground">
-        <p>
-          Regulator admins can reapply the sanitized DBBL-derived synthetic dataset into shared intelligence tables from the live environment.
+    <section className="border border-border">
+      <div className="border-b border-border px-6 py-5">
+        <p className="font-mono text-[10px] uppercase tracking-[0.28em] text-muted-foreground">
+          <span aria-hidden className="mr-2 text-accent">┼</span>
+          Section · Synthetic intelligence backfill
         </p>
+        <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
+          Regulator admins can reapply the sanitised DBBL-derived synthetic dataset into shared
+          intelligence tables from the live environment.
+        </p>
+      </div>
+      <div className="space-y-5 p-6">
         {initialPlan ? (
-          <div className="grid gap-3 sm:grid-cols-2">
-            {[
-              ["Statements", initialPlan.statements],
-              ["Entities", initialPlan.entities],
-              ["Matches", initialPlan.matches],
-              ["Transactions", initialPlan.transactions],
-              ["Connections", initialPlan.connections],
-            ].map(([label, value]) => (
-              <div key={String(label)} className="rounded-2xl border border-border/70 bg-background/50 p-4">
-                <p className="text-xs uppercase tracking-[0.24em] text-primary">{label}</p>
-                <p className="mt-2 text-xl font-semibold text-foreground">{value}</p>
-              </div>
-            ))}
+          <div className="grid grid-cols-2 border-l border-t border-border sm:grid-cols-3 lg:grid-cols-5">
+            <Stat label="Statements" value={initialPlan.statements} />
+            <Stat label="Entities" value={initialPlan.entities} />
+            <Stat label="Matches" value={initialPlan.matches} />
+            <Stat label="Transactions" value={initialPlan.transactions} />
+            <Stat label="Connections" value={initialPlan.connections} />
           </div>
         ) : (
-          <p>The synthetic dataset plan is unavailable on this deployment.</p>
+          <p className="font-mono text-[11px] uppercase tracking-[0.22em] text-muted-foreground">
+            The synthetic dataset plan is unavailable on this deployment
+          </p>
         )}
-        <div className="flex gap-3">
+        <div className="flex gap-2 border-t border-border pt-4">
           <Button type="button" disabled={isRunning || !initialPlan} onClick={() => void runBackfill()}>
-            {isRunning ? "Running..." : "Run backfill"}
+            {isRunning ? "Running…" : "Run backfill"}
           </Button>
         </div>
-        {notice ? <p className="text-primary">{notice}</p> : null}
-        {error ? <p className="text-destructive">{error}</p> : null}
+        {notice ? (
+          <p className="font-mono text-xs uppercase tracking-[0.18em] text-accent">
+            <span aria-hidden className="mr-2">┼</span>
+            {notice}
+          </p>
+        ) : null}
+        {error ? (
+          <p className="font-mono text-xs uppercase tracking-[0.18em] text-destructive">
+            <span aria-hidden className="mr-2">┼</span>ERROR · {error}
+          </p>
+        ) : null}
         {result ? (
-          <div className="rounded-2xl border border-border/70 bg-background/50 p-4">
-            <p className="text-xs uppercase tracking-[0.24em] text-primary">Latest result</p>
-            <p className="mt-2 text-foreground">
-              {result.organizations} orgs, {result.entities} entities, {result.matches} matches, {result.alerts} alerts, {result.cases} cases.
+          <div className="border border-border bg-card p-4">
+            <p className="font-mono text-[10px] uppercase tracking-[0.28em] text-muted-foreground">
+              <span aria-hidden className="mr-2 text-accent">┼</span>
+              Latest result
+            </p>
+            <p className="mt-2 text-sm leading-relaxed text-foreground">
+              <span className="font-mono tabular-nums">{result.organizations}</span> orgs ·{" "}
+              <span className="font-mono tabular-nums">{result.entities}</span> entities ·{" "}
+              <span className="font-mono tabular-nums">{result.matches}</span> matches ·{" "}
+              <span className="font-mono tabular-nums">{result.alerts}</span> alerts ·{" "}
+              <span className="font-mono tabular-nums">{result.cases}</span> cases.
             </p>
           </div>
         ) : null}
-      </CardContent>
-    </Card>
+      </div>
+    </section>
   );
 }

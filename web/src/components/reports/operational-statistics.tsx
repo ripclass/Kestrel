@@ -14,11 +14,55 @@ import {
   YAxis,
 } from "recharts";
 
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { detailFromPayload, readResponsePayload } from "@/lib/http";
 import type { OperationalStatistics } from "@/types/domain";
 
-const PIE_COLORS = ["#58a6a6", "#c7a77a", "#d48aa0", "#8cb5d6", "#b8a0e0", "#94c17a", "#e6b380"];
+const AXIS_STROKE = "#8E929A";
+const GRID_STROKE = "rgba(234, 230, 218, 0.08)";
+const ALARM = "#FF3823";
+const FOREGROUND = "#EAE6DA";
+const MUTED = "#8E929A";
+// Monochromatic ramp that scales bone-to-muted, with vermillion reserved for
+// the most urgent slice (first series is treated as the alarm lane).
+const SERIES_PALETTE = [ALARM, FOREGROUND, MUTED, "#5A6070", "#3F454E", "#2A2E35", "#1F2228"];
+
+const tooltipStyle: React.CSSProperties = {
+  background: "#15171C",
+  border: "1px solid rgba(234, 230, 218, 0.12)",
+  borderRadius: 0,
+  fontFamily: "var(--font-plex-mono), ui-monospace, monospace",
+  fontSize: 11,
+};
+
+const tickStyle = {
+  fontFamily: "var(--font-plex-mono), ui-monospace, monospace",
+  fontSize: 10,
+};
+
+function Section({
+  label,
+  description,
+  children,
+}: {
+  label: string;
+  description?: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <section className="border border-border">
+      <div className="border-b border-border px-6 py-5">
+        <p className="font-mono text-[10px] uppercase tracking-[0.28em] text-muted-foreground">
+          <span aria-hidden className="mr-2 text-accent">┼</span>
+          Section · {label}
+        </p>
+        {description ? (
+          <p className="mt-2 text-sm leading-relaxed text-muted-foreground">{description}</p>
+        ) : null}
+      </div>
+      <div className="p-6">{children}</div>
+    </section>
+  );
+}
 
 export function OperationalStatisticsDashboard() {
   const [stats, setStats] = useState<OperationalStatistics | null>(null);
@@ -62,177 +106,175 @@ export function OperationalStatisticsDashboard() {
 
   if (error) {
     return (
-      <Card>
-        <CardContent className="py-10 text-sm text-red-300">{error}</CardContent>
-      </Card>
+      <p className="font-mono text-xs uppercase tracking-[0.18em] text-destructive">
+        <span aria-hidden className="mr-2">┼</span>ERROR · {error}
+      </p>
     );
   }
   if (!stats) {
     return (
-      <Card>
-        <CardContent className="py-10 text-sm text-muted-foreground">Loading statistics…</CardContent>
-      </Card>
+      <p className="font-mono text-xs uppercase tracking-[0.22em] text-muted-foreground">
+        <span aria-hidden className="mr-2 text-accent">┼</span>Loading statistics…
+      </p>
     );
   }
 
   return (
     <div className="space-y-6">
-      <Card>
-        <CardHeader>
-          <CardTitle>Reports filed per month</CardTitle>
-          <CardDescription>Stacked by report type across the last 24 months of activity.</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="h-80">
+      <Section
+        label="Reports filed per month"
+        description="Stacked by report type across the last 24 months of activity."
+      >
+        <div className="h-80">
+          <ResponsiveContainer width="100%" height="100%">
+            <BarChart data={reportsByMonth}>
+              <CartesianGrid strokeDasharray="3 3" stroke={GRID_STROKE} />
+              <XAxis dataKey="month" stroke={AXIS_STROKE} tick={tickStyle} />
+              <YAxis stroke={AXIS_STROKE} tick={tickStyle} />
+              <Tooltip contentStyle={tooltipStyle} labelStyle={{ color: MUTED }} />
+              {reportTypes.map((type, index) => (
+                <Bar
+                  key={type}
+                  dataKey={type}
+                  stackId="a"
+                  fill={SERIES_PALETTE[index % SERIES_PALETTE.length]}
+                />
+              ))}
+            </BarChart>
+          </ResponsiveContainer>
+        </div>
+      </Section>
+
+      <div className="grid gap-6 xl:grid-cols-2">
+        <Section label="Top reporting organisations" description="Lifetime report counts · top 10.">
+          <div className="h-72">
             <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={reportsByMonth}>
-                <CartesianGrid strokeDasharray="3 3" stroke="rgba(88,166,166,0.15)" />
-                <XAxis dataKey="month" stroke="#9aa9bd" />
-                <YAxis stroke="#9aa9bd" />
-                <Tooltip contentStyle={{ background: "#101b2b", border: "1px solid rgba(88,166,166,0.4)", borderRadius: 12 }} />
-                {reportTypes.map((type, index) => (
-                  <Bar
-                    key={type}
-                    dataKey={type}
-                    stackId="a"
-                    fill={PIE_COLORS[index % PIE_COLORS.length]}
-                  />
-                ))}
+              <BarChart data={stats.reportsByOrg.slice(0, 10)} layout="vertical">
+                <CartesianGrid strokeDasharray="3 3" stroke={GRID_STROKE} />
+                <XAxis type="number" stroke={AXIS_STROKE} tick={tickStyle} />
+                <YAxis
+                  type="category"
+                  dataKey="orgName"
+                  stroke={AXIS_STROKE}
+                  tick={tickStyle}
+                  width={150}
+                />
+                <Tooltip contentStyle={tooltipStyle} labelStyle={{ color: MUTED }} />
+                <Bar dataKey="count" fill={FOREGROUND} />
               </BarChart>
             </ResponsiveContainer>
           </div>
-        </CardContent>
-      </Card>
+        </Section>
 
-      <div className="grid gap-6 xl:grid-cols-2">
-        <Card>
-          <CardHeader>
-            <CardTitle>Top reporting organizations</CardTitle>
-            <CardDescription>Lifetime report counts (top 10).</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="h-72">
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={stats.reportsByOrg.slice(0, 10)} layout="vertical">
-                  <CartesianGrid strokeDasharray="3 3" stroke="rgba(88,166,166,0.15)" />
-                  <XAxis type="number" stroke="#9aa9bd" />
-                  <YAxis type="category" dataKey="orgName" stroke="#9aa9bd" width={150} />
-                  <Tooltip contentStyle={{ background: "#101b2b", border: "1px solid rgba(88,166,166,0.4)", borderRadius: 12 }} />
-                  <Bar dataKey="count" fill="#58a6a6" />
-                </BarChart>
-              </ResponsiveContainer>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle>CTR volume by month</CardTitle>
-            <CardDescription>Cash-transaction-report counts and aggregate amount.</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="h-72">
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={[...stats.ctrVolumeByMonth].reverse()}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="rgba(88,166,166,0.15)" />
-                  <XAxis dataKey="month" stroke="#9aa9bd" />
-                  <YAxis stroke="#9aa9bd" />
-                  <Tooltip contentStyle={{ background: "#101b2b", border: "1px solid rgba(88,166,166,0.4)", borderRadius: 12 }} />
-                  <Bar dataKey="count" fill="#c7a77a" name="Count" />
-                </BarChart>
-              </ResponsiveContainer>
-            </div>
-          </CardContent>
-        </Card>
+        <Section
+          label="CTR volume by month"
+          description="Cash-transaction-report counts and aggregate amount."
+        >
+          <div className="h-72">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={[...stats.ctrVolumeByMonth].reverse()}>
+                <CartesianGrid strokeDasharray="3 3" stroke={GRID_STROKE} />
+                <XAxis dataKey="month" stroke={AXIS_STROKE} tick={tickStyle} />
+                <YAxis stroke={AXIS_STROKE} tick={tickStyle} />
+                <Tooltip contentStyle={tooltipStyle} labelStyle={{ color: MUTED }} />
+                <Bar dataKey="count" fill={ALARM} />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+        </Section>
       </div>
 
       <div className="grid gap-6 xl:grid-cols-2">
-        <Card>
-          <CardHeader>
-            <CardTitle>Disseminations by recipient</CardTitle>
-            <CardDescription>Where outbound intelligence is going.</CardDescription>
-          </CardHeader>
-          <CardContent>
-            {stats.disseminationsByAgency.length === 0 ? (
-              <p className="text-sm text-muted-foreground">No disseminations recorded yet.</p>
-            ) : (
-              <div className="h-72">
-                <ResponsiveContainer width="100%" height="100%">
-                  <PieChart>
-                    <Pie
-                      data={stats.disseminationsByAgency}
-                      dataKey="count"
-                      nameKey="recipientAgency"
-                      outerRadius={100}
-                      label
-                    >
-                      {stats.disseminationsByAgency.map((_, index) => (
-                        <Cell key={`cell-${index}`} fill={PIE_COLORS[index % PIE_COLORS.length]} />
-                      ))}
-                    </Pie>
-                    <Tooltip contentStyle={{ background: "#101b2b", border: "1px solid rgba(88,166,166,0.4)", borderRadius: 12 }} />
-                  </PieChart>
-                </ResponsiveContainer>
-              </div>
-            )}
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle>Case outcomes</CardTitle>
-            <CardDescription>Status breakdown across the case ledger.</CardDescription>
-          </CardHeader>
-          <CardContent>
+        <Section
+          label="Disseminations by recipient"
+          description="Where outbound intelligence is going."
+        >
+          {stats.disseminationsByAgency.length === 0 ? (
+            <p className="font-mono text-[11px] uppercase tracking-[0.22em] text-muted-foreground">
+              No disseminations recorded yet
+            </p>
+          ) : (
             <div className="h-72">
               <ResponsiveContainer width="100%" height="100%">
                 <PieChart>
                   <Pie
-                    data={stats.caseOutcomes}
+                    data={stats.disseminationsByAgency}
                     dataKey="count"
-                    nameKey="status"
+                    nameKey="recipientAgency"
                     outerRadius={100}
-                    label
+                    stroke="#0F1115"
+                    strokeWidth={2}
                   >
-                    {stats.caseOutcomes.map((_, index) => (
-                      <Cell key={`cell-${index}`} fill={PIE_COLORS[index % PIE_COLORS.length]} />
+                    {stats.disseminationsByAgency.map((_, index) => (
+                      <Cell
+                        key={`cell-${index}`}
+                        fill={SERIES_PALETTE[index % SERIES_PALETTE.length]}
+                      />
                     ))}
                   </Pie>
-                  <Tooltip contentStyle={{ background: "#101b2b", border: "1px solid rgba(88,166,166,0.4)", borderRadius: 12 }} />
+                  <Tooltip contentStyle={tooltipStyle} labelStyle={{ color: MUTED }} />
                 </PieChart>
               </ResponsiveContainer>
             </div>
-          </CardContent>
-        </Card>
+          )}
+        </Section>
+
+        <Section label="Case outcomes" description="Status breakdown across the case ledger.">
+          <div className="h-72">
+            <ResponsiveContainer width="100%" height="100%">
+              <PieChart>
+                <Pie
+                  data={stats.caseOutcomes}
+                  dataKey="count"
+                  nameKey="status"
+                  outerRadius={100}
+                  stroke="#0F1115"
+                  strokeWidth={2}
+                >
+                  {stats.caseOutcomes.map((_, index) => (
+                    <Cell
+                      key={`cell-${index}`}
+                      fill={SERIES_PALETTE[index % SERIES_PALETTE.length]}
+                    />
+                  ))}
+                </Pie>
+                <Tooltip contentStyle={tooltipStyle} labelStyle={{ color: MUTED }} />
+              </PieChart>
+            </ResponsiveContainer>
+          </div>
+        </Section>
       </div>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Average time-to-review</CardTitle>
-          <CardDescription>Hours between submission and review, by report type.</CardDescription>
-        </CardHeader>
-        <CardContent>
-          {stats.timeToReview.length === 0 ? (
-            <p className="text-sm text-muted-foreground">No reviewed reports yet.</p>
-          ) : (
-            <div className="grid gap-3 md:grid-cols-3">
-              {stats.timeToReview.map((row) => (
-                <div key={row.reportType} className="rounded-xl border border-border/70 bg-background/60 p-4">
-                  <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">
-                    {row.reportType.replaceAll("_", " ")}
-                  </p>
-                  <p className="mt-2 text-2xl font-semibold">{row.averageHours.toFixed(1)}h</p>
-                  <p className="mt-1 text-xs text-muted-foreground">
-                    {row.sampleSize} report{row.sampleSize === 1 ? "" : "s"} reviewed
-                  </p>
-                </div>
-              ))}
-            </div>
-          )}
-        </CardContent>
-      </Card>
+      <Section
+        label="Average time-to-review"
+        description="Hours between submission and review, by report type."
+      >
+        {stats.timeToReview.length === 0 ? (
+          <p className="font-mono text-[11px] uppercase tracking-[0.22em] text-muted-foreground">
+            No reviewed reports yet
+          </p>
+        ) : (
+          <div className="grid gap-0 border border-border md:grid-cols-3 [&>div]:border-r [&>div]:border-b [&>div]:border-border md:[&>div:nth-child(3n)]:border-r-0">
+            {stats.timeToReview.map((row) => (
+              <div key={row.reportType} className="flex flex-col gap-3 p-5">
+                <p className="font-mono text-[10px] uppercase tracking-[0.28em] text-muted-foreground">
+                  {row.reportType.replaceAll("_", " ")}
+                </p>
+                <p className="font-mono text-3xl tabular-nums text-foreground">
+                  {row.averageHours.toFixed(1)}
+                  <span className="ml-1 text-sm text-muted-foreground">h</span>
+                </p>
+                <p className="font-mono text-[10px] uppercase tracking-[0.22em] text-muted-foreground">
+                  <span className="tabular-nums text-foreground">{row.sampleSize}</span> report
+                  {row.sampleSize === 1 ? "" : "s"} reviewed
+                </p>
+              </div>
+            ))}
+          </div>
+        )}
+      </Section>
 
-      <p className="text-xs text-muted-foreground">
+      <p className="font-mono text-[10px] uppercase tracking-[0.22em] text-muted-foreground">
         Generated {new Date(stats.generatedAt).toLocaleString()}
       </p>
     </div>

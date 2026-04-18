@@ -1,5 +1,3 @@
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-
 export function OverviewBrief({
   title,
   headline,
@@ -10,20 +8,27 @@ export function OverviewBrief({
   operational: string[];
 }) {
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>{title}</CardTitle>
-      </CardHeader>
-      <CardContent className="space-y-4">
-        <p className="text-sm text-muted-foreground">{headline}</p>
-        <div className="space-y-2">
-          {operational.map((item) => (
-            <div key={item} className="rounded-xl border border-border/70 bg-background/50 p-3 text-sm text-muted-foreground">
-              {item}
-            </div>
-          ))}
-        </div>
-      </CardContent>
-    </Card>
+    <section className="border border-border">
+      <div className="border-b border-border px-6 py-5">
+        <p className="font-mono text-[10px] uppercase tracking-[0.28em] text-muted-foreground">
+          <span aria-hidden className="mr-2 text-accent">┼</span>
+          Section · {title}
+        </p>
+        <p className="mt-3 text-base leading-relaxed text-foreground">{headline}</p>
+      </div>
+      <ul className="divide-y divide-border">
+        {operational.map((item, i) => (
+          <li
+            key={item}
+            className="flex items-start gap-4 px-6 py-4 text-sm leading-relaxed text-foreground"
+          >
+            <span className="font-mono text-[10px] tabular-nums text-muted-foreground">
+              {String(i + 1).padStart(2, "0")}
+            </span>
+            <span>{item}</span>
+          </li>
+        ))}
+      </ul>
+    </section>
   );
 }

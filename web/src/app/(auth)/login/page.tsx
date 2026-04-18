@@ -3,7 +3,6 @@ import Link from "next/link";
 import { getActiveDemoPersona, isDemoModeEnabled } from "@/lib/auth";
 import { demoPersonaOptions } from "@/lib/demo";
 import { LoginForm } from "@/components/auth/login-form";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 
 export default async function LoginPage() {
@@ -11,54 +10,96 @@ export default async function LoginPage() {
   const activePersona = demoModeEnabled ? await getActiveDemoPersona() : null;
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-10">
+      <div className="space-y-4">
+        <p className="flex items-center gap-3 font-mono text-[10px] uppercase tracking-[0.3em] text-accent">
+          <span aria-hidden className="leading-none">┼</span>
+          Secure intake · Authentication
+        </p>
+        <h1 className="text-3xl font-semibold tracking-tight text-foreground lg:text-4xl">
+          Sign in to Kestrel
+        </h1>
+        <p className="max-w-md text-sm leading-relaxed text-muted-foreground">
+          Your workspace, role, and persona resolve from the linked Supabase profile. Provisioning is
+          issued to BFIU, banks, MFS providers, and accredited partners.
+        </p>
+      </div>
+
       {demoModeEnabled ? (
-        <Card>
-          <CardHeader>
-            <CardTitle>Choose a demo persona</CardTitle>
-            <CardDescription>
-              This deployment is running in scaffold demo mode. Switch personas without changing env vars or redeploying.
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="grid gap-3">
-            {demoPersonaOptions.map((option) => (
-              <Link
-                key={option.persona}
-                href={`/demo/${option.persona}?next=/overview`}
-                className={cn(
-                  "rounded-2xl border border-border/70 bg-card/70 p-4 transition hover:border-primary/50 hover:bg-card",
-                  option.persona === activePersona ? "border-primary bg-primary/10" : "",
-                )}
-              >
-                <div className="flex items-start justify-between gap-4">
-                  <div>
-                    <p className="text-base font-semibold">{option.title}</p>
-                    <p className="mt-1 text-sm text-muted-foreground">{option.description}</p>
+        <section className="space-y-4">
+          <p className="font-mono text-[10px] uppercase tracking-[0.28em] text-muted-foreground">
+            <span aria-hidden className="mr-2 text-accent">┼</span>
+            Demo mode · Pre-signed personas
+          </p>
+          <div className="border border-border divide-y divide-border">
+            {demoPersonaOptions.map((option) => {
+              const isActive = option.persona === activePersona;
+              return (
+                <Link
+                  key={option.persona}
+                  href={`/demo/${option.persona}?next=/overview`}
+                  className={cn(
+                    "flex items-start justify-between gap-4 px-5 py-4 transition",
+                    isActive
+                      ? "bg-accent/10"
+                      : "hover:bg-foreground/[0.03]",
+                  )}
+                >
+                  <div className="flex items-start gap-3">
+                    <span
+                      aria-hidden
+                      className={cn(
+                        "pt-1 font-mono leading-none",
+                        isActive ? "text-accent" : "text-muted-foreground",
+                      )}
+                    >
+                      ┼
+                    </span>
+                    <div>
+                      <p className="text-sm font-semibold text-foreground">{option.title}</p>
+                      <p className="mt-1 text-sm leading-relaxed text-muted-foreground">
+                        {option.description}
+                      </p>
+                    </div>
                   </div>
-                  <span className="rounded-full border border-border/70 px-3 py-1 text-xs uppercase tracking-[0.24em] text-muted-foreground">
-                    {option.persona === activePersona ? "active" : "launch"}
+                  <span
+                    className={cn(
+                      "mt-0.5 border px-2.5 py-0.5 font-mono text-[10px] uppercase tracking-[0.22em]",
+                      isActive
+                        ? "border-accent text-accent"
+                        : "border-border text-muted-foreground",
+                    )}
+                  >
+                    {isActive ? "Active" : "Launch"}
                   </span>
-                </div>
-              </Link>
-            ))}
-          </CardContent>
-        </Card>
-      ) : null}
-      <Card>
-        <CardHeader>
-          <CardTitle>Log in to Kestrel</CardTitle>
-          <CardDescription>
-            Sign in with your provisioned Kestrel workspace credentials. Org, role, and persona are resolved from the linked Supabase profile.
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <LoginForm />
-          <div className="flex justify-between text-sm text-muted-foreground">
-            <Link href="/forgot-password">Forgot password</Link>
-            <Link href="/register">Register bank access</Link>
+                </Link>
+              );
+            })}
           </div>
-        </CardContent>
-      </Card>
+        </section>
+      ) : null}
+
+      <section className="space-y-4">
+        <p className="font-mono text-[10px] uppercase tracking-[0.28em] text-muted-foreground">
+          <span aria-hidden className="mr-2 text-accent">┼</span>
+          Workspace credentials
+        </p>
+        <LoginForm />
+        <div className="flex justify-between font-mono text-[11px] uppercase tracking-[0.22em] text-muted-foreground">
+          <Link
+            href="/forgot-password"
+            className="border-b border-transparent transition hover:border-accent hover:text-accent"
+          >
+            Forgot password
+          </Link>
+          <Link
+            href="/register"
+            className="border-b border-transparent transition hover:border-accent hover:text-accent"
+          >
+            Request workspace
+          </Link>
+        </div>
+      </section>
     </div>
   );
 }
