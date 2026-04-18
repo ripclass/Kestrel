@@ -1,5 +1,5 @@
 -- Migration 010: Public access-request intake
--- Applied: 2026-04-17
+-- Applied: 2026-04-18
 --
 -- Landing-page intake form (web/src/components/public/intake-form.tsx) POSTs
 -- to submitAccessRequest (web/src/app/actions/access.ts) which uses a service-
@@ -31,7 +31,7 @@ CREATE POLICY access_requests_select_superadmin ON access_requests
   USING (
     EXISTS (
       SELECT 1 FROM profiles
-      WHERE profiles.user_id = auth.uid()
+      WHERE profiles.id = auth.uid()
         AND profiles.role = 'superadmin'
     )
   );
