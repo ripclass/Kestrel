@@ -1,5 +1,7 @@
 import Link from "next/link";
 
+import { KestrelMark } from "@/components/common/kestrel-mark";
+
 const navLinks = [
   { href: "#coverage", label: "Coverage" },
   {
@@ -14,11 +16,8 @@ export function PublicHeader() {
   return (
     <header className="sticky top-0 z-30 border-b border-landing-rule bg-landing-bg/90 backdrop-blur-sm">
       <div className="mx-auto flex w-full max-w-7xl items-center justify-between px-6 py-4 lg:px-10">
-        <Link href="/" className="flex items-baseline gap-3">
-          <span className="leading-none text-landing-alarm">┼</span>
-          <span className="font-landing-display text-base uppercase tracking-[0.2em] text-landing-foreground">
-            Kestrel
-          </span>
+        <Link href="/" className="flex items-center gap-3 text-landing-foreground">
+          <KestrelMark variant="lockup" size="md" />
           <span className="hidden font-landing-body text-[10px] uppercase tracking-[0.3em] text-landing-muted sm:inline">
             BGD · Financial Intelligence
           </span>

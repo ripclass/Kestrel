@@ -1,17 +1,14 @@
 import Link from "next/link";
 
+import { KestrelMark } from "@/components/common/kestrel-mark";
+
 export function PublicFooter() {
   return (
     <footer className="border-t border-landing-rule bg-landing-bg">
       <div className="mx-auto w-full max-w-7xl px-6 py-16 lg:px-10">
         <div className="grid grid-cols-2 gap-y-12 gap-x-8 md:grid-cols-4">
-          <div className="col-span-2 space-y-4 md:col-span-1">
-            <div className="flex items-baseline gap-3">
-              <span className="leading-none text-landing-alarm">┼</span>
-              <span className="font-landing-display text-base uppercase tracking-[0.2em] text-landing-foreground">
-                Kestrel
-              </span>
-            </div>
+          <div className="col-span-2 space-y-4 md:col-span-1 text-landing-foreground">
+            <KestrelMark variant="lockup" size="md" />
             <p className="max-w-[220px] font-landing-body text-[11px] uppercase leading-relaxed tracking-[0.18em] text-landing-muted">
               Financial crime intelligence infrastructure. Built in Bangladesh.
             </p>
