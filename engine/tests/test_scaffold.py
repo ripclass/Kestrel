@@ -4,7 +4,6 @@ from types import SimpleNamespace
 from app.core.detection.loader import load_rules
 from app.core.graph.builder import build_graph
 from app.core.graph.export import export_graph
-from seed.fixtures import ALERTS
 from seed.run import build_seed_summary
 
 
@@ -72,10 +71,3 @@ def test_seed_summary_matches_demo_scale() -> None:
     assert summary["entities"] >= 200
     assert summary["str_reports"] >= 500
     assert summary["transactions"] >= 100_000
-
-
-def test_alert_fixture_includes_explainability() -> None:
-    reasons = ALERTS[0].reasons
-    assert len(reasons) >= 2
-    assert all(reason.rule for reason in reasons)
-    assert all(reason.explanation for reason in reasons)

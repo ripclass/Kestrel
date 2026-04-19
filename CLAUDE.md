@@ -21,7 +21,6 @@ Three full build-out sessions are shipped end-to-end on prod.
 
 What is scaffolded but NOT wired the way the code implies:
 - **Inline pipelines.** Every on-demand path (STR submit, ad-hoc scan, scan upload, XML import, match execution) still runs inline in the FastAPI request path. The Celery worker now also runs the three scheduled jobs (see below) but on-demand execution is intentionally synchronous.
-- **`engine/app/core/alerter.py` is orphaned.** Not imported by any production path. Left to avoid touching `seed/fixtures.py` references.
 - **goAML *outbound* adapter is a stub.** `engine/app/adapters/goaml.py` exists; machine-to-machine sync into goAML's central server is not implemented. Distinct from the XML import/export we shipped (those are file-based).
 
 What is missing entirely:
@@ -75,7 +74,6 @@ What is missing entirely:
 - `matcher.py` — `run_cross_bank_matching`.
 - `pipeline.py` — `run_str_pipeline`, `run_scan_pipeline`.
 - `graph/` — `builder.py`, `analyzer.py`, `pathfinder.py`, `export.py`.
-- `alerter.py` — orphaned, do not delete blindly (still referenced by `seed/fixtures.py`).
 
 **Engine parsers** (`engine/app/parsers/`):
 - `csv.py`, `xlsx.py`, `statement_pdf.py` — used by the scan upload path + synthetic seed generator.
@@ -247,7 +245,7 @@ Every page uses `PageFrame` (common) + domain-specific client components. Server
 
 To regenerate the synthetic JSON fixtures: `python -m seed.dbbl_synthetic`. To load: `python -m seed.load_dbbl_synthetic --apply`, or via `/admin/synthetic-backfill` as a regulator admin.
 
-Also present under `engine/seed/`: `run.py` (CI smoke test), `organizations.py`, `entities.py`, `patterns.py`, `str_reports.py`, `transactions.py`, `fixtures.py` (in-memory fixtures — used only by orphaned `core/alerter.py` at this point).
+Also present under `engine/seed/`: `run.py` (CI smoke test), `organizations.py`, `entities.py`, `patterns.py`, `str_reports.py`, `transactions.py`.
 
 ## Environment variables
 
@@ -307,7 +305,6 @@ No KESTREL-*-PROMPT.md items remain. The Sovereign Ledger rebrand is shipped; Ph
 4. **Real rule expression DSL.** Current evaluator uses dict-keyed lookup of modifier strings. A richer DSL (or a hosted rule editor consuming `match_definitions`) would let BFIU analysts define custom rules without editing YAML in git. The match_definitions table + `/admin/match-definitions` UI are ready; the evaluator wiring is the missing piece.
 6. **Outbound goAML adapter.** Distinct from the XML import/export we shipped (those are file-based). This is a machine-to-machine adapter that pushes reports into goAML's central server for FIUs running both systems in parallel. `engine/app/adapters/goaml.py` exists as a stub.
 7. **AI red-team harness.** Structured adversarial prompts + evaluation scoring for the AI task surface. `engine/app/ai/evaluations.py` has the scaffold; needs a prompt corpus, expected-output fixtures, and a CI gate before real provider keys go live on Render.
-8. **Delete orphaned `core/alerter.py`** once `seed/fixtures.py` references are cleaned up (fixtures are themselves orphaned since the DB-backed typologies migration).
 9. **Landing-page BBC.** `web/src/lib/demo.ts` still seeds public-page persona cards with hardcoded fixtures — not a correctness issue but should be reviewed against the new intelligence surface.
 
 ## Code conventions
