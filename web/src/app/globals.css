@@ -196,3 +196,38 @@ a {
 .platform-surface [class~="rounded-full"] {
   border-radius: 0;
 }
+
+/*
+ * A11y: keyboard focus indicator.
+ *
+ * Buttons and links don't carry an inline focus state (the Button component
+ * is intentionally minimal). Inputs/selects/textareas already paint focus
+ * via `outline-none focus:border-foreground` and keep that behavior. This
+ * rule paints a vermillion 2px outline on keyboard-driven focus only, so
+ * pointer users don't see a stuck ring. `:where()` keeps specificity at 0
+ * so per-component overrides win without `!important`.
+ */
+:where(button, a, [role="button"], [role="link"], [role="menuitem"], [tabindex]:not([tabindex="-1"])):focus-visible {
+  outline: 2px solid var(--accent, #FF3823);
+  outline-offset: 2px;
+}
+
+/*
+ * A11y: respect prefers-reduced-motion.
+ *
+ * Hover transitions and any future animations collapse to ~0ms for users
+ * who've opted out via OS-level reduced-motion. Scroll-behavior also
+ * snaps instead of animating. Important: this is required for WCAG 2.1
+ * 2.3.3 (Animation from Interactions) and is a regulator-procurement
+ * checklist item.
+ */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
