@@ -293,7 +293,7 @@ Institutional-brutalist UI rebrand living on `feature/sovereign-ledger`. **Desig
 1. Lighthouse ≥ 95 on public, ≥ 90 on in-app.
 2. a11y sweep — keyboard, contrast, `prefers-reduced-motion`, screen-reader labels on icon-only buttons.
 3. Mobile breakpoint pass.
-4. Refresh screenshots in `docs/goaml-coverage.md`; replace SVG mocks in `web/src/components/public/product-mocks.tsx` with real Sovereign Ledger captures.
+4. Refresh pre-rebrand screenshots in `docs/goaml-coverage.md` with real Sovereign Ledger captures.
 5. Update kestrel-design SKILL.md with final helper-component patterns (Section/Field/Meta) + Recharts palette.
 
 **Launch completed 2026-04-18.** Migration 010 is applied to prod Supabase `bmlyqlkzeuoglyvfythg` (the `access_requests` table, fixed from `profiles.user_id` → `profiles.id` mid-apply because the profiles table uses `id` as the `auth.uid()` FK). `SUPABASE_SERVICE_ROLE_KEY` is set on the Vercel web env. `feature/sovereign-ledger` merged `--no-ff` to `main` and pushed (`92164b1`); Vercel rebuilt prod automatically.
