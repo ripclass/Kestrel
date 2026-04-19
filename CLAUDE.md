@@ -16,7 +16,7 @@ Three full build-out sessions are shipped end-to-end on prod.
 
 **Aggregate prod state:**
 - 99 engine routes across 19 routers. 95/95 pytest. `GET /ready` on `https://kestrel-engine.onrender.com` shows auth/db/redis/storage/worker=ok; OpenAI + Anthropic `missing_config` → heuristic fallback is active.
-- Migrations 001–009 applied. Prod data: 197 reference_tables rows, 5 typologies, 28 entities, 377 accounts, 547 transactions, 10 STRs, 22 alerts, 1 case. Disseminations / saved_queries / diagrams / match_definitions tables exist and are empty (used only in verification so far).
+- Migrations 001–011 applied. 011 relaxed `alerts.source_type` CHECK to include `match_definition`. Prod data: 197 reference_tables rows, 5 typologies, 28 entities, 377 accounts, 547 transactions, 10 STRs, 22 alerts, 1 case. Disseminations / saved_queries / diagrams / match_definitions tables exist and are empty (used only in verification so far).
 - All 39 `(platform)` pages under `web/src/app/` are live with real DB-backed data — no scaffold placeholders remain.
 
 What is scaffolded but NOT wired the way the code implies:
@@ -229,7 +229,7 @@ Every page uses `PageFrame` (common) + domain-specific client components. Server
 
 **Verification baseline (2026-04-15):** 377 accounts, 547 txns → 10 flagged, 11 alerts (3× rapid_cashout, 6× first_time_high_value, 1× fan_in_burst, 1× cross_bank_match). Divergence without cause → evaluator/scorer regression.
 
-**Alert source types in prod:** `str_enrichment` (seed loader), `scan` (pipeline), `cross_bank` (matcher) — all three coexist.
+**Alert source types in prod:** `str_enrichment` (seed loader), `scan` (pipeline), `cross_bank` (matcher), `match_definition` (custom DSL executor, migration 011) — plus `manual` reserved for user-authored alerts. The custom DSL lives in `engine/app/core/match_dsl.py` (JSON condition tree, whitelisted fields/ops, max depth 8 / max 100 nodes). `services/match_definitions.execute_match_definition` validates the DSL, evaluates it against every Entity the caller can see, and emits alerts deduped by `(source_id=definition.id, entity_id, status IN open/reviewing/escalated)` so re-executions don't double-fire on matched entities.
 
 ## Seed data
 
@@ -302,7 +302,6 @@ No KESTREL-*-PROMPT.md items remain. The Sovereign Ledger rebrand is shipped; Ph
 1. **Demo film production.** Not a code task, but the most important next step. The platform is ready to be shown — a recorded walkthrough of Director → Analyst → CAMLCO personas hitting each of the 13 goAML-coverage items against the synthetic DBBL dataset would compress the first meeting from an hour to ten minutes.
 
 **Post-first-meeting polish:**
-4. **Real rule expression DSL.** Current evaluator uses dict-keyed lookup of modifier strings. A richer DSL (or a hosted rule editor consuming `match_definitions`) would let BFIU analysts define custom rules without editing YAML in git. The match_definitions table + `/admin/match-definitions` UI are ready; the evaluator wiring is the missing piece.
 6. **Outbound goAML adapter.** Distinct from the XML import/export we shipped (those are file-based). This is a machine-to-machine adapter that pushes reports into goAML's central server for FIUs running both systems in parallel. `engine/app/adapters/goaml.py` exists as a stub.
 7. **AI red-team harness.** Structured adversarial prompts + evaluation scoring for the AI task surface. `engine/app/ai/evaluations.py` has the scaffold; needs a prompt corpus, expected-output fixtures, and a CI gate before real provider keys go live on Render.
 9. **Landing-page BBC.** `web/src/lib/demo.ts` still seeds public-page persona cards with hardcoded fixtures — not a correctness issue but should be reviewed against the new intelligence surface.

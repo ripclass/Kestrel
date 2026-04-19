@@ -1,3 +1,5 @@
+import logging
+import uuid
 from datetime import UTC, datetime
 from uuid import UUID
 
@@ -6,7 +8,17 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.auth import AuthenticatedUser
+from app.core.match_dsl import (
+    AlertTemplate,
+    MatchDSLError,
+    MatchDefinitionDSL,
+    evaluate,
+    render_template,
+    validate_definition,
+)
+from app.models.alert import Alert
 from app.models.audit import AuditLog
+from app.models.entity import Entity
 from app.models.match_definition import MatchDefinition, MatchExecution
 from app.schemas.match_definition import (
     MatchDefinitionCreate,
@@ -17,6 +29,8 @@ from app.schemas.match_definition import (
     MatchExecutionResponse,
     MatchExecutionSummary,
 )
+
+logger = logging.getLogger("kestrel.services.match_definitions")
 
 
 def _as_uuid(value: str | None) -> UUID | None:
@@ -204,6 +218,85 @@ async def delete_match_definition(
     await session.commit()
 
 
+_SEVERITY_TO_SCORE: dict[str, int] = {
+    "low": 30,
+    "medium": 50,
+    "high": 70,
+    "critical": 90,
+}
+
+
+def _entity_to_dict(entity: Entity) -> dict[str, object]:
+    return {
+        "entity_type": entity.entity_type,
+        "canonical_value": entity.canonical_value,
+        "display_value": entity.display_value,
+        "display_name": entity.display_name,
+        "risk_score": int(entity.risk_score or 0),
+        "severity": entity.severity,
+        "confidence": float(entity.confidence or 0),
+        "status": entity.status,
+        "source": entity.source,
+        "report_count": int(entity.report_count or 0),
+        "total_exposure": float(entity.total_exposure or 0),
+        "tags": list(entity.tags or []),
+        "reporting_orgs": [str(rid) for rid in (entity.reporting_orgs or [])],
+        "first_seen": entity.first_seen,
+        "last_seen": entity.last_seen,
+    }
+
+
+def _build_alert(
+    *,
+    definition: MatchDefinition,
+    entity: Entity,
+    template: AlertTemplate,
+) -> Alert:
+    record = _entity_to_dict(entity)
+    render_ctx = {**record, "name": definition.name, "definition_name": definition.name}
+    severity = (template.severity or entity.severity or "medium").lower()
+    if severity not in _SEVERITY_TO_SCORE:
+        severity = "medium"
+    score = template.risk_score
+    if score is None:
+        score = int(entity.risk_score or _SEVERITY_TO_SCORE[severity])
+    score = max(0, min(100, int(score)))
+    return Alert(
+        id=uuid.uuid4(),
+        org_id=definition.org_id,
+        source_type="match_definition",
+        source_id=definition.id,
+        entity_id=entity.id,
+        title=render_template(template.title, render_ctx),
+        description=render_template(template.description, render_ctx) if template.description else None,
+        alert_type=template.alert_type,
+        risk_score=score,
+        severity=severity,
+        status="open",
+        reasons=[
+            {
+                "rule": "match_definition",
+                "score": score,
+                "weight": 1,
+                "explanation": f"Matched custom definition '{definition.name}'.",
+            }
+        ],
+    )
+
+
+async def _existing_alert_entity_ids(
+    session: AsyncSession, *, definition_id: UUID
+) -> set[uuid.UUID]:
+    result = await session.execute(
+        select(Alert.entity_id).where(
+            Alert.source_type == "match_definition",
+            Alert.source_id == definition_id,
+            Alert.status.in_(("open", "reviewing", "escalated")),
+        )
+    )
+    return {row[0] for row in result.all() if row[0] is not None}
+
+
 async def execute_match_definition(
     session: AsyncSession,
     *,
@@ -220,23 +313,77 @@ async def execute_match_definition(
             detail="Inactive match definitions cannot be executed.",
         )
 
-    # v1 execution: the definition DSL is a JSON blob with no evaluator
-    # yet. We record the execution attempt and stamp the definition so
-    # downstream dashboards see activity, and leave real scoring for a
-    # follow-up that wires the JSON into the existing rule evaluator.
+    try:
+        dsl = validate_definition(dict(record.definition or {}))
+    except MatchDSLError as exc:
+        execution = MatchExecution(
+            definition_id=record.id,
+            executed_by=_as_uuid(user.user_id),
+            hit_count=0,
+            execution_status="failed",
+            results_summary={"error": str(exc)},
+        )
+        session.add(execution)
+        await session.flush()
+        record.last_execution_at = execution.executed_at
+        session.add(
+            AuditLog(
+                org_id=record.org_id,
+                user_id=_as_uuid(user.user_id),
+                action="match_definition.execute_failed",
+                resource_type="match_definition",
+                resource_id=record.id,
+                details={"error": str(exc)},
+                ip=ip,
+            )
+        )
+        await session.commit()
+        await session.refresh(record)
+        await session.refresh(execution)
+        detail = await _serialize_detail(session, record)
+        return MatchExecutionResponse(
+            execution=_serialize_execution(execution),
+            match_definition=detail,
+        )
+
+    entities_q = await session.execute(select(Entity))
+    entities = list(entities_q.scalars().all())
+
+    matched: list[Entity] = []
+    for entity in entities:
+        if evaluate(_entity_to_dict(entity), dsl):
+            matched.append(entity)
+
+    existing = await _existing_alert_entity_ids(session, definition_id=record.id)
+    new_alerts: list[Alert] = []
+    for entity in matched:
+        if entity.id in existing:
+            continue
+        alert = _build_alert(definition=record, entity=entity, template=dsl.alert)
+        session.add(alert)
+        new_alerts.append(alert)
+
+    summary = {
+        "scope": dsl.scope,
+        "entities_evaluated": len(entities),
+        "entities_matched": len(matched),
+        "alerts_created": len(new_alerts),
+        "alerts_deduped": len(matched) - len(new_alerts),
+    }
+    logger.info("match_definition.execute", extra={"definition_id": str(record.id), **summary})
+
     execution = MatchExecution(
         definition_id=record.id,
         executed_by=_as_uuid(user.user_id),
-        hit_count=0,
+        hit_count=len(matched),
         execution_status="completed",
-        results_summary={
-            "message": "Definition recorded; evaluator wiring pending.",
-        },
+        results_summary=summary,
     )
     session.add(execution)
     await session.flush()
 
     record.last_execution_at = execution.executed_at
+    record.total_hits = int(record.total_hits or 0) + len(new_alerts)
     session.add(
         AuditLog(
             org_id=record.org_id,
@@ -247,6 +394,7 @@ async def execute_match_definition(
             details={
                 "execution_id": str(execution.id),
                 "hit_count": execution.hit_count,
+                "alerts_created": len(new_alerts),
                 "status": execution.execution_status,
             },
             ip=ip,
