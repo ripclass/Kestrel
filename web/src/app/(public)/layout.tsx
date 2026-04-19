@@ -21,7 +21,13 @@ export default function PublicLayout({
     <div
       className={`${displayFont.variable} ${bodyFont.variable} min-h-screen bg-landing-bg text-landing-foreground font-[family-name:var(--font-landing-body)]`}
     >
-      {children}
+      <a
+        href="#main"
+        className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-50 focus:border focus:border-landing-foreground focus:bg-landing-bg focus:px-4 focus:py-2 focus:text-xs focus:uppercase focus:tracking-[0.18em] focus:text-landing-foreground"
+      >
+        Skip to main content
+      </a>
+      <main id="main">{children}</main>
     </div>
   );
 }
