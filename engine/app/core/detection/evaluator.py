@@ -83,6 +83,58 @@ def _account_age_days(account: Any, reference: datetime) -> int:
     return max(0, (reference - created).days)
 
 
+def _account_entity_id(account: Any) -> str | None:
+    meta = getattr(account, "metadata_json", None) or {}
+    if not isinstance(meta, dict):
+        return None
+    value = meta.get("entity_id")
+    return str(value) if value else None
+
+
+def _entity_within_hops(
+    *,
+    source_entity_id: str | None,
+    targets: set[str] | None,
+    graph: nx.DiGraph | None,
+    max_hops: int,
+) -> bool:
+    """True if any target is reachable from source in <=max_hops (undirected)."""
+    if graph is None or not targets or not source_entity_id:
+        return False
+    if source_entity_id not in graph.nodes:
+        return False
+    undirected = graph.to_undirected()
+    for target in targets:
+        if target == source_entity_id or target not in undirected.nodes:
+            continue
+        try:
+            distance = nx.shortest_path_length(
+                undirected, source=source_entity_id, target=target
+            )
+        except nx.NetworkXNoPath:
+            continue
+        if distance <= max_hops:
+            return True
+    return False
+
+
+def _entity_in_cycle(
+    *,
+    source_entity_id: str | None,
+    graph: nx.DiGraph | None,
+) -> bool:
+    """True if source participates in a directed cycle in the entity graph."""
+    if graph is None or not source_entity_id:
+        return False
+    if source_entity_id not in graph.nodes:
+        return False
+    try:
+        nx.find_cycle(graph, source=source_entity_id)
+        return True
+    except nx.NetworkXNoCycle:
+        return False
+
+
 def _apply_modifiers(
     rule_config: dict[str, Any],
     modifier_map: dict[str, bool],
@@ -161,6 +213,8 @@ def evaluate_rapid_cashout(
     account_txns: list[Any],
     rule_config: dict[str, Any],
     accounts_by_id: dict[uuid.UUID, Any] | None = None,
+    graph: nx.DiGraph | None = None,
+    flagged_entity_ids: set[str] | None = None,
 ) -> RuleHit | None:
     """Fire when a credit is followed by >=X% in debits within the time window."""
     params = rule_config["conditions"]["params"]
@@ -218,12 +272,18 @@ def evaluate_rapid_cashout(
             debit_bank_hints.add(bank)
         cross_bank_debit = any(b and b != account_bank for b in debit_bank_hints)
 
+        proximity_to_flagged = _entity_within_hops(
+            source_entity_id=_account_entity_id(account),
+            targets=flagged_entity_ids,
+            graph=graph,
+            max_hops=2,
+        )
         modifier_map = {
             "time_gap_minutes < 30": time_gap_minutes < 30,
             "total_credit > 1000000": total_credit > 1_000_000,
             "account_age_days < 90": account_age_days < 90,
             "cross_bank_debit == true": cross_bank_debit,
-            "proximity_to_flagged <= 2": False,
+            "proximity_to_flagged <= 2": proximity_to_flagged,
         }
         # Display debit_pct is capped at 100. The raw value can exceed 100 when
         # the account has unrelated outflows in the same window; the trigger
@@ -414,6 +474,8 @@ def evaluate_layering(
     account: Any,
     account_txns: list[Any],
     rule_config: dict[str, Any],
+    accounts_by_id: dict[uuid.UUID, Any] | None = None,
+    graph: nx.DiGraph | None = None,
 ) -> RuleHit | None:
     """Fire on clusters of similar-amount transfers within the time window."""
     params = rule_config["conditions"]["params"]
@@ -436,11 +498,30 @@ def evaluate_layering(
             continue
         avg = total / len(amounts)
         observed_variance = max(abs(a - avg) / avg * 100 for a in amounts) if avg else 0
+
+        bank_set: set[str] = set()
+        own_bank = getattr(account, "bank_code", None)
+        if own_bank:
+            bank_set.add(own_bank)
+        if accounts_by_id:
+            for t in group:
+                if t.dst_account_id is None:
+                    continue
+                dst = accounts_by_id.get(t.dst_account_id)
+                if dst is not None and getattr(dst, "bank_code", None):
+                    bank_set.add(dst.bank_code)
+        involves_multiple_banks = len(bank_set) >= 2
+
+        circular_flow_detected = _entity_in_cycle(
+            source_entity_id=_account_entity_id(account),
+            graph=graph,
+        )
+
         modifier_map = {
             "transfer_count > 10": len(group) > 10,
-            "involves_multiple_banks == true": False,
+            "involves_multiple_banks == true": involves_multiple_banks,
             "amount_variance_pct < 5": observed_variance < 5,
-            "circular_flow_detected == true": False,
+            "circular_flow_detected == true": circular_flow_detected,
         }
         evidence = {
             "account_name": getattr(account, "account_name", None) or getattr(account, "account_number", ""),
@@ -646,16 +727,20 @@ def evaluate_proximity_to_bad(
         return None
 
     flagged_name = graph.nodes[flagged_reached[0]].get("label", "flagged entity")
+    target_confidence = max(
+        (float(graph.nodes[t].get("risk_score") or 0) / 100.0 for t in flagged_reached),
+        default=0.0,
+    )
     modifier_map = {
         "hop_distance == 1": best_distance == 1,
-        "target_confidence > 0.8": False,
+        "target_confidence > 0.8": target_confidence > 0.8,
         "multiple_flagged_neighbors == true": len(flagged_reached) > 1,
     }
     evidence = {
         "account_name": getattr(account, "account_name", None) or getattr(account, "account_number", ""),
         "hop_distance": best_distance,
         "flagged_entity_name": flagged_name,
-        "confidence": "n/a",
+        "confidence": f"{target_confidence:.2f}",
     }
     return _build_hit(
         account=account,
@@ -700,40 +785,47 @@ def evaluate_accounts(
             evaluator = _EVALUATOR_BY_TRIGGER.get(trigger)
             if evaluator is None:
                 continue
+            base_kwargs = {
+                "account": account,
+                "account_txns": account_txns,
+                "rule_config": rule,
+            }
             if trigger == "graph_proximity":
                 hit = evaluator(
-                    account=account,
-                    account_txns=account_txns,
-                    rule_config=rule,
+                    **base_kwargs,
                     graph=graph,
                     flagged_entity_ids=flagged_entity_ids,
                 )
             elif trigger == "new_beneficiary_high_value":
                 hit = evaluator(
-                    account=account,
-                    account_txns=account_txns,
-                    rule_config=rule,
+                    **base_kwargs,
                     accounts_by_id=accounts_by_id,
                     flagged_entity_ids=flagged_entity_ids,
                 )
+            elif trigger == "credit_then_debit_percentage":
+                hit = evaluator(
+                    **base_kwargs,
+                    accounts_by_id=accounts_by_id,
+                    graph=graph,
+                    flagged_entity_ids=flagged_entity_ids,
+                )
+            elif trigger == "structured_similar_transfers":
+                hit = evaluator(
+                    **base_kwargs,
+                    accounts_by_id=accounts_by_id,
+                    graph=graph,
+                )
             elif trigger in {
-                "credit_then_debit_percentage",
                 "unique_senders_to_recipient",
                 "unique_recipients_from_sender",
                 "balance_spike_after_dormancy",
             }:
                 hit = evaluator(
-                    account=account,
-                    account_txns=account_txns,
-                    rule_config=rule,
+                    **base_kwargs,
                     accounts_by_id=accounts_by_id,
                 )
             else:
-                hit = evaluator(
-                    account=account,
-                    account_txns=account_txns,
-                    rule_config=rule,
-                )
+                hit = evaluator(**base_kwargs)
             if hit is not None:
                 hits.append(hit)
     return hits

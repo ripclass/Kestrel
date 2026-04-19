@@ -469,3 +469,298 @@ def test_evaluate_accounts_returns_hits_across_multiple_rules() -> None:
     )
     assert any(h.rule_code == "rapid_cashout" for h in hits)
     assert all(isinstance(h, RuleHit) for h in hits)
+
+
+# --- Graph-aware modifier coverage ---------------------------------------
+
+RAPID_CASHOUT_WITH_PROXIMITY_CONFIG = {
+    **RAPID_CASHOUT_CONFIG,
+    "scoring": {
+        "base": 60,
+        "modifiers": [
+            *RAPID_CASHOUT_CONFIG["scoring"]["modifiers"],
+            {
+                "when": "proximity_to_flagged <= 2",
+                "add": 15,
+                "reason": "Within 2 hops of flagged entity",
+            },
+        ],
+    },
+}
+
+
+def _rapid_cashout_txns(
+    account_id: uuid.UUID,
+) -> list[SimpleNamespace]:
+    return [
+        make_txn(src=uuid.uuid4(), dst=account_id, amount=200_000, posted_at=NOW),
+        make_txn(
+            src=account_id,
+            dst=uuid.uuid4(),
+            amount=180_000,
+            posted_at=NOW + timedelta(minutes=10),
+        ),
+    ]
+
+
+def test_rapid_cashout_proximity_modifier_fires_within_two_hops() -> None:
+    account_id = uuid.uuid4()
+    account_entity = str(uuid.uuid4())
+    intermediate_entity = str(uuid.uuid4())
+    flagged_entity = str(uuid.uuid4())
+
+    account = make_account(account_id, name="MuleProx", age_days=400)
+    account.metadata_json = {"entity_id": account_entity}
+
+    graph = nx.DiGraph()
+    graph.add_node(account_entity, label="Mule")
+    graph.add_node(intermediate_entity, label="Hop")
+    graph.add_node(flagged_entity, label="Bad", risk_score=95)
+    graph.add_edge(account_entity, intermediate_entity, relation="transacted")
+    graph.add_edge(intermediate_entity, flagged_entity, relation="transacted")
+
+    hit_with_graph = evaluate_rapid_cashout(
+        account=account,
+        account_txns=_rapid_cashout_txns(account_id),
+        rule_config=RAPID_CASHOUT_WITH_PROXIMITY_CONFIG,
+        graph=graph,
+        flagged_entity_ids={flagged_entity},
+    )
+    hit_without = evaluate_rapid_cashout(
+        account=account,
+        account_txns=_rapid_cashout_txns(account_id),
+        rule_config=RAPID_CASHOUT_WITH_PROXIMITY_CONFIG,
+    )
+    assert hit_with_graph is not None and hit_without is not None
+    # Same base + cross-bank-debit context, the graph-aware run is +15 over baseline.
+    assert hit_with_graph.score == hit_without.score + 15
+    assert any(
+        r["modifier"] == "proximity_to_flagged <= 2" for r in hit_with_graph.reasons
+    )
+
+
+def test_rapid_cashout_proximity_modifier_does_not_fire_beyond_max_hops() -> None:
+    account_id = uuid.uuid4()
+    account_entity = str(uuid.uuid4())
+    far_flagged_entity = str(uuid.uuid4())
+
+    account = make_account(account_id, name="MuleFar", age_days=400)
+    account.metadata_json = {"entity_id": account_entity}
+
+    graph = nx.DiGraph()
+    graph.add_node(account_entity, label="Mule")
+    # Build a chain of 3 intermediates so the flagged target is 4 hops away.
+    prev = account_entity
+    for _ in range(3):
+        nxt = str(uuid.uuid4())
+        graph.add_node(nxt, label="hop")
+        graph.add_edge(prev, nxt, relation="transacted")
+        prev = nxt
+    graph.add_node(far_flagged_entity, label="Bad", risk_score=95)
+    graph.add_edge(prev, far_flagged_entity, relation="transacted")
+
+    hit = evaluate_rapid_cashout(
+        account=account,
+        account_txns=_rapid_cashout_txns(account_id),
+        rule_config=RAPID_CASHOUT_WITH_PROXIMITY_CONFIG,
+        graph=graph,
+        flagged_entity_ids={far_flagged_entity},
+    )
+    assert hit is not None
+    assert not any(
+        r["modifier"] == "proximity_to_flagged <= 2" for r in hit.reasons
+    )
+
+
+LAYERING_WITH_GRAPH_CONFIG = {
+    **LAYERING_CONFIG,
+    "scoring": {
+        "base": 55,
+        "modifiers": [
+            {"when": "transfer_count > 10", "add": 15, "reason": "Over 10 transfers"},
+            {
+                "when": "involves_multiple_banks == true",
+                "add": 10,
+                "reason": "Spans multiple banks",
+            },
+            {"when": "amount_variance_pct < 5", "add": 10, "reason": "Tight variance"},
+            {
+                "when": "circular_flow_detected == true",
+                "add": 15,
+                "reason": "Circular flow detected",
+            },
+        ],
+    },
+}
+
+
+def test_layering_involves_multiple_banks_modifier_fires_with_cross_bank_recipients() -> None:
+    account_id = uuid.uuid4()
+    account = make_account(account_id, name="LayerCross", bank_code="DBBL")
+    recipient_ids = [uuid.uuid4() for _ in range(6)]
+    accounts_by_id = {account_id: account}
+    # Half the recipients sit at a different bank.
+    for i, rid in enumerate(recipient_ids):
+        bank = "BRAC" if i % 2 == 0 else "DBBL"
+        accounts_by_id[rid] = make_account(rid, name=f"R{i}", bank_code=bank)
+    txns = [
+        make_txn(src=account_id, dst=rid, amount=200_000, posted_at=NOW + timedelta(hours=i))
+        for i, rid in enumerate(recipient_ids)
+    ]
+
+    hit_with = evaluate_layering(
+        account=account,
+        account_txns=txns,
+        rule_config=LAYERING_WITH_GRAPH_CONFIG,
+        accounts_by_id=accounts_by_id,
+    )
+    # Same shape but no accounts_by_id => can't see cross-bank recipients.
+    hit_without = evaluate_layering(
+        account=account,
+        account_txns=txns,
+        rule_config=LAYERING_WITH_GRAPH_CONFIG,
+    )
+    assert hit_with is not None and hit_without is not None
+    assert hit_with.score == hit_without.score + 10
+    assert any(
+        r["modifier"] == "involves_multiple_banks == true" for r in hit_with.reasons
+    )
+
+
+def test_layering_circular_flow_modifier_fires_when_entity_in_cycle() -> None:
+    account_id = uuid.uuid4()
+    account_entity = str(uuid.uuid4())
+    other_entity = str(uuid.uuid4())
+    account = make_account(account_id, name="LayerLoop")
+    account.metadata_json = {"entity_id": account_entity}
+
+    graph = nx.DiGraph()
+    graph.add_node(account_entity, label="Loop")
+    graph.add_node(other_entity, label="Hop")
+    graph.add_edge(account_entity, other_entity, relation="transacted")
+    graph.add_edge(other_entity, account_entity, relation="transacted")
+
+    txns = [
+        make_txn(src=account_id, dst=uuid.uuid4(), amount=200_000, posted_at=NOW + timedelta(hours=i))
+        for i in range(6)
+    ]
+
+    hit_with = evaluate_layering(
+        account=account,
+        account_txns=txns,
+        rule_config=LAYERING_WITH_GRAPH_CONFIG,
+        graph=graph,
+    )
+    # Acyclic graph: cycle modifier must not fire.
+    acyclic = nx.DiGraph()
+    acyclic.add_node(account_entity, label="Loop")
+    acyclic.add_node(other_entity, label="Hop")
+    acyclic.add_edge(account_entity, other_entity, relation="transacted")
+    hit_acyclic = evaluate_layering(
+        account=account,
+        account_txns=txns,
+        rule_config=LAYERING_WITH_GRAPH_CONFIG,
+        graph=acyclic,
+    )
+
+    assert hit_with is not None and hit_acyclic is not None
+    assert hit_with.score == hit_acyclic.score + 15
+    assert any(
+        r["modifier"] == "circular_flow_detected == true" for r in hit_with.reasons
+    )
+
+
+PROXIMITY_WITH_CONFIDENCE_CONFIG = {
+    **PROXIMITY_CONFIG,
+    "scoring": {
+        "base": 40,
+        "modifiers": [
+            {"when": "hop_distance == 1", "add": 25, "reason": "Direct link"},
+            {
+                "when": "target_confidence > 0.8",
+                "add": 10,
+                "reason": "High-confidence target",
+            },
+            {"when": "multiple_flagged_neighbors == true", "add": 15, "reason": "Multiple"},
+        ],
+    },
+}
+
+
+def test_proximity_target_confidence_modifier_fires_for_high_risk_target() -> None:
+    account_id = uuid.uuid4()
+    account_entity = str(uuid.uuid4())
+    high_risk_target = str(uuid.uuid4())
+
+    account = make_account(account_id, name="ProxHigh")
+    account.metadata_json = {"entity_id": account_entity}
+
+    graph = nx.DiGraph()
+    graph.add_node(account_entity, label="acct", risk_score=10)
+    graph.add_node(high_risk_target, label="Bad", risk_score=95)
+    graph.add_edge(account_entity, high_risk_target, relation="transacted")
+
+    hit = evaluate_proximity_to_bad(
+        account=account,
+        account_txns=[],
+        rule_config=PROXIMITY_WITH_CONFIDENCE_CONFIG,
+        graph=graph,
+        flagged_entity_ids={high_risk_target},
+    )
+    assert hit is not None
+    assert any(r["modifier"] == "target_confidence > 0.8" for r in hit.reasons)
+    assert hit.evidence["confidence"] == "0.95"
+
+
+def test_proximity_target_confidence_modifier_silent_for_borderline_target() -> None:
+    account_id = uuid.uuid4()
+    account_entity = str(uuid.uuid4())
+    borderline_target = str(uuid.uuid4())
+
+    account = make_account(account_id, name="ProxBorder")
+    account.metadata_json = {"entity_id": account_entity}
+
+    graph = nx.DiGraph()
+    graph.add_node(account_entity, label="acct", risk_score=10)
+    graph.add_node(borderline_target, label="Mid", risk_score=70)
+    graph.add_edge(account_entity, borderline_target, relation="transacted")
+
+    hit = evaluate_proximity_to_bad(
+        account=account,
+        account_txns=[],
+        rule_config=PROXIMITY_WITH_CONFIDENCE_CONFIG,
+        graph=graph,
+        flagged_entity_ids={borderline_target},
+    )
+    assert hit is not None
+    assert not any(
+        r["modifier"] == "target_confidence > 0.8" for r in hit.reasons
+    )
+    assert hit.evidence["confidence"] == "0.70"
+
+
+def test_evaluate_accounts_threads_graph_into_rapid_cashout_and_layering() -> None:
+    """Dispatcher must hand graph + flagged_entity_ids to the right evaluators."""
+    account_id = uuid.uuid4()
+    account_entity = str(uuid.uuid4())
+    flagged_entity = str(uuid.uuid4())
+    account = make_account(account_id, name="Dispatcher", age_days=400)
+    account.metadata_json = {"entity_id": account_entity}
+
+    graph = nx.DiGraph()
+    graph.add_node(account_entity, label="acct")
+    graph.add_node(flagged_entity, label="Bad", risk_score=95)
+    graph.add_edge(account_entity, flagged_entity, relation="transacted")
+
+    txns = _rapid_cashout_txns(account_id)
+    hits = evaluate_accounts(
+        accounts=[account],
+        transactions=txns,
+        rules=[RAPID_CASHOUT_WITH_PROXIMITY_CONFIG],
+        graph=graph,
+        flagged_entity_ids={flagged_entity},
+    )
+    rapid = next(h for h in hits if h.rule_code == "rapid_cashout")
+    assert any(
+        r["modifier"] == "proximity_to_flagged <= 2" for r in rapid.reasons
+    )
