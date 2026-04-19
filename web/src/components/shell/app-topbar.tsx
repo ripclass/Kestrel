@@ -30,7 +30,7 @@ export function AppTopbar({
 
   return (
     <header className="sticky top-0 z-20 border-b border-border bg-background/95 backdrop-blur-sm">
-      <div className="flex flex-col gap-4 px-6 py-4 lg:flex-row lg:items-center lg:justify-between xl:px-10">
+      <div className="flex flex-col gap-4 pl-16 pr-4 py-4 lg:flex-row lg:items-center lg:justify-between lg:px-6 xl:px-10">
         <div className="flex flex-1 items-center gap-4">
           <div className="relative max-w-2xl flex-1">
             <SearchInput placeholder="Search account, phone, wallet, NID, or business name" />
