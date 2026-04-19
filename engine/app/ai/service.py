@@ -50,8 +50,12 @@ def build_heuristic_output(task: AITaskName, payload: dict[str, Any]) -> dict[st
         facts = payload.get("trigger_facts", [])
         subject_name = payload.get("subject_name") or "The subject"
         amount = payload.get("total_amount")
+        try:
+            amount_text = f"{float(amount):,.0f}" if amount is not None else "an unspecified amount"
+        except (TypeError, ValueError):
+            amount_text = "an unspecified amount"
         return {
-            "narrative": f"{subject_name} was flagged after {len(facts)} suspicious indicators were observed involving approximately BDT {amount}.",
+            "narrative": f"{subject_name} was flagged after {len(facts)} suspicious indicators were observed involving approximately BDT {amount_text}.",
             "missing_fields": [field for field in ["subject_nid", "subject_wallet"] if not payload.get(field)],
             "category_suggestion": payload.get("category") or "fraud",
             "severity_suggestion": "high",

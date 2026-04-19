@@ -25,7 +25,7 @@ What is scaffolded but NOT wired the way the code implies:
 
 What is missing entirely:
 - A real rule expression DSL — the evaluator uses dict-keyed lookup of modifier strings.
-- AI red-team / evaluation harness beyond the scaffolding in `engine/app/ai/evaluations.py`.
+- (AI red-team harness shipped — see `engine/app/ai/redteam/` and `tests/test_ai_redteam.py`. Canary checks are informational against heuristic and become BLOCKING when real provider keys are wired.)
 - Landing page hero rewrite — `kestrel-nine.vercel.app` still leads with deployment health rather than the intelligence story.
 
 ## Architecture
@@ -37,7 +37,7 @@ What is missing entirely:
 - **Auth**: Supabase Auth. Engine validates tokens two ways: `SUPABASE_JWT_SECRET` (HS256) or JWKS at `{SUPABASE_URL}/auth/v1/.well-known/jwks.json` with a 10-minute cache. Profile lookup joins `profiles` with `organizations` to resolve org/role/persona. See `engine/app/auth.py`.
 - **Storage**: Supabase Storage, buckets `kestrel-uploads` and `kestrel-exports` (from `STORAGE_BUCKET_UPLOADS` / `STORAGE_BUCKET_EXPORTS`). The scan upload path writes raw CSV/XLSX to `kestrel-uploads`; PDF case packs + XLSX + XML exports stream directly from the engine rather than staging. Readiness probe verifies both buckets exist.
 - **Cache/Queue**: Redis on Render. Celery app `kestrel` at `app.tasks.celery_app.celery_app`. Tasks: `worker.ping` (readiness/probe), `app.tasks.scan_tasks.run_all_orgs` (nightly scan), `app.tasks.str_tasks.daily_digest`, `app.tasks.export_tasks.weekly_compliance_report`. `beat_schedule` runs them at 02:00 / 06:30 / Mon 05:00 Asia/Dhaka.
-- **AI**: Internal provider abstraction in `engine/app/ai/`. Adapters: `openai_adapter.py`, `anthropic_adapter.py`, plus a `HeuristicProvider` fallback. Task routing, prompt registry, redaction, invocation audit, and evaluation harness exist. Provider health is merged into `/ready`. **Prod currently runs on heuristic fallback** — both OpenAI and Anthropic show `missing_config` because the API keys haven't been set on Render.
+- **AI**: Internal provider abstraction in `engine/app/ai/`. Adapters: `openai_adapter.py`, `anthropic_adapter.py`, plus a `HeuristicProvider` fallback. Task routing, prompt registry, redaction, invocation audit, and a red-team harness (`engine/app/ai/redteam/{corpus,rubric}.py` + `tests/test_ai_redteam.py`) exist. Provider health is merged into `/ready`. **Prod currently runs on heuristic fallback** — both OpenAI and Anthropic show `missing_config` because the API keys haven't been set on Render. The red-team harness runs in CI today against heuristic (catches prompt-template / redaction / routing regressions); flipping `skip_canary=False` once real keys are configured turns canary-echo checks into a hard CI gate against live model output.
 
 ### Deployment
 - `web/` → Vercel via `deploy-web-production.yml` (prebuilt deploy; skips cleanly if `VERCEL_TOKEN` / `VERCEL_ORG_ID` / `VERCEL_PROJECT_ID` are not configured).
@@ -303,7 +303,6 @@ No KESTREL-*-PROMPT.md items remain. The Sovereign Ledger rebrand is shipped; Ph
 
 **Post-first-meeting polish:**
 6. **Outbound goAML adapter.** Distinct from the XML import/export we shipped (those are file-based). This is a machine-to-machine adapter that pushes reports into goAML's central server for FIUs running both systems in parallel. `engine/app/adapters/goaml.py` exists as a stub.
-7. **AI red-team harness.** Structured adversarial prompts + evaluation scoring for the AI task surface. `engine/app/ai/evaluations.py` has the scaffold; needs a prompt corpus, expected-output fixtures, and a CI gate before real provider keys go live on Render.
 9. **Landing-page BBC.** `web/src/lib/demo.ts` still seeds public-page persona cards with hardcoded fixtures — not a correctness issue but should be reviewed against the new intelligence surface.
 
 ## Code conventions
