@@ -20,10 +20,9 @@ Three full build-out sessions are shipped end-to-end on prod.
 - All 39 `(platform)` pages under `web/src/app/` are live with real DB-backed data — no scaffold placeholders remain.
 
 What is scaffolded but NOT wired the way the code implies:
-- **Celery worker has one ping task.** `engine/app/tasks/*` defines `celery_app` + `worker.ping`. `scan_tasks.py` / `export_tasks.py` / `str_tasks.py` are empty shells. Every pipeline (STR submit, scan run, scan upload, XML import, match execution) runs inline in the FastAPI request path — fine for current load but scheduled execution is not wired.
+- **Inline pipelines.** Every on-demand path (STR submit, ad-hoc scan, scan upload, XML import, match execution) still runs inline in the FastAPI request path. The Celery worker now also runs the three scheduled jobs (see below) but on-demand execution is intentionally synchronous.
 - **`engine/app/core/alerter.py` is orphaned.** Not imported by any production path. Left to avoid touching `seed/fixtures.py` references.
 - **goAML *outbound* adapter is a stub.** `engine/app/adapters/goaml.py` exists; machine-to-machine sync into goAML's central server is not implemented. Distinct from the XML import/export we shipped (those are file-based).
-- **`/admin/schedules` is read-only.** The declared jobs list exists but no Celery Beat schedule is populated.
 
 What is missing entirely:
 - A real rule expression DSL — the evaluator uses dict-keyed lookup of modifier strings.
@@ -38,12 +37,12 @@ What is missing entirely:
 - **Database**: Supabase Postgres. Schema source of truth: `supabase/migrations/001_schema.sql` through `009_reference_tables.sql`.
 - **Auth**: Supabase Auth. Engine validates tokens two ways: `SUPABASE_JWT_SECRET` (HS256) or JWKS at `{SUPABASE_URL}/auth/v1/.well-known/jwks.json` with a 10-minute cache. Profile lookup joins `profiles` with `organizations` to resolve org/role/persona. See `engine/app/auth.py`.
 - **Storage**: Supabase Storage, buckets `kestrel-uploads` and `kestrel-exports` (from `STORAGE_BUCKET_UPLOADS` / `STORAGE_BUCKET_EXPORTS`). The scan upload path writes raw CSV/XLSX to `kestrel-uploads`; PDF case packs + XLSX + XML exports stream directly from the engine rather than staging. Readiness probe verifies both buckets exist.
-- **Cache/Queue**: Redis on Render. Celery app `kestrel` at `app.tasks.celery_app.celery_app`. Single `worker.ping` task — used by the readiness probe + the `/admin/schedules` live worker probe.
+- **Cache/Queue**: Redis on Render. Celery app `kestrel` at `app.tasks.celery_app.celery_app`. Tasks: `worker.ping` (readiness/probe), `app.tasks.scan_tasks.run_all_orgs` (nightly scan), `app.tasks.str_tasks.daily_digest`, `app.tasks.export_tasks.weekly_compliance_report`. `beat_schedule` runs them at 02:00 / 06:30 / Mon 05:00 Asia/Dhaka.
 - **AI**: Internal provider abstraction in `engine/app/ai/`. Adapters: `openai_adapter.py`, `anthropic_adapter.py`, plus a `HeuristicProvider` fallback. Task routing, prompt registry, redaction, invocation audit, and evaluation harness exist. Provider health is merged into `/ready`. **Prod currently runs on heuristic fallback** — both OpenAI and Anthropic show `missing_config` because the API keys haven't been set on Render.
 
 ### Deployment
 - `web/` → Vercel via `deploy-web-production.yml` (prebuilt deploy; skips cleanly if `VERCEL_TOKEN` / `VERCEL_ORG_ID` / `VERCEL_PROJECT_ID` are not configured).
-- `engine/` → Render. `engine/render.yaml` declares two services: `kestrel-engine` (FastAPI web, `uvicorn app.main:app`, healthcheck `/health`) and `kestrel-worker` (Celery, `celery -A app.tasks.celery_app.celery_app worker`). Deploy workflow uses per-service deploy hooks: `RENDER_ENGINE_DEPLOY_HOOK_URL`, `RENDER_WORKER_DEPLOY_HOOK_URL`.
+- `engine/` → Render. `engine/render.yaml` declares three services: `kestrel-engine` (FastAPI web, `uvicorn app.main:app`, healthcheck `/health`), `kestrel-worker` (Celery worker, `celery ... worker`), and `kestrel-beat` (Celery Beat, `celery ... beat`). Deploy workflow uses per-service deploy hooks: `RENDER_ENGINE_DEPLOY_HOOK_URL`, `RENDER_WORKER_DEPLOY_HOOK_URL`, `RENDER_BEAT_DEPLOY_HOOK_URL`. Each deploy job is gated on its hook secret being set, so missing one only skips that service.
 - Database → Supabase project `bmlyqlkzeuoglyvfythg`. Connection via `DATABASE_URL` (`postgresql+asyncpg://...`) plus the `SUPABASE_*` envs.
 - **CI**: GitHub Actions.
   - `.github/workflows/ci.yml` — `web` job: Node 22, `npm ci`, `npm run lint`, `npm run build`. `engine` job: Python 3.12, `pip install -e .[dev]`, `compileall`, `pytest -q`, then `python seed/run.py` smoke test.
@@ -305,7 +304,6 @@ No KESTREL-*-PROMPT.md items remain. The Sovereign Ledger rebrand is shipped; Ph
 1. **Demo film production.** Not a code task, but the most important next step. The platform is ready to be shown — a recorded walkthrough of Director → Analyst → CAMLCO personas hitting each of the 13 goAML-coverage items against the synthetic DBBL dataset would compress the first meeting from an hour to ten minutes.
 
 **Post-first-meeting polish:**
-3. **Scheduled rule execution wiring.** `/admin/schedules` surfaces three declared jobs with status `not_configured` because no Celery Beat schedule is populated. Move `run_scan_pipeline` into a Celery task, wire the nightly + daily-digest + weekly-compliance jobs into `app.tasks.celery_app.celery_app.conf.beat_schedule`, flip the declared entries from `not_configured` to `scheduled`.
 4. **Real rule expression DSL.** Current evaluator uses dict-keyed lookup of modifier strings. A richer DSL (or a hosted rule editor consuming `match_definitions`) would let BFIU analysts define custom rules without editing YAML in git. The match_definitions table + `/admin/match-definitions` UI are ready; the evaluator wiring is the missing piece.
 6. **Outbound goAML adapter.** Distinct from the XML import/export we shipped (those are file-based). This is a machine-to-machine adapter that pushes reports into goAML's central server for FIUs running both systems in parallel. `engine/app/adapters/goaml.py` exists as a stub.
 7. **AI red-team harness.** Structured adversarial prompts + evaluation scoring for the AI task surface. `engine/app/ai/evaluations.py` has the scaffold; needs a prompt corpus, expected-output fixtures, and a CI gate before real provider keys go live on Render.

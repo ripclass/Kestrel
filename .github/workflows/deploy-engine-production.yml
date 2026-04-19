@@ -51,6 +51,7 @@ jobs:
     outputs:
       engine_configured: ${{ steps.detect.outputs.engine_configured }}
       worker_configured: ${{ steps.detect.outputs.worker_configured }}
+      beat_configured: ${{ steps.detect.outputs.beat_configured }}
     steps:
       - name: Check hook availability
         id: detect
@@ -58,6 +59,7 @@ jobs:
         env:
           RENDER_ENGINE_DEPLOY_HOOK_URL: ${{ secrets.RENDER_ENGINE_DEPLOY_HOOK_URL }}
           RENDER_WORKER_DEPLOY_HOOK_URL: ${{ secrets.RENDER_WORKER_DEPLOY_HOOK_URL }}
+          RENDER_BEAT_DEPLOY_HOOK_URL: ${{ secrets.RENDER_BEAT_DEPLOY_HOOK_URL }}
         run: |
           if [[ -n "$RENDER_ENGINE_DEPLOY_HOOK_URL" ]]; then
             echo "engine_configured=true" >> "$GITHUB_OUTPUT"
@@ -69,6 +71,12 @@ jobs:
             echo "worker_configured=true" >> "$GITHUB_OUTPUT"
           else
             echo "worker_configured=false" >> "$GITHUB_OUTPUT"
+          fi
+
+          if [[ -n "$RENDER_BEAT_DEPLOY_HOOK_URL" ]]; then
+            echo "beat_configured=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "beat_configured=false" >> "$GITHUB_OUTPUT"
           fi
 
   deploy-engine:
@@ -113,13 +121,34 @@ jobs:
             echo "- Commit: $GITHUB_SHA"
           } >> "$GITHUB_STEP_SUMMARY"
 
+  deploy-beat:
+    name: Trigger Render Beat Deploy
+    runs-on: ubuntu-latest
+    needs:
+      - verify
+      - secrets
+    if: needs.secrets.outputs.beat_configured == 'true'
+    environment:
+      name: production
+    steps:
+      - name: Trigger deploy hook
+        shell: bash
+        env:
+          RENDER_BEAT_DEPLOY_HOOK_URL: ${{ secrets.RENDER_BEAT_DEPLOY_HOOK_URL }}
+        run: |
+          curl --fail --silent --show-error --request POST "${RENDER_BEAT_DEPLOY_HOOK_URL}?ref=${GITHUB_SHA}"
+          {
+            echo "## Render Beat Deploy Triggered"
+            echo "- Commit: $GITHUB_SHA"
+          } >> "$GITHUB_STEP_SUMMARY"
+
   skipped:
     name: Missing Render Hooks
     runs-on: ubuntu-latest
     needs:
       - secrets
       - verify
-    if: needs.secrets.outputs.engine_configured != 'true' || needs.secrets.outputs.worker_configured != 'true'
+    if: needs.secrets.outputs.engine_configured != 'true' || needs.secrets.outputs.worker_configured != 'true' || needs.secrets.outputs.beat_configured != 'true'
     steps:
       - name: Explain skipped deploy
         shell: bash
@@ -130,6 +159,7 @@ jobs:
             echo "Missing one or more optional GitHub secrets:"
             echo "- RENDER_ENGINE_DEPLOY_HOOK_URL"
             echo "- RENDER_WORKER_DEPLOY_HOOK_URL"
+            echo "- RENDER_BEAT_DEPLOY_HOOK_URL"
             echo ""
             echo "Any service with a configured hook will still deploy."
           } >> "$GITHUB_STEP_SUMMARY"

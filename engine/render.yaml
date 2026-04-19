@@ -12,3 +12,9 @@ services:
     rootDir: engine
     buildCommand: pip install -e .
     startCommand: celery -A app.tasks.celery_app.celery_app worker --loglevel=INFO
+  - type: worker
+    name: kestrel-beat
+    env: python
+    rootDir: engine
+    buildCommand: pip install -e .
+    startCommand: celery -A app.tasks.celery_app.celery_app beat --loglevel=INFO
