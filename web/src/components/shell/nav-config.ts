@@ -15,6 +15,7 @@ const navItems: NavItem[] = [
   { section: "Intelligence Tools", label: "Investigate", href: "/investigate", aka: "Analysis / Catalogue Search (goAML)" },
   { section: "Intelligence Tools", label: "Catalogue", href: "/investigate/catalogue", aka: "Catalogue Search (goAML)" },
   { section: "Intelligence Tools", label: "Intelligence", href: "/intelligence/entities", aka: "Intel (goAML)" },
+  { section: "Intelligence Tools", label: "Cross-bank", href: "/intelligence/cross-bank", aka: "Cross-institution overlap (Kestrel-native)" },
   { section: "Intelligence Tools", label: "Disseminations", href: "/intelligence/disseminations", aka: "Disseminated Transaction Lookup (goAML)" },
   { section: "Intelligence Tools", label: "Saved queries", href: "/intelligence/saved-queries", aka: "Profiles (goAML Intel)" },
   { section: "Intelligence Tools", label: "Diagram builder", href: "/investigate/diagram", aka: "Create Diagram (goAML)" },

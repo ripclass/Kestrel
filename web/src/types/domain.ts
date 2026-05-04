@@ -182,6 +182,64 @@ export interface MatchSummary {
   status: string;
 }
 
+export type CrossBankPersonaView = "regulator" | "bank";
+
+export interface CrossBankSummary {
+  windowDays: number;
+  entitiesFlaggedAcrossBanks: number;
+  newThisWeek: number;
+  highRiskCrossInstitution: number;
+  totalExposure: number;
+  crossBankAlertsCount: number;
+  visibleMatchesCount: number;
+  personaView: CrossBankPersonaView;
+}
+
+export interface CrossBankMatchView {
+  id: string;
+  entityId: string;
+  matchKey: string;
+  matchType: string;
+  involvedOrgs: string[];
+  bankCount: number;
+  matchCount: number;
+  totalExposure: number;
+  riskScore: number;
+  severity: Severity;
+  status: string;
+  firstSeen: string | null;
+}
+
+export interface CrossBankSeverityBreakdown {
+  critical: number;
+  high: number;
+  medium: number;
+  low: number;
+}
+
+export interface CrossBankHeatmapBucket {
+  label: string;
+  matchCount: number;
+  severityBreakdown: CrossBankSeverityBreakdown;
+}
+
+export interface CrossBankHeatmap {
+  windowDays: number;
+  buckets: CrossBankHeatmapBucket[];
+  personaView: CrossBankPersonaView;
+}
+
+export interface CrossBankEntityRow {
+  entityId: string;
+  display: string;
+  entityType: string;
+  riskScore: number;
+  severity: Severity;
+  bankCount: number;
+  involvedOrgs: string[];
+  totalExposure: number;
+}
+
 export interface TypologySummary {
   id: string;
   title: string;
