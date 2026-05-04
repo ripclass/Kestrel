@@ -6,38 +6,43 @@ Kestrel is a standalone financial crime intelligence platform for Bangladesh. It
 
 ## Current state
 
-> **Prod (2026-04-18):** Sovereign Ledger rebrand merged to `main` (`92164b1`), live on `kestrel-nine.vercel.app`. Migration 010 (`access_requests`) applied. `SUPABASE_SERVICE_ROLE_KEY` set on Vercel web env. Landing intake form writes to `access_requests`.
+> **Prod (2026-05-04):** V2 phase 1 (cross-bank intelligence) shipped to `main` — last commit `dfbfca3`. Live on `kestrel-nine.vercel.app`. AI flipped from heuristic → `anthropic/claude-sonnet-4.6` via OpenRouter (`OPENAI_BASE_URL=https://openrouter.ai/api/v1`). `kestrel-beat` Render service provisioned (`srv-d7sajha8qa3s73e1spv0`) — Beat schedule now actually dispatches.
 
-Three full build-out sessions shipped end-to-end:
+Five build-out sessions shipped end-to-end:
 - **Intelligence-core** (2026-04-15/16): real detection engine (8 YAML rules + evaluator + scorer + resolver + matcher + pipeline), scan upload path, WeasyPrint PDF case pack, SAR/CTR report types, AI alert auto-explanation + Draft STR, DB-backed typologies, CommandView polish, modifier conditions, incremental scan scope, Phase 10 hardening (request IDs + structured JSON logs + standardised error envelope + `docs/RUNBOOK.md`).
 - **goAML coverage patch** (2026-04-17): all 13 items from `KESTREL-GOAML-COVERAGE-PROMPT.md`. Migrations 005–009 applied. 11 report-type variants, goAML XML import + export, `/iers` workflow, Additional Information Files, 3-tab New Subjects form, Catalogue tile grid, dissemination ledger, 8-variant case enum with proposal kanban + RFI routing, saved queries + manual diagram builder + match definitions, reference tables (197 seed rows), operational statistics dashboards, scheduled-processes admin surface, XLSX + goAML-XML exports, goAML vocabulary tooltips, `docs/goaml-coverage.md`.
 - **Sovereign Ledger rebrand** (2026-04-18): institutional-brutalist UI direction merged. See §"Sovereign Ledger".
+- **Post-rebrand sweep** (2026-04-19): graph-lookup modifiers wired (`a55d65d`), Celery Beat schedule wired (`b561949`), orphaned alerter cleanup (`ee16cb3`), JSON-DSL executor for match_definitions (`3ca6528`), a11y focus indicator + reduced-motion (`56bd851`), mobile nav drawer (`f764cfb`), a11y skip-link (`c1edceb`), AI red-team harness (`d122e7d`).
+- **V2 phase 1: cross-bank intelligence** (2026-05-04): cross-bank dashboard with persona-aware anonymisation (`d64049d`), multi-bank synthetic seed module (`6bd2366`), procurement whitepaper (`dfbfca3`). See §"Cross-bank intelligence" below.
 
 **Aggregate prod state:**
-- 99 engine routes across 19 routers. 95/95 pytest. `GET /ready` on `https://kestrel-engine.onrender.com` shows auth/db/redis/storage/worker=ok; OpenAI + Anthropic `missing_config` → heuristic fallback active.
-- Migrations 001–011 applied. 011 relaxed `alerts.source_type` CHECK to include `match_definition`. Prod data: 197 reference_tables rows, 5 typologies, 28 entities, 377 accounts, 547 transactions, 10 STRs, 22 alerts, 1 case. Disseminations / saved_queries / diagrams / match_definitions tables empty (only touched in verification).
-- All 39 `(platform)` pages live with real DB-backed data — no scaffold placeholders.
+- 103 engine routes across 19 routers (4 new under `/intelligence/cross-bank/` from V2 P1.1). 159/159 pytest. `GET /ready` on `https://kestrel-engine.onrender.com` shows auth/db/redis/storage/worker=ok; `ai:openai = skipped` with model `anthropic/claude-sonnet-4.6` (configured + reachability probe disabled).
+- Migrations 001–012 applied. 012 (`advisor_fixes`) locks `search_path = ''` on 7 SECURITY DEFINER helpers. Migrations 001 + 002 retroactively recorded in `supabase_migrations.schema_migrations` after the audit found them missing.
+- Prod data (post V2 phase 1): 197 reference_tables, 5 typologies, **52 entities** (28 pre-V2 + 24 multi-bank seed), 377 accounts, 547 transactions, **10 STRs** (multi-bank seed STRs not yet on prod — see §"Cross-bank intelligence"), **40 alerts** (22 pre-V2 + 17 V2 cross-bank + 1 dedupe overlap), 1 case, **7 matches** (1 pre-existing DBBL + 6 V2 cross-bank).
+- All 40 `(platform)` pages live (39 pre-V2 + 1 cross-bank dashboard added by P1.1) with real DB-backed data.
+- All Render services running: engine, worker, **beat** (provisioned 2026-05-04 — was missing during the audit; Beat schedule was dispatching to nothing for ~15 days until that fix).
 
 What is scaffolded but NOT wired the way the code implies:
-- **Inline pipelines.** Every on-demand path (STR submit, ad-hoc scan, scan upload, XML import, match execution) runs inline in the FastAPI request path. Celery worker runs the three scheduled jobs but on-demand execution is intentionally synchronous.
+- **Inline pipelines.** Every on-demand path (STR submit, ad-hoc scan, scan upload, XML import, match execution) runs inline in the FastAPI request path. Celery worker now also runs the three scheduled jobs since Beat is alive. On-demand execution is intentionally synchronous.
 - **goAML *outbound* adapter is a stub.** `engine/app/adapters/goaml.py` exists; machine-to-machine sync into goAML's central server is not implemented. Distinct from the file-based XML import/export.
 
-What is missing entirely:
-- A real rule expression DSL — the evaluator uses dict-keyed lookup of modifier strings.
-- Landing page hero rewrite — still leads with deployment health rather than the intelligence story.
-
-(AI red-team harness shipped — `engine/app/ai/redteam/` + `tests/test_ai_redteam.py`. Canary checks informational against heuristic; become BLOCKING when real provider keys are wired.)
+What V2 ships next (not in main yet — see `KESTREL-WORLD-CLASS-BUILD-V2.md` and `KESTREL-RESUME-V2.md`):
+- **Phase 2** Bank-direct surface (landing + signup + bank-tenant demo seed + persona-isolation verification + request-demo wiring).
+- **Phase 3** Real-time transaction-scoring API (sub-500ms decisioning).
+- **Phase 4** Sanctions / PEP / adverse-media screening (OFAC/EU/UN/UK + adverse-media adapter).
+- **Phase 5** KYC / CDD module (greenfield).
+- **Phase 6** Public status page + pricing-tier enforcement + demo-flow polish.
 
 ## Architecture
 
 ### Stack
 - **Frontend**: Next.js 16.2.2 App Router, React 19.2.4, TypeScript 5, Tailwind v4, shadcn-style UI, `@xyflow/react` (network graphs), `recharts`, `zustand`, `zod`, `@tanstack/react-table`, `date-fns`. Node pinned to 22.x.
 - **Backend**: Python `>=3.12` (pinned 3.12.8 via `engine/.python-version`), FastAPI `>=0.115`, SQLAlchemy 2 async + asyncpg, Pydantic v2, `python-jose`, `networkx`, `celery[redis]`, `PyYAML`, `pdfplumber`, `pandas`, `openpyxl`, `weasyprint`, `lxml`, `jinja2`, `httpx`. Build backend: `hatchling`.
-- **Database**: Supabase Postgres. Schema source of truth: `supabase/migrations/001_schema.sql` → `011_*.sql`.
+- **Database**: Supabase Postgres. Schema source of truth: `supabase/migrations/001_schema.sql` → `012_*.sql`.
 - **Auth**: Supabase Auth. Engine validates two ways: `SUPABASE_JWT_SECRET` (HS256, preferred) or JWKS at `{SUPABASE_URL}/auth/v1/.well-known/jwks.json` (10-min cache). See `engine/app/auth.py`.
 - **Storage**: Supabase Storage, buckets `kestrel-uploads` + `kestrel-exports` (configurable via `STORAGE_BUCKET_*`). Scan uploads write raw CSV/XLSX to `kestrel-uploads`; PDF/XLSX/XML exports stream directly. Readiness probe verifies both buckets.
 - **Cache/Queue**: Redis on Render. Celery app `kestrel` at `app.tasks.celery_app.celery_app`. Tasks: `worker.ping`, `app.tasks.scan_tasks.run_all_orgs`, `app.tasks.str_tasks.daily_digest`, `app.tasks.export_tasks.weekly_compliance_report`. Beat at 02:00 / 06:30 / Mon 05:00 Asia/Dhaka.
-- **AI**: Provider abstraction in `engine/app/ai/` — OpenAI / Anthropic adapters + `HeuristicProvider` fallback. Task routing, prompt registry, redaction, invocation audit, red-team harness. **Prod runs heuristic fallback** — both keys unset on Render. Setting either flips routing live.
+- **AI**: Provider abstraction in `engine/app/ai/` — OpenAI / Anthropic adapters + `HeuristicProvider` fallback. Task routing, prompt registry, redaction, invocation audit, red-team harness. **Prod runs `anthropic/claude-sonnet-4.6` via OpenRouter through the OpenAI-compatible adapter** (`OPENAI_API_KEY=sk-or-v1-...`, `OPENAI_BASE_URL=https://openrouter.ai/api/v1`, `OPENAI_MODEL=anthropic/claude-sonnet-4.6`). `ANTHROPIC_*` left blank — task routes that prefer Anthropic provider fall through to the OpenAI adapter (which is the OpenRouter→Claude pipe).
 
 ### Deployment
 - `web/` → Vercel via `deploy-web-production.yml` (prebuilt deploy; gated on `VERCEL_TOKEN` / `VERCEL_ORG_ID` / `VERCEL_PROJECT_ID`).
@@ -48,19 +53,19 @@ What is missing entirely:
 ### Key directories
 - `web/src/app/(public)/` — landing + pricing.
 - `web/src/app/(auth)/` — login, register, forgot-password.
-- `web/src/app/(platform)/` — 39 authenticated pages.
+- `web/src/app/(platform)/` — 40 authenticated pages (39 pre-V2 + `/intelligence/cross-bank` from P1.1).
 - `web/src/app/api/` — Next route handlers proxying engine via `lib/engine-server.ts`. Download endpoints forward raw bytes with preserved `Content-Disposition`.
 - `web/src/components/` — `shell/`, `common/`, plus per-domain folders.
 - `web/src/lib/` — Supabase clients, `auth.ts`, `engine-server.ts`, per-domain normalizers, `demo.ts`.
 - `engine/app/routers/` — 19 files, one per domain.
-- `engine/app/services/` — 27 files, all DB-backed; routers never execute SQL directly.
+- `engine/app/services/` — 28 files, all DB-backed; routers never execute SQL directly. (`cross_bank.py` added in V2 P1.1.)
 - `engine/app/models/` — 21 SQLAlchemy models.
 - `engine/app/core/` — `detection/` (rules YAML + loader/evaluator/scorer), `resolver.py`, `matcher.py`, `pipeline.py`, `match_dsl.py`, `graph/`.
 - `engine/app/parsers/` — `csv.py`, `xlsx.py`, `statement_pdf.py`, `goaml_xml.py` (lxml-based, permissive).
 - `engine/app/ai/` — provider abstraction + redaction + audit + redteam.
-- `engine/seed/` — synthetic data generators.
+- `engine/seed/` — synthetic data generators (`dbbl_synthetic.py` + `load_dbbl_synthetic.py` for the original DBBL fixture; `multi_bank_synthetic.py` + `multi_bank_to_sql.py` from V2 P1.2 for cross-bank topology across BRAC / City / Islami / Sonali).
 - `supabase/migrations/` — 11 files.
-- `docs/` — `production-plan.md`, `goaml-coverage.md` (procurement), `RUNBOOK.md`.
+- `docs/` — `production-plan.md`, `goaml-coverage.md` (procurement), `RUNBOOK.md`, `production-audit-2026-04.md` (engineering ground-truth baseline), `cross-bank-intelligence.md` + `.html` (V2 P1.3 procurement whitepaper), `render_pdf.py` (markdown → HTML/PDF for whitepapers).
 
 ## Database schema
 
@@ -122,7 +127,7 @@ RLS semantics:
 - **`/scan`** — runs, results, `POST /scan/runs/upload` (multipart CSV/XLSX → pipeline).
 - **`/str-reports`** — CRUD + submit + review + enrich + import-xml + supplements + export.xlsx + `{id}/export.xml`.
 - **`/ctr`**, **`/iers`**, **`/alerts`**, **`/cases`** — domain CRUD + actions + exports. Cases include `/{id}/export.pdf` (WeasyPrint), `/propose`, `/rfi`, `/{id}/decide`.
-- **`/disseminations`**, **`/intelligence`** (entities/matches/typologies), **`/saved-queries`**, **`/diagrams`**, **`/match-definitions`**, **`/reference-tables`**.
+- **`/disseminations`**, **`/intelligence`** (entities/matches/typologies + V2 P1.1 `/intelligence/cross-bank/{summary,matches,heatmap,top-entities}` persona-aware reads), **`/saved-queries`**, **`/diagrams`**, **`/match-definitions`**, **`/reference-tables`**.
 - **`/reports`** — national, compliance, trends, export.
 - **`/admin`** — summary, settings, team, rules, api-keys, synthetic-backfill, maintenance/rules-policy-fix, statistics, schedules.
 - **`/ai`** — entity-extraction, str-narrative, typology-suggestion, executive-briefing, alerts/{id}/explanation, cases/{id}/summary.
@@ -164,9 +169,9 @@ Top-level groups: **Overview** (persona-routed CommandView/BankView/AnalystView)
 
 **Typologies (004)**: 5 Bangladesh-specific.
 
-**Current prod state**: 28 entities, 377 accounts, 547 transactions, 10 STRs, 22 alerts, 1 case, 7 organizations. goAML-patch tables empty.
+**Current prod state (post V2 P1.2 partial application 2026-05-04)**: 7 organizations, 52 entities (28 DBBL + 24 multi-bank), 377 accounts, 547 transactions, 10 STRs, 40 alerts, 1 case, 7 matches (1 pre-existing + 6 multi-bank). Multi-bank seed accounts (64) + transactions (105) + STRs (35) NOT yet applied to prod — committed in seed module, awaiting application.
 
-Regenerate fixtures: `python -m seed.dbbl_synthetic`. Load: `python -m seed.load_dbbl_synthetic --apply` (or `/admin/synthetic-backfill` as regulator admin).
+Regenerate fixtures: `python -m seed.dbbl_synthetic`. Load DBBL: `python -m seed.load_dbbl_synthetic --apply` (or `/admin/synthetic-backfill` as regulator admin). Load multi-bank: `python -m seed.multi_bank_synthetic --apply` (V2 P1.2; deterministic UUIDs share NAMESPACE with DBBL loader).
 
 ## Environment variables
 
@@ -177,7 +182,7 @@ Source of truth: `.env.example`.
 - **Supabase (engine)**: `SUPABASE_URL`, `SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`. `SUPABASE_JWT_SECRET` enables HS256 (precedence over JWKS).
 - **Engine core**: `DATABASE_URL` (`postgresql+asyncpg://`), `REDIS_URL`, `ALLOWED_ORIGINS`.
 - **Web → engine proxy**: `ENGINE_URL` (server) / `NEXT_PUBLIC_ENGINE_URL` (client).
-- **AI providers (optional)**: `OPENAI_API_KEY` + `OPENAI_MODEL`, `ANTHROPIC_API_KEY` + `ANTHROPIC_MODEL`. **Neither set on prod Render** — heuristic fallback handles every AI task.
+- **AI providers**: `OPENAI_API_KEY` + `OPENAI_BASE_URL` + `OPENAI_MODEL`, plus `ANTHROPIC_*` for direct Anthropic. On prod (2026-05-04) the OpenAI adapter is wired to OpenRouter: `OPENAI_API_KEY=sk-or-v1-...`, `OPENAI_BASE_URL=https://openrouter.ai/api/v1`, `OPENAI_MODEL=anthropic/claude-sonnet-4.6`. `ANTHROPIC_*` blank — single model serves all 6 task types via OpenRouter.
 - **Hardcoded defaults** not in `.env.example`: `ALGORITHM`, `APP_VERSION`, `ENVIRONMENT`.
 
 ## Sovereign Ledger
@@ -207,13 +212,47 @@ Institutional-brutalist UI rebrand. **Design direction came from Gemini 3.1** ("
 
 **Phase 6 (polish, non-blocking)**: Lighthouse ≥95 public / ≥90 in-app, a11y sweep, mobile breakpoint pass, refresh `docs/goaml-coverage.md` screenshots, update kestrel-design SKILL.md with final helper-component patterns.
 
+## Cross-bank intelligence (V2 P1)
+
+V2 phase 1 of the world-class build. Three commits on 2026-05-04: `d64049d` (P1.1 dashboard), `6bd2366` (P1.2 multi-bank seed), `dfbfca3` (P1.3 whitepaper).
+
+**Engine** (`engine/app/services/cross_bank.py` + 4 routes under `/intelligence/cross-bank/`):
+- `/summary` — top stats (entities flagged across N banks, new this week, high-risk cross-institution count, aggregate exposure, cross-bank alerts count).
+- `/matches` — recent cross-bank match clusters with persona-aware anonymisation.
+- `/heatmap` — per-bank cross-bank-match counts with severity breakdown.
+- `/top-entities` — top entities flagged across institutions by risk × bank-count.
+
+**Persona invariants enforced in the service layer (NOT in the dashboard component):**
+- Bank persona NEVER sees other bank names — `_label_orgs_for_user` substitutes `Peer institution 1..N`.
+- Bank persona sees `match_key` redacted to last 4 chars via `_anonymize_match_key` (e.g. `····5001`).
+- Bank persona only sees match clusters their own `org_id` is part of.
+- Regulator persona sees the full picture across the banking system (real bank names, full match keys).
+
+**Web** (`web/src/app/(platform)/intelligence/cross-bank/page.tsx` + `web/src/components/intel/cross-bank-dashboard.tsx`):
+Sovereign Ledger styled, hairline section frames, monospace eyebrows, three-tone status, zero radius. 4 sections in order: filter bar (window 7d/30d/90d, severity pills) → 4-tile stats row → heatmap with severity breakdown → recent matches list → top cross-flagged entities. Bank-view footer makes the anonymisation explicit.
+
+**Tests** (`engine/tests/test_cross_bank.py`): 8 pure-helper tests covering persona invariants. Suite went 151 → 159 passing.
+
+**Multi-bank seed** (`engine/seed/multi_bank_synthetic.py` + `multi_bank_to_sql.py`):
+Idempotent dataset that brings the prod database to demo-grade for cross-bank scenarios. Topology: 1 marquee 5-bank entity, 2× 3-bank, 3× 2-bank, 18 single-bank. Uses the same `NAMESPACE` UUID5 namespace as the DBBL loader. **Applied to prod 2026-05-04: entities (24) + matches (6) + alerts (17). Accounts (64) + transactions (105) + STRs (35) committed in the seed module but NOT yet applied to prod** — apply via `python -m seed.multi_bank_synthetic --apply` from any env with `DATABASE_URL` set (e.g. `render ssh srv-d7757oidbo4c73e98tlg`).
+
+**Whitepaper** (`docs/cross-bank-intelligence.md`): 2232 words / ~6 pages. Procurement-ready. Every persona-isolation claim is backed by a unit test in `test_cross_bank.py` and an RLS policy verifiable via `pg_policies` on Supabase. Pre-rendered HTML at `docs/cross-bank-intelligence.html` (browser-viewable, Print → PDF works). PDF generation via `python docs/render_pdf.py` from any env with WeasyPrint native deps (Render container has them; local Windows doesn't).
+
 ## What to work on next
 
-No KESTREL-*-PROMPT.md items remain. Phase 6 polish is the only UI work outstanding.
+V2 phase 1 (cross-bank intelligence) shipped. Phases 2–6 still pending. Continuity prompt: **`KESTREL-RESUME-V2.md`** (rooted in `KESTREL-WORLD-CLASS-BUILD-V2.md`).
 
-**Blocks first BFIU meeting:** Demo film production (recorded walkthrough of Director → Analyst → CAMLCO personas hitting the 13 goAML-coverage items against the synthetic DBBL dataset).
+| Phase | Estimate | Unlock |
+|---|---|---|
+| **P2** Bank-direct surface (landing/signup/demo seed/persona verification/request-demo wiring) | 4–5 days | Banks can self-serve a demo without BFIU being involved at all. The biggest go-to-market unlock. |
+| **P3** Real-time scoring API | 5–6 days | The biggest enterprise capability gap. Sub-500ms decisioning with explainable reasons. |
+| **P4** Sanctions/PEP/adverse-media screening | 5–6 days | Closes the second-biggest capability gap. OFAC/EU/UN/UK ingestion + screening API + UI. |
+| **P5** KYC/CDD module | 5 days | Greenfield. Closes the third gap. |
+| **P6** Status page + pricing tiers + demo polish | 3–4 days | Credibility layer. |
 
-**Post-meeting polish:** Outbound goAML adapter (machine-to-machine; stub at `engine/app/adapters/goaml.py`). Landing-page BBC review (`web/src/lib/demo.ts` still has hardcoded persona-card fixtures).
+**Outstanding small-pickups inside Phase 1**: apply the remaining multi-bank-seed chunks (accounts/transactions/STRs) to prod via `python -m seed.multi_bank_synthetic --apply`. The cross-bank dashboard works without these (matches + entities are enough), but they'd enrich the entity dossier downstream when bank-persona users click through to a flagged subject.
+
+**Older deferred items still apply:** outbound goAML adapter (`engine/app/adapters/goaml.py` is a stub), demo film production (separate from the procurement whitepaper which is now shipped), `web/src/lib/demo.ts` persona-card fixture cleanup.
 
 ## Code conventions
 
