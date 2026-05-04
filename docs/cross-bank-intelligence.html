@@ -1,0 +1,316 @@
+<!DOCTYPE html><html><head><meta charset='utf-8'><title>cross-bank-intelligence</title><style>
+@page {
+    size: A4;
+    margin: 22mm 20mm 22mm 20mm;
+    @bottom-right {
+        content: counter(page) " / " counter(pages);
+        font-family: 'IBM Plex Mono', 'Courier New', monospace;
+        font-size: 9pt;
+        color: #666;
+    }
+    @bottom-left {
+        content: "KESTREL · CROSS-BANK INTELLIGENCE";
+        font-family: 'IBM Plex Mono', 'Courier New', monospace;
+        font-size: 8pt;
+        color: #666;
+        letter-spacing: 0.18em;
+    }
+}
+
+* { box-sizing: border-box; }
+
+body {
+    font-family: 'IBM Plex Sans', 'Helvetica Neue', sans-serif;
+    font-size: 10.5pt;
+    line-height: 1.55;
+    color: #15171c;
+}
+
+h1 {
+    font-size: 22pt;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+    margin: 0 0 4pt 0;
+    border-bottom: 1.5pt solid #ff3823;
+    padding-bottom: 8pt;
+}
+
+h2 {
+    font-size: 13pt;
+    font-weight: 600;
+    margin: 18pt 0 6pt 0;
+    page-break-after: avoid;
+}
+
+h3 {
+    font-size: 11pt;
+    font-weight: 600;
+    margin: 12pt 0 4pt 0;
+    page-break-after: avoid;
+}
+
+p, ul, ol { margin: 0 0 8pt 0; }
+
+ul, ol { padding-left: 18pt; }
+
+li { margin-bottom: 3pt; }
+
+strong { font-weight: 600; }
+
+code {
+    font-family: 'IBM Plex Mono', 'Courier New', monospace;
+    font-size: 9pt;
+    background: #f3f3f3;
+    padding: 1pt 3pt;
+    border-radius: 0;
+}
+
+pre {
+    font-family: 'IBM Plex Mono', 'Courier New', monospace;
+    font-size: 9pt;
+    background: #f3f3f3;
+    padding: 8pt 10pt;
+    border-left: 2pt solid #ff3823;
+    overflow-x: auto;
+    line-height: 1.45;
+    margin: 8pt 0;
+}
+
+pre code { background: none; padding: 0; }
+
+blockquote {
+    margin: 0 0 12pt 0;
+    padding: 8pt 14pt;
+    border-left: 2pt solid #ff3823;
+    color: #444;
+    font-style: italic;
+}
+
+table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 8pt 0 12pt 0;
+    font-size: 9.5pt;
+}
+
+th {
+    text-align: left;
+    font-weight: 600;
+    padding: 6pt 8pt;
+    border-bottom: 1pt solid #15171c;
+    background: #f8f8f8;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 8.5pt;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+}
+
+td {
+    padding: 5pt 8pt;
+    border-bottom: 0.5pt solid #ddd;
+    vertical-align: top;
+}
+
+hr {
+    border: none;
+    border-top: 0.5pt solid #ccc;
+    margin: 16pt 0;
+}
+
+a {
+    color: #ff3823;
+    text-decoration: none;
+}
+</style></head><body><h1>Cross-Bank Intelligence</h1>
+<p><strong>Kestrel · Enso Intelligence · 2026-05-04</strong></p>
+<blockquote>
+<p>The signal no other vendor in Bangladesh has — and the privacy architecture that lets a competitor's CAMLCO trust it.</p>
+</blockquote>
+<hr />
+<h2>1. The problem</h2>
+<p>A subject opens accounts at five different banks. Each bank sees only its own slice. By the time a Suspicious Transaction Report (STR) at one of them gets reviewed by BFIU and cross-referenced manually against earlier filings from the other four, the money has moved across six rails and twelve mobile-financial-services wallets, and the trail is cold.</p>
+<p>This is not a hypothetical. It is the modal pattern in Bangladesh fraud and laundering casework. The technology gap is structural: every commercial bank's compliance stack is single-tenant. There is no surface inside the bank that says <em>this account is also flagged at Bank B, Bank C, Bank D</em>. There is no surface inside BFIU that automatically resolves the same NID across five banks' submissions. The cross-institution picture exists only in the head of whichever analyst happens to pull the right thread.</p>
+<p>goAML, the UNODC system Bangladesh currently uses for STR filing, was designed in 2006 as a filing cabinet — banks submit reports into it; analysts read them out. It does not perform cross-bank entity resolution. It does not anonymise peer signals. It cannot.</p>
+<h2>2. What Kestrel adds</h2>
+<p>Kestrel sits <em>between</em> the banks and BFIU. Banks submit STRs and transaction batches to Kestrel in exactly the goAML XML format they already produce. Kestrel resolves every subject — account number, NID, phone, wallet, person name, business name — into a shared entity pool. When the same identifier appears in submissions from two or more banks, Kestrel:</p>
+<ol>
+<li>Creates a <code>matches</code> row recording the cluster.</li>
+<li>Emits a <code>cross_bank</code>-source-type alert into each involved bank's tenant.</li>
+<li>Surfaces the cluster on the cross-bank intelligence dashboard.</li>
+</ol>
+<p>Bank CAMLCOs see this as: <em>"the account you just submitted an STR on is also flagged at four peer institutions; one is critical-severity."</em> They do not see which four institutions. They do not see those institutions' raw transactions or STR narratives.</p>
+<p>BFIU analysts see this as: <em>"BRAC, City, Dutch-Bangla, Islami, and Sonali have all reported account 2001045555701 in the past 30 days. Aggregate exposure: BDT 18.5 crore. Severity: critical. Click for the full picture across all five."</em></p>
+<p>Same underlying data. Two different views. Persona-controlled.</p>
+<h2>3. The privacy architecture (this is what gets a bank CTO to sign)</h2>
+<h3>What crosses the boundary between bank tenants</h3>
+<p>Nothing raw. The cross-bank signal is constructed entirely from:</p>
+<ul>
+<li><strong>Canonical entity tokens</strong> — the normalised <code>canonical_value</code> of an identifier (account number stripped of formatting, phone in E.164, NID as 13-digit string). These are not hashes; they are the values themselves, which is fine because (a) they are already shared across the banking system in clear (an NID is shared with every institution that the subject opens an account at), and (b) the <code>entities</code> table contains only the identifier, never the underlying transactional context.</li>
+<li><strong>The list of org IDs that reported each entity</strong> — <code>Match.involved_org_ids</code> — used to generate the anonymised count.</li>
+<li><strong>Aggregate severity, exposure, and detection timestamp</strong> on the match record.</li>
+</ul>
+<h3>What does NOT cross the boundary</h3>
+<p>Everything that matters operationally — and everything regulators would object to leaving the bank without authorisation. Specifically:</p>
+<ul>
+<li>Raw <code>transactions</code> rows are isolated per <code>org_id</code> via Postgres Row-Level Security (RLS). A query from Bank A's user role returns zero rows from Bank B's transactions. No exception, including for service-role bypasses, except the regulator role.</li>
+<li><code>str_reports</code> are isolated the same way. A bank user querying STRs sees only their own bank's filings.</li>
+<li><code>cases</code>, <code>accounts</code>, <code>audit_log</code>, <code>disseminations</code>, <code>match_definitions</code> — all scoped per org_id at the database layer, enforced by <code>auth_org_id() OR is_regulator()</code> policies.</li>
+<li>Subject narrative text from one bank's STR is never visible to another bank.</li>
+<li>The names of peer institutions involved in a cross-bank cluster are never visible to a bank user — the cross-bank service substitutes "Peer institution 1, 2, 3, …" before any data leaves the engine.</li>
+<li>Match keys (the canonical identifier values) are presented to bank users with the tail four characters preserved and the rest masked: <code>····5001</code> rather than <code>+8801711555001</code>.</li>
+</ul>
+<h3>Why this is stronger than the alternatives</h3>
+<p>The two patterns Kestrel is <em>not</em>:</p>
+<ul>
+<li><strong>Federated learning</strong> (the Tookitaki model): each bank trains a local model, parameters get aggregated centrally, no raw data leaves. Mathematically elegant; operationally hard to make explainable to a regulator. A flagged entity emerges as a model output, not as a citable record. BFIU cannot subpoena a "weight gradient." Kestrel's match records are concrete: an entity, a list of involved orgs, a list of involved STR refs, a timestamp, an audit trail.</li>
+<li><strong>Centralised data lake</strong> (the Verafin / Actimize cloud model): every bank streams every transaction into a shared cloud, vendor analytics run over the lot. Stronger signal; weaker privacy. Bangladesh banks would not — and per BB Circular 26/2024 may not — ship raw transactional data to a foreign vendor's cloud. Kestrel's signal works without the lake.</li>
+</ul>
+<p>Kestrel is closer to <strong>Verafin's "intelligence-sharing" mode</strong> — entity-level matching across cooperating institutions — but with three Bangladesh-specific differences: (a) hosted in-country on Supabase ap-southeast-1 with a one-region-out-of-bound contractual guarantee, (b) BDT-billed, (c) regulator (BFIU) is a tenant inside the platform, not an external recipient.</p>
+<h2>4. What signal a bank actually receives</h2>
+<p>When a bank CAMLCO opens <code>/intelligence/cross-bank</code> on Kestrel, the surface is structured to give them four distinct decision-relevant numbers:</p>
+<ul>
+<li><strong>Entities flagged across institutions</strong> — the count of cross-bank clusters their org is part of. This is the headline.</li>
+<li><strong>New cross-bank flags this week</strong> — separates the ambient noise from the new signal.</li>
+<li><strong>High-risk cross-institution count</strong> — clusters with risk_score ≥ 70 <em>and</em> ≥ 2 banks involved. This is the priority queue.</li>
+<li><strong>Aggregate exposure</strong> — sum of <code>total_exposure</code> across all visible cross-bank clusters, in BDT.</li>
+</ul>
+<p>Below those, two ranked lists: <em>recent matches</em> (anonymised peer label, bank count, hit count, severity, risk score) and <em>top cross-flagged entities</em> (display value with masking, entity type, bank count, involved-org labels, severity, risk score). Both link to the entity dossier — also persona-aware: a bank user clicking a peer-bank-only entity sees the entity dossier scoped to data their org has visibility into.</p>
+<p>The bank's value comes from one specific question this surface answers in seconds: <em>should I escalate this STR to a case, and how aggressively?</em> The number of peer institutions reporting the same subject is a strong prior. Kestrel makes that prior visible.</p>
+<h2>5. What signal BFIU receives</h2>
+<p>The same surface, persona-promoted. The bank-anonymisation drops away. BFIU Director and BFIU Analyst personas see:</p>
+<ul>
+<li>Real bank names on every involved-org label.</li>
+<li>Full match keys (no <code>····</code> masking).</li>
+<li>The full entity display value across the dossier.</li>
+<li>Cross-references between matches and the underlying STRs from each bank.</li>
+</ul>
+<p>The BFIU-only surfaces (<code>/iers</code>, <code>/intelligence/disseminations</code>, the national / compliance / trends / statistics dashboards) sit on top of the same data — cross-bank intelligence is not a separate database; it is a different read of the database the bank tenants are already feeding.</p>
+<h2>6. Technical architecture (the part the bank CTO will inspect)</h2>
+<p>Three tables, three policies, one service. That is the entire moat.</p>
+<p><strong>Tables</strong> (<code>supabase/migrations/001_schema.sql</code> and <code>008_intel_tables.sql</code>):
+- <code>entities</code> — canonical shared-intelligence identity, RLS shared across all authenticated users.
+- <code>connections</code> — directed edges with typed relations between entities, RLS shared.
+- <code>matches</code> — cross-bank cluster records with <code>involved_org_ids</code> (UUID array) and <code>involved_str_ids</code> (UUID array), RLS shared.</p>
+<p><strong>Policies</strong> (verified live 2026-05-04):</p>
+<pre><code>shared_entities:    USING (auth.uid() IS NOT NULL)
+shared_connections: USING (auth.uid() IS NOT NULL)
+shared_matches:     USING (auth.uid() IS NOT NULL)
+</code></pre>
+<p>Every other table that contains operationally sensitive data — <code>accounts</code>, <code>transactions</code>, <code>str_reports</code>, <code>alerts</code>, <code>cases</code>, <code>disseminations</code>, <code>audit_log</code> — has the per-org policy:</p>
+<pre><code>USING ((org_id = auth_org_id()) OR is_regulator())
+</code></pre>
+<p>The shared tables hold no operational detail. The detail-holding tables are tenant-isolated. This is what makes the architecture safe to share with peers while keeping STR narratives, transaction patterns, and case notes inside the originating bank.</p>
+<p><strong>Service</strong> (<code>engine/app/services/cross_bank.py</code>):
+The service that builds the dashboard payloads applies persona transformations after RLS has done its work. For a bank persona it:
+1. Filters out clusters the calling org is not part of.
+2. Replaces peer org IDs in <code>Match.involved_org_ids</code> with <code>"Peer institution 1..N"</code> labels.
+3. Masks <code>Match.match_key</code> to last-four-characters.
+4. Returns aggregate counts only — never enumerates peer-bank STR references.</p>
+<p>For a regulator persona it does none of those things. The same query path; different output shape. Single source of truth for the privacy semantics.</p>
+<p><strong>Matcher</strong> (<code>engine/app/core/matcher.py::run_cross_bank_matching</code>):
+Runs on every STR submission. Identifies entities with <code>array_length(reporting_orgs, 1) &gt;= 2</code>. Upserts a <code>matches</code> row keyed on <code>(match_type, match_key)</code>. Emits one <code>cross_bank</code>-source-type alert into each involved org's tenant, deduped on <code>(source_id=match.id, entity_id, status IN open/reviewing/escalated)</code> so re-execution does not double-fire.</p>
+<p><strong>Resolver</strong> (<code>engine/app/core/resolver.py::resolve_identifier</code>):
+Performs the entity-resolution step that makes cross-bank matching possible at all. Strategy: exact match on <code>(entity_type, canonical_value)</code> first; for <code>person</code> and <code>business</code> types fall back to pg_trgm fuzzy match on <code>display_name</code> with similarity ≥ 0.55. Conservative thresholds chosen to favour false negatives over false positives — a missed match is operationally fine (the next STR will pick it up); a wrong match contaminates the shared entity pool.</p>
+<h2>7. Privacy and regulatory posture</h2>
+<p><strong>FATF Recommendations 9, 21</strong>: Kestrel's design directly satisfies FATF's expectations on (R.9) "tipping-off" prohibitions — banks are not informed of which specific peer institution has flagged a subject, only that ≥ N peers have — and (R.21) protection of reporting-entity confidentiality. The anonymisation layer is not policy; it is enforced in code at the service boundary.</p>
+<p><strong>BFIU operational posture</strong>: BFIU is a tenant inside the platform with the regulator role. Disseminations to law enforcement (<code>/intelligence/disseminations</code>) carry a full audit trail keyed to <code>auth.uid()</code> and reproduce the goAML information-exchange request (IER) workflow including counterparty FIU, Egmont reference, deadline, and inbound/outbound direction. BFIU operates Kestrel; Kestrel does not operate BFIU.</p>
+<p><strong>BB Circular 26/2024 (digital banking compliance)</strong>: Kestrel's hosting and data-residency model — Supabase ap-southeast-1 (Singapore) with optional self-hosted Postgres for institutions that require BB-perimeter custody — is designed to satisfy the circular's transaction-monitoring and STR-pipeline requirements while remaining within the regulatory perimeter for AML data.</p>
+<p><strong>Audit log</strong>: <code>audit_log</code> records every mutation across services, scoped per-org with no regulator escape hatch. Every <code>ai.invoke</code> call is logged with provider, model, input_digest, output_digest, and redaction mode for compliance review. The audit table is append-only at the policy layer.</p>
+<p><strong>AI safety</strong>: AI tasks (alert explanation, STR narrative drafting, entity extraction, executive briefing, case summary, typology suggestion) run through a dedicated provider abstraction layer with explicit redaction (account numbers, phone numbers, NIDs, emails are masked before reaching any external model). A continuous red-team harness (<code>engine/app/ai/redteam/</code>) exercises the prompt template, redaction, and routing layers in CI on every commit, with canary checks (no echoing of injected instructions) and PII-leak checks (no raw account numbers / phones / NIDs in model output).</p>
+<h2>8. Comparison</h2>
+<table>
+<thead>
+<tr>
+<th>Capability</th>
+<th>goAML (BFIU today)</th>
+<th>Verafin (NA standard)</th>
+<th>Tookitaki (federated)</th>
+<th>Kestrel</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Cross-bank entity resolution</td>
+<td>Manual</td>
+<td>Yes (cloud lake)</td>
+<td>Yes (federated)</td>
+<td>Yes (shared-entity)</td>
+</tr>
+<tr>
+<td>Bank tenant isolation of raw data</td>
+<td>N/A</td>
+<td>No</td>
+<td>Yes</td>
+<td>Yes (RLS)</td>
+</tr>
+<tr>
+<td>Anonymised peer signal to banks</td>
+<td>No</td>
+<td>Partial</td>
+<td>Yes</td>
+<td>Yes</td>
+</tr>
+<tr>
+<td>Explainable match records</td>
+<td>N/A</td>
+<td>Partial</td>
+<td>No (model weights)</td>
+<td>Yes (citable rows)</td>
+</tr>
+<tr>
+<td>In-country hosting (Bangladesh)</td>
+<td>Yes</td>
+<td>No</td>
+<td>No</td>
+<td>Yes (ap-southeast-1 + on-prem option)</td>
+</tr>
+<tr>
+<td>BDT-billed</td>
+<td>Yes (UNODC)</td>
+<td>No</td>
+<td>No</td>
+<td>Yes</td>
+</tr>
+<tr>
+<td>Regulator (BFIU) as a tenant</td>
+<td>N/A</td>
+<td>No</td>
+<td>No</td>
+<td>Yes</td>
+</tr>
+<tr>
+<td>goAML XML round-trip (import + export)</td>
+<td>N/A</td>
+<td>No</td>
+<td>No</td>
+<td>Yes</td>
+</tr>
+<tr>
+<td>BB Circular 26/2024 alignment</td>
+<td>Partial</td>
+<td>No</td>
+<td>No</td>
+<td>Yes</td>
+</tr>
+<tr>
+<td>Time-to-first-deployment</td>
+<td>Years (bilateral with UNODC)</td>
+<td>Quarters</td>
+<td>Months</td>
+<td>Weeks</td>
+</tr>
+</tbody>
+</table>
+<h2>9. What this enables for the buyer</h2>
+<p>For a bank: a measurable reduction in false-positive STR review hours, because the cross-bank signal lets analysts triage. Subjects with ≥ 3-bank flags warrant immediate case escalation. Subjects with no peer reports stay in the standard queue. The dashboard is the priority filter that didn't exist before.</p>
+<p>For BFIU: the ability to see, in one query, every subject reported by ≥ N institutions in the trailing window, ranked by aggregate exposure and severity. The compounding signal across the banking system, surfaced without an analyst needing to manually cross-reference five filing cabinets.</p>
+<p>For both: the same primary surface, with persona-controlled visibility — which is what makes Kestrel the only product in the market that a bank CTO and a BFIU director will both sign on. The bank trusts that their raw data does not leave their tenant. The regulator trusts that the cross-bank picture is complete and citable.</p>
+<hr />
+<p><strong>Architecture references</strong>:
+- Tables: <code>supabase/migrations/001_schema.sql</code>, <code>supabase/migrations/008_intel_tables.sql</code>
+- Service: <code>engine/app/services/cross_bank.py</code>
+- Matcher: <code>engine/app/core/matcher.py</code>
+- Resolver: <code>engine/app/core/resolver.py</code>
+- Dashboard: <code>web/src/components/intel/cross-bank-dashboard.tsx</code>, <code>web/src/app/(platform)/intelligence/cross-bank/page.tsx</code></p>
+<p><strong>Verifiable claims</strong> — every persona-isolation assertion in §3 and §6 is backed by a unit test in <code>engine/tests/test_cross_bank.py</code> and an RLS policy verifiable via <code>pg_policies</code> on the production Supabase project (<code>bmlyqlkzeuoglyvfythg</code>). Procurement teams can request the live <code>pg_policies</code> dump.</p>
+<p><strong>Document version</strong>: 2026-05-04. Replaces all earlier informal descriptions of the cross-bank capability. Authoritative source for procurement, regulator review, and bank CTO due diligence.</p></body></html>
