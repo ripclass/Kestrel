@@ -42,3 +42,27 @@ Desktop.ini
 *.sqlite3
 *.db
 *.log
+
+# Marketing / proposal / brand artifacts (not deployed)
+*.pdf
+*.ai
+*.docx
+Logo*.png
+Untitled*.ai
+IBM Plex Mono/
+kestrel-0?-*.png
+kestrel-landing-prod.png
+review-*.jpeg
+sov-prod-*.png
+sov-prod-*.jpeg
+sovereign-ledger-*.png
+sovereign-ledger-*.jpeg
+vestox-*.png
+vestox-*.jpeg
+vestox-snapshot.yml
+
+# Playwright temp captures
+.playwright-mcp/
+
+# Conversation/session artifacts
+Conversation Prompt.md

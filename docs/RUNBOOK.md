@@ -4,7 +4,7 @@ Operational guide for diagnosing and fixing common incidents. Production URLs:
 
 - Web: `https://kestrel-nine.vercel.app`
 - Engine: `https://kestrel-engine.onrender.com` — unauthenticated `/health` + `/ready`
-- Render services: engine `srv-d7757oidbo4c73e98tlg` (Singapore), worker `srv-d7760cuuk2gs73as3oeg`
+- Render services: engine `srv-d7757oidbo4c73e98tlg` (Singapore), worker `srv-d7760cuuk2gs73as3oeg`, beat `srv-???` (created out-of-band — fill in once provisioned, see playbook 10)
 - Supabase project: `bmlyqlkzeuoglyvfythg` (ap-southeast-1)
 
 ## Table of contents
@@ -18,6 +18,7 @@ Operational guide for diagnosing and fixing common incidents. Production URLs:
 7. [AI endpoint returns 502](#ai-endpoint-returns-502)
 8. [PDF export returns 503](#pdf-export-returns-503)
 9. [A single request needs to be traced](#a-single-request-needs-to-be-traced)
+10. [Beat schedule isn't dispatching tasks](#beat-schedule-isnt-dispatching-tasks)
 
 ---
 
@@ -48,9 +49,9 @@ Each check in the readiness probe surfaces a `status` and `detail`. Map to actio
 
 - **`auth = error`** → Supabase env vars missing or wrong project. Check `SUPABASE_URL`, `SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY` in Render env.
 - **`database = error`** → `DATABASE_URL` misconfigured or Supabase pool exhausted. Check Supabase dashboard for connection count.
-- **`redis = error`** → `REDIS_URL` wrong. Celery worker cannot process tasks (though we rarely use it).
+- **`redis = error`** → `REDIS_URL` wrong. Celery worker stops consuming the queue and Beat stops dispatching scheduled jobs (nightly scan / daily digest / weekly compliance).
 - **`storage = error`** → buckets missing. Create `kestrel-uploads` and `kestrel-exports` in Supabase Storage.
-- **`worker = error`** → Celery worker not running on Render. Restart the `kestrel-worker` service. Low priority — nothing in prod currently dispatches Celery tasks.
+- **`worker = error`** → Celery worker not running on Render. Restart `kestrel-worker`. Medium priority: Beat-scheduled nightly_scan_all_orgs / daily_digest_bfiu / weekly_compliance_report all queue here. Note `/ready` only reports the *worker* — it does NOT verify Beat is alive. See playbook 10.
 - **`ai:openai = missing_config`** or **`ai:anthropic = missing_config`** → expected in some environments. The heuristic fallback covers it if `AI_FALLBACK_ENABLED=true`.
 
 ---
@@ -169,3 +170,50 @@ You'll see every line the request produced: the `request` access log line, any s
 **From an error response body:** the JSON body includes `"request_id"` and `"timestamp"` alongside `"detail"`. Same grep.
 
 If the web surface returned a 500 but the engine has no logs for that request_id, the error is in Next.js (Vercel), not the engine — check Vercel deployment logs.
+
+---
+
+## Beat schedule isn't dispatching tasks
+
+**Symptoms:** No new `pipeline.scan.completed` rows appear in `audit_log` after midnight Asia/Dhaka. Daily digest log line never fires at 06:30. Weekly compliance scorecard never fires Mondays at 05:00. The worker is alive (`/ready` reports `worker = ok`) but the queue is empty.
+
+**Root cause this is silent:** Render does not auto-create services from `engine/render.yaml`. The Blueprint declaration exists but services were created manually. If `kestrel-beat` was never created — or was created and then suspended — `/ready` will not catch it (the readiness probe only verifies the *worker* via `worker.ping`). The CI deploy workflow gates each per-service deploy hook on a secret being set, so a missing `RENDER_BEAT_DEPLOY_HOOK_URL` skips the Beat redeploy step silently.
+
+**Diagnose:**
+
+```bash
+# Confirm whether the service exists at all
+render services -o json --confirm | python -c "import sys, json; print([s.get('service',{}).get('name') for s in json.load(sys.stdin) if s.get('service')])"
+
+# If kestrel-beat is in the list, check its recent logs for the scheduler heartbeat
+render logs --resources <kestrel-beat-srv-id> --limit 80 -o text | grep -i "beat\|scheduler\|sending due task"
+```
+
+You should see lines like `beat: Starting...` and `Scheduler: Sending due task nightly_scan_all_orgs`.
+
+**Fix path:**
+
+1. **If the service does not exist:** create it via Render dashboard → New + → Background Worker. Settings:
+   - Name: `kestrel-beat`
+   - Region: Singapore (match the others)
+   - Branch: `main`
+   - Root directory: `engine`
+   - Runtime: Python 3
+   - Build command: `pip install -e .`
+   - Start command: `celery -A app.tasks.celery_app.celery_app beat --loglevel=INFO`
+   - Plan: Starter ($7/mo) is sufficient — Beat just dispatches, no heavy compute.
+
+2. **Copy env vars from `kestrel-worker`** so Beat can connect to Redis + attribute scheduled runs to the regulator org:
+   `DATABASE_URL`, `REDIS_URL`, `SUPABASE_URL`, `SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`, `SUPABASE_JWT_SECRET`, `STORAGE_BUCKET_UPLOADS`, `STORAGE_BUCKET_EXPORTS`, `ALLOWED_ORIGINS`. If AI keys are set on engine/worker, copy `OPENAI_API_KEY` + `OPENAI_BASE_URL` + `OPENAI_MODEL` here too — the daily digest invokes `/ai/executive-briefing`.
+
+3. **Add the deploy hook to GitHub secrets:** Render dashboard → kestrel-beat → Settings → Deploy Hook. Copy URL → GitHub repo → Settings → Secrets → Actions → add `RENDER_BEAT_DEPLOY_HOOK_URL`. Future `engine/**` pushes will redeploy Beat alongside engine + worker.
+
+4. **Verify the schedule fired** the next morning:
+   ```sql
+   SELECT action, created_at FROM public.audit_log
+     WHERE action LIKE 'pipeline.scan.%'
+     ORDER BY created_at DESC LIMIT 5;
+   ```
+   The most-recent `pipeline.scan.completed` should be timestamped within the last 24 hours.
+
+**The wiring exists in code** (`engine/app/tasks/celery_app.py::beat_schedule` declares the 3 cron entries pinned to Asia/Dhaka). The gap is purely operational — provision the service and it works.
