@@ -64,5 +64,3 @@ vestox-snapshot.yml
 # Playwright temp captures
 .playwright-mcp/
 
-# Conversation/session artifacts
-Conversation Prompt.md
