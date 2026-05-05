@@ -151,7 +151,15 @@ New page `web/src/app/(platform)/admin/ai-outcomes/page.tsx`. Shows per-task acc
 
 ---
 
-## PHASE 2 — CONFIDENCE ROUTING (Week 2)
+## PHASE 2 — CONFIDENCE ROUTING (Week 2) ✅ SHIPPED 2026-05-05
+
+One commit (engine-only; no web changes). New modules: `engine/app/ai/thresholds.py` (per-task confidence + rollout %), `engine/app/ai/confidence.py` (`compute_schema_validity` + `cap_confidence`). `ProviderName.SOVEREIGN` reserved enum. Settings: `ai_sovereign_url`, `ai_sovereign_api_key`, `ai_sovereign_model`, `ai_sovereign_threshold_default`. `resolve_task_routes` prepends sovereign at index 0 when `_sovereign_configured` AND `is_sovereign_eligible`. `AIOrchestrator.invoke` checks `confidence >= threshold_for(task)` and falls through (logging the fallback signal to `ai_outcome_log`) when below; bottom-of-chain always accepted. `HeuristicProvider` returns its own confidence capped at 0.5.
+
+**No behavior change today** — `MIN_CONFIDENCE_TO_ACCEPT = 1.01` everywhere + `TASK_ROLLOUT_PCT = 0` everywhere = sovereign is never tried, every existing call routes through OpenAI/Anthropic exactly as before. Flipping a single per-task value in `app/ai/thresholds.py` is the V3 P5 unlock.
+
+17 new tests; pytest 280 → 297. Engine routes unchanged at 126.
+
+The detail below stays for reference.
 
 Scaffold the "sovereign first, Claude fallback" routing in `engine/app/ai/routing.py`. The pattern goes in *now*, even though the sovereign side is empty — when Phase 4 lands the first sovereign adapter, it just slots in.
 

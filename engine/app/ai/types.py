@@ -8,6 +8,10 @@ class ProviderName(StrEnum):
     OPENAI = "openai"
     ANTHROPIC = "anthropic"
     HEURISTIC = "heuristic"
+    # V3 phase 2: sovereign Bangladesh-trained model. No adapter ships in
+    # P2 — the slot is reserved so the routing loop + outcome-log fields
+    # accept the value as soon as P4 lands the first sovereign adapter.
+    SOVEREIGN = "sovereign"
 
 
 class CheckStatus(StrEnum):

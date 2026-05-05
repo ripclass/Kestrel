@@ -60,6 +60,14 @@ class Settings(BaseSettings):
     complyadvantage_api_key: str | None = None
     complyadvantage_base_url: str = "https://api.complyadvantage.com"
 
+    # V3 phase 2: sovereign Bangladesh-trained model. No-op until V3 P4
+    # lands the first adapter. When configured, the routing layer
+    # prepends a sovereign route at index 0 of every task chain.
+    ai_sovereign_url: str | None = None
+    ai_sovereign_api_key: str | None = None
+    ai_sovereign_model: str | None = None
+    ai_sovereign_threshold_default: float = 1.01
+
     def cors_origin_list(self) -> list[str]:
         return [item.strip() for item in self.allowed_origins.split(",") if item.strip()]
 

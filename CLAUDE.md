@@ -6,7 +6,7 @@ Kestrel is a standalone financial crime intelligence platform for Bangladesh. It
 
 ## Current state
 
-> **Prod (2026-05-05):** V2 fully shipped (phases 1-6) + **V3 phase 1 (AI outcome logging) shipped** — last engine commit `157fa73`. Live on `kestrel-nine.vercel.app` + `kestrel-engine.onrender.com`. AI via OpenRouter (`anthropic/claude-sonnet-4.6`). All 3 Render services running. Migrations 001–019 applied. **019** (`ai_outcome_log`) is the foundation for the V3 sovereign-AI track — every AI call now writes a row with the redacted prompt, structured output, latency, token counts, and analyst correction (if any). Capability matrix at `docs/world-class-capability-matrix.md`: 14/18 Excellent, 2 Partial-with-plan, 0 Missing.
+> **Prod (2026-05-05):** V2 fully shipped (phases 1-6) + **V3 phases 1-2 shipped**. P2 is pattern-only (sovereign-first / Claude-fallback routing scaffolded with `MIN_CONFIDENCE_TO_ACCEPT=1.01` so behavior is unchanged until P4 lands the first sovereign adapter). Live on `kestrel-nine.vercel.app` + `kestrel-engine.onrender.com`. AI via OpenRouter (`anthropic/claude-sonnet-4.6`). All 3 Render services running. Migrations 001–019 applied. **019** (`ai_outcome_log`) is the foundation for the V3 sovereign-AI track — every AI call now writes a row with the redacted prompt, structured output, latency, token counts, and analyst correction (if any). Capability matrix at `docs/world-class-capability-matrix.md`: 14/18 Excellent, 2 Partial-with-plan, 0 Missing.
 
 Ten build-out sessions shipped end-to-end:
 - **Intelligence-core** (2026-04-15/16): real detection engine (8 YAML rules + evaluator + scorer + resolver + matcher + pipeline), scan upload path, WeasyPrint PDF case pack, SAR/CTR report types, AI alert auto-explanation + Draft STR, DB-backed typologies, CommandView polish, modifier conditions, incremental scan scope, Phase 10 hardening (request IDs + structured JSON logs + standardised error envelope + `docs/RUNBOOK.md`).
@@ -397,14 +397,32 @@ V3 phase 1 of `KESTREL-V3-PROMPT.md`. Foundation for the sovereign-AI track: eve
 
 **Deferred follow-up** (not blocking P1 close): wire `outcome_log_id` from the AI envelope into the existing AI call sites — STR draft narrative editor (capture diff on edit), alert explanation panel (capture dismiss as `outcome_label='rejected'`), KYC review (capture override as `outcome_label='edited'`). The infrastructure is in place; this is integration touch-up done as the V3 sovereign track's training data accumulates.
 
-## What's next — V3 phases 2-7
+## V3 phase 2 — confidence routing (shipped 2026-05-05)
 
-V3 phase 1 shipped. Next is **P2 confidence routing** (week 2 of the V3 prompt) — sovereign-first routing pattern in `engine/app/ai/routing.py` with threshold = ∞ initially so every call still routes to Claude. After that: P3 agentic investigations, P4 training pipeline, P5 quality gates, P6 on-prem (conditional), P7 ops maturity.
+V3 phase 2 of `KESTREL-V3-PROMPT.md`. Sovereign-first / Claude-fallback routing pattern scaffolded into the orchestrator. **No behavior change today** — `MIN_CONFIDENCE_TO_ACCEPT` defaults to `1.01` (effectively ∞) on every task, so no real provider response can be gated by the threshold and the existing route chain runs to completion. The pattern is in place; flipping a per-task threshold + per-task rollout % in `engine/app/ai/thresholds.py` is the single edit point when P4 lands the first sovereign adapter.
+
+**Three new modules:**
+- `engine/app/ai/thresholds.py` — `TASK_CONFIDENCE_THRESHOLDS` + `TASK_ROLLOUT_PCT` + `threshold_for(task)` + `is_sovereign_eligible(task)`. Defaults to ∞ + 0% so no real call is affected.
+- `engine/app/ai/confidence.py` — `compute_schema_validity` (post-hoc 0–1 score based on required- + optional-field coverage on the validated Pydantic output) + `cap_confidence` (clamps to `[0, 0.95]` — never claim 100% on a single inference).
+- `app.ai.types::ProviderName.SOVEREIGN` — reserved enum value. No adapter yet.
+
+**Settings additions** (`app/config.py`): `ai_sovereign_url`, `ai_sovereign_api_key`, `ai_sovereign_model`, `ai_sovereign_threshold_default`. All None today; flipping them on without an actual sovereign endpoint is a no-op because `is_sovereign_eligible` is also gated.
+
+**Routing rewrite** (`app/ai/routing.py::resolve_task_routes`): when sovereign is configured AND `is_sovereign_eligible(task)`, prepends a `TaskRoute(provider=SOVEREIGN, model=...)` at index 0. Existing OpenAI / Anthropic / Heuristic chain unchanged.
+
+**Orchestrator rewrite** (`app/ai/service.py::AIOrchestrator.invoke`): for each route, computes a confidence (provider-supplied or `compute_schema_validity` fallback). If `confidence < threshold_for(task)` AND there are more routes to try, logs to `ai_outcome_log` as a fallback signal (preserving the prompt + output for V3 P4 training corpus) and continues to the next route. Bottom-of-chain is always accepted regardless of threshold to avoid total failure.
+
+**Heuristic provider** now returns its own `confidence` based on template completeness, capped at 0.5 so any real LLM threshold above 0.5 routes around it.
+
+**Tests** (`engine/tests/test_confidence_routing.py`): 17 pure-helper tests covering schema-validity scoring, threshold lookup, sovereign eligibility, routing prepend, heuristic confidence formula. pytest 280 → 297.
+
+## What's next — V3 phases 3-7
+
+V3 phases 1 + 2 shipped. Next is **P3 agentic investigations** (weeks 3–4 of the V3 prompt) — the most user-visible V3 work. Multi-step investigation agent at `POST /agents/investigate` that pulls related entities, drafts hypotheses, and surfaces evidence the analyst can promote to an STR.
 
 | V3 phase | Estimate | Strategic unlock |
 |---|---|---|
-| **P2** Confidence routing | 1 week | Pattern in place; no behavior change yet. Sets up P4 to flip the threshold without a structural rewrite. |
-| **P3** Agentic AI investigations | 2-3 weeks | Multi-step investigation agent at `POST /agents/investigate`. Closes the last "Missing" capability from the world-class matrix. |
+| **P3** Agentic AI investigations | 2-3 weeks | Multi-step investigation agent. Closes the last "Missing" capability from the world-class matrix. |
 | **P4** Training pipeline | 2 weeks | LoRA fine-tune harness on Modal/RunPod, sovereign adapter implemented, first cycle run. |
 | **P5** Quality gates + gradual rollout | 1 week | Promotion harness, per-task rollout %, automatic rollback Beat task. |
 | **P6** On-prem packaging | 4-6 weeks (conditional) | First Tier-3 customer drives this. |

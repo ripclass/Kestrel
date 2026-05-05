@@ -7,12 +7,14 @@ from typing import Any
 from pydantic import BaseModel
 
 from app.ai.audit import record_ai_invocation
+from app.ai.confidence import cap_confidence, compute_schema_validity
 from app.ai.evaluations import validate_structured_output
 from app.ai.prompts import get_prompt_definition
 from app.ai.providers import AnthropicProvider, OpenAIProvider
 from app.ai.providers.base import LLMProvider
 from app.ai.redaction import redact_payload
 from app.ai.routing import resolve_task_routes
+from app.ai.thresholds import threshold_for
 from app.ai.types import (
     AITaskName,
     PromptDefinition,
@@ -39,12 +41,33 @@ class HeuristicProvider:
     async def generate_json(self, request: ProviderRequest) -> ProviderResponse:
         payload = json.loads(request.user_prompt.split("INPUT:\n", maxsplit=1)[1])
         content = build_heuristic_output(request.task, payload)
+        # Heuristic confidence reflects template completeness — see V3
+        # phase 2.2. The orchestrator treats this as advisory; the
+        # heuristic provider is also the bottom-of-chain catch-all so
+        # confidence below the task threshold doesn't reject the response
+        # when no other provider succeeded.
+        confidence = _heuristic_confidence(content)
         return ProviderResponse(
             provider=self.name,
             model=request.model,
             content=json.dumps(content, ensure_ascii=True),
             raw_response={"provider": "heuristic"},
+            confidence=confidence,
         )
+
+
+def _heuristic_confidence(content: dict[str, Any]) -> float:
+    """Coarse template-completeness score for heuristic output.
+
+    A heuristic generation is by definition lower-confidence than a real
+    LLM call. We cap at 0.5 so the orchestrator routes around the
+    heuristic whenever a real provider clears its threshold."""
+    if not content:
+        return 0.0
+    populated = sum(1 for v in content.values() if v not in (None, "", [], {}))
+    if populated == 0:
+        return 0.0
+    return min(0.5, 0.1 + 0.1 * populated)
 
 
 def build_heuristic_output(task: AITaskName, payload: dict[str, Any]) -> dict[str, Any]:
@@ -223,6 +246,31 @@ class AIOrchestrator:
                     continue
 
                 structured_output = output_model.model_validate(candidate)
+
+                # V3 phase 2: confidence routing. The provider may have
+                # supplied a confidence (sovereign log-probs, heuristic
+                # template-completeness); otherwise fall back to a
+                # schema-validity score.
+                raw_confidence = getattr(response, "confidence", None)
+                confidence = (
+                    cap_confidence(raw_confidence)
+                    if raw_confidence is not None
+                    else compute_schema_validity(structured_output)
+                )
+                threshold = threshold_for(task)
+                is_last_route = index == len(routes) - 1
+                clears_threshold = confidence >= threshold
+
+                # The previous attempt (if any) is the fallback-from for
+                # outcome-log purposes — that's what the V3 phase 4
+                # training corpus exporter cares about.
+                fallback_from_provider = (
+                    str(attempts[-1].provider) if attempts else None
+                )
+                fallback_from_model = (
+                    attempts[-1].model if attempts else None
+                )
+
                 attempts.append(
                     ProviderAttempt(
                         provider=route.provider,
@@ -230,15 +278,39 @@ class AIOrchestrator:
                         success=True,
                     )
                 )
-                # The previous attempt (if any) is the fallback-from for
-                # outcome-log purposes — that's what the V3 phase 4
-                # training corpus exporter cares about.
-                fallback_from_provider = (
-                    str(attempts[-2].provider) if len(attempts) >= 2 else None
-                )
-                fallback_from_model = (
-                    attempts[-2].model if len(attempts) >= 2 else None
-                )
+
+                if not clears_threshold and not is_last_route:
+                    # Soft-reject: log as a fallback-from-this-provider
+                    # signal for the V3 P4 training corpus, then continue
+                    # to the next route. The bottom-of-chain provider is
+                    # always accepted regardless of threshold to avoid
+                    # total failure.
+                    await self.audit_logger(
+                        user=user,
+                        task=task,
+                        provider=route.provider,
+                        model=route.model,
+                        prompt_version=prompt.version,
+                        redaction_mode=redaction_mode,
+                        input_payload=redacted_payload,
+                        output_payload=structured_output.model_dump(),
+                        schema_name=output_model.__name__,
+                        fallback_used=False,
+                        attempt_count=len(attempts),
+                        ip=ip,
+                        latency_ms=latency_ms,
+                        prompt_tokens=getattr(response, "prompt_tokens", None),
+                        completion_tokens=getattr(response, "completion_tokens", None),
+                        confidence=confidence,
+                        fallback_from_provider=fallback_from_provider,
+                        fallback_from_model=fallback_from_model,
+                    )
+                    last_error = (
+                        f"Provider {route.provider} returned confidence {confidence:.2f} "
+                        f"below task threshold {threshold:.2f}; falling through."
+                    )
+                    continue
+
                 outcome_log_id = await self.audit_logger(
                     user=user,
                     task=task,
@@ -255,7 +327,7 @@ class AIOrchestrator:
                     latency_ms=latency_ms,
                     prompt_tokens=getattr(response, "prompt_tokens", None),
                     completion_tokens=getattr(response, "completion_tokens", None),
-                    confidence=getattr(response, "confidence", None),
+                    confidence=confidence,
                     fallback_from_provider=fallback_from_provider,
                     fallback_from_model=fallback_from_model,
                 )
