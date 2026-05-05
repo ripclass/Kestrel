@@ -6,9 +6,9 @@ Kestrel is a standalone financial crime intelligence platform for Bangladesh. It
 
 ## Current state
 
-> **Prod (2026-05-05):** V2 phase 3 (real-time transaction-scoring API + monitoring dashboard) shipped to `main` — last commit `67d038b`. Live on `kestrel-nine.vercel.app` + `kestrel-engine.onrender.com`. AI via OpenRouter (`anthropic/claude-sonnet-4.6`). All 3 Render services running including beat. Migrations 001–014 applied. **014 (`realtime_scoring_log`)** added the per-call audit + feedback table.
+> **Prod (2026-05-05):** V2 phase 4 (sanctions / PEP / adverse-media screening) shipped to `main` — last commit `f566f35`. Live on `kestrel-nine.vercel.app` + `kestrel-engine.onrender.com`. AI via OpenRouter (`anthropic/claude-sonnet-4.6`). All 3 Render services running including beat. Migrations 001–015 applied. **015 (`watchlist_entries`)** added the shared sanctions / PEP pool with gin_trgm fuzzy-match index.
 
-Seven build-out sessions shipped end-to-end:
+Eight build-out sessions shipped end-to-end:
 - **Intelligence-core** (2026-04-15/16): real detection engine (8 YAML rules + evaluator + scorer + resolver + matcher + pipeline), scan upload path, WeasyPrint PDF case pack, SAR/CTR report types, AI alert auto-explanation + Draft STR, DB-backed typologies, CommandView polish, modifier conditions, incremental scan scope, Phase 10 hardening (request IDs + structured JSON logs + standardised error envelope + `docs/RUNBOOK.md`).
 - **goAML coverage patch** (2026-04-17): all 13 items from `KESTREL-GOAML-COVERAGE-PROMPT.md`. Migrations 005–009 applied. 11 report-type variants, goAML XML import + export, `/iers` workflow, Additional Information Files, 3-tab New Subjects form, Catalogue tile grid, dissemination ledger, 8-variant case enum with proposal kanban + RFI routing, saved queries + manual diagram builder + match definitions, reference tables (197 seed rows), operational statistics dashboards, scheduled-processes admin surface, XLSX + goAML-XML exports, goAML vocabulary tooltips, `docs/goaml-coverage.md`.
 - **Sovereign Ledger rebrand** (2026-04-18): institutional-brutalist UI direction merged. See §"Sovereign Ledger".
@@ -16,9 +16,10 @@ Seven build-out sessions shipped end-to-end:
 - **V2 phase 1: cross-bank intelligence** (2026-05-04): cross-bank dashboard with persona-aware anonymisation (`d64049d`), multi-bank synthetic seed module (`6bd2366`), procurement whitepaper (`dfbfca3`). See §"Cross-bank intelligence" below.
 - **V2 phase 2: bank-direct surface** (2026-05-05): bank-direct landing at `/banks` (P2.1 `5932e9c`), self-serve signup at `/signup/bank` (P2.2 `98e21ae`), demo-bank seed loader + Beat dispatch (P2.3 `0b15a23`), persona-isolation verification + migration 013 hot-fix (P2.4 `857f415`), Resend wiring on briefing-intake (P2.5 `166818e`). See §"Bank-direct surface (V2 P2)" below.
 - **V2 phase 3: real-time transaction-scoring API** (2026-05-05): per-transaction `POST /transactions/score` + feedback endpoint + recent stream + migration 014 (P3.1+P3.2+P3.3 `1dc575a`), monitoring dashboard at `/monitoring/realtime` + `GET /transactions/score/metrics` engine route + `docs/api-integration.md` (P3.4+P3.5 `67d038b`). See §"Real-time transaction-scoring (V2 P3)" below.
+- **V2 phase 4: sanctions / PEP / adverse-media screening** (2026-05-05): `/screening/entity` fuzzy-match service + adverse-media stub + migration 015 (`watchlist_entries`) + Celery ingestion framework + 22-row synthetic seed across 5 sources + realtime inline integration (P4.1-P4.3+P4.5 `f566f35`). Screening UI at `/screen` + nav entry + `docs/api-integration.md` §8 (P4.4 — pending commit). See §"Sanctions / PEP / adverse-media screening (V2 P4)" below.
 
 **Aggregate prod state:**
-- 107 engine routes across 20 routers (4 new in V2 P3: realtime router with score/feedback/recent/metrics). 193/193 pytest. `GET /ready` on `https://kestrel-engine.onrender.com` shows auth/db/redis/storage/worker=ok; `ai:openai = skipped` with model `anthropic/claude-sonnet-4.6` (configured + reachability probe disabled).
+- 111 engine routes across 21 routers (4 new in V2 P4: screening router with entity/adverse-media/entries-GET/entries-POST). 217/217 pytest. `GET /ready` on `https://kestrel-engine.onrender.com` shows auth/db/redis/storage/worker=ok; `ai:openai = skipped` with model `anthropic/claude-sonnet-4.6` (configured + reachability probe disabled).
 - Migrations 001–013 applied. 012 (`advisor_fixes`) locked `search_path = ''` on 7 SECURITY DEFINER helpers; 013 (`qualify_security_definer_helpers`, 2026-05-05) schema-qualified the 5 of those that referenced unqualified relations/sequences. Migrations 001 + 002 retroactively recorded in `supabase_migrations.schema_migrations` after the audit found them missing.
 - Prod data (post V2 phase 2 — no bank tenant has signed up via /signup/bank yet, so demo-bank seed has never fired): 197 reference_tables, 5 typologies, **52 entities** (28 pre-V2 + 24 multi-bank seed), 377 accounts, 547 transactions, **10 STRs**, **40 alerts**, 1 case, **7 matches**.
 - All 40 `(platform)` pages live + 2 new `(public)` pages from V2 P2: `/banks` (bank-direct landing) and `/signup/bank` (force-dynamic, feature-flag gated). The platform-page count is unchanged.
@@ -285,15 +286,46 @@ V2 phase 3 of the world-class build. Two commits on 2026-05-05: `1dc575a` (P3.1+
 
 **Lint regression fixed**: `web/src/components/intel/cross-bank-dashboard.tsx` had a `react-hooks/set-state-in-effect` violation introduced in V2 P1.1 that broke CI for 3 commits. Fixed by lifting `setLoading(true)` + `setError(null)` out of the `useEffect` into the filter click handlers (same pattern used by the new realtime dashboard). CI is now green.
 
+## Sanctions / PEP / adverse-media screening (V2 P4)
+
+V2 phase 4 of the world-class build. Two commits on 2026-05-05: `f566f35` (P4.1+P4.2+P4.3+P4.5 engine + realtime inline + ingestion framework + synthetic seed), pending commit (P4.4 web UI + nav + api-integration docs).
+
+**Engine routes** (`engine/app/routers/screening.py` mounted at `/screening`):
+- `POST /entity` — fuzzy-matches a candidate (name + DOB + nationality + NID + passport) against the shared `watchlist_entries` pool. Score weights: name 0.4 / DOB 0.3 / nationality 0.2 / identifier 0.1. Default threshold 0.7. Returns matches sorted descending with `match_reasons` + `matched_entry`.
+- `POST /adverse-media` — ComplyAdvantage adapter (`engine/app/services/adverse_media.py`). Returns `provider="stub"` + empty hits when `COMPLYADVANTAGE_API_KEY` is absent.
+- `GET /entries?list_source=OFAC&limit=50` — browse the watchlist pool (any authed).
+- `POST /entries` — manual upload, regulator-org admins only (BB Domestic uploads).
+
+**Service** (`engine/app/services/screening.py`): `screen_entity` runs read-only against `watchlist_entries`. Uses `func.similarity(WatchlistEntry.primary_name, candidate)` (pg_trgm) with a 0.4 floor + alias fuzzy-match (Jaccard on token sets). Then composes the four weighted contributions into a 0–1 score. Persona-neutral (every authed caller can screen; the watchlist itself is global by design).
+
+**Realtime inline integration** (`engine/app/services/realtime_scoring.py`): when `from_account_metadata` or `to_account_metadata` carries a `name` field, the scorer runs `_screen_party` for each side. A hit at `match_score >= _SANCTIONS_HIT_THRESHOLD = 0.7` adds `_SANCTIONS_HIT_POINTS = 50` via reason class `from_sanctions_hit` / `to_sanctions_hit`. Two hits push the score past the rejection band even when every other signal is benign. `evidence.{from,to}_sanctions_hit` carries `list_source` + `match_score` + `matched_name`.
+
+**Migration 015** (`015_watchlist_entries.sql`): `watchlist_entries` (id, list_source, list_version, entry_type, primary_name, aliases[], date_of_birth, nationality, identifiers jsonb, addresses jsonb, reason, raw_record jsonb, ingested_at, removed_at). Indexes: `gin (primary_name gin_trgm_ops)`, `gin (aliases)`, partial active by source, recency. Unique INDEX (not constraint) on `(list_source, primary_name, list_version, COALESCE(date_of_birth, '1900-01-01'))`. RLS: SELECT-for-any-authed, INSERT/UPDATE/DELETE-for-regulator. Engine ingestion connects as `postgres` (BYPASSRLS) like every other write path.
+
+**Source adapters** (`engine/app/screening/sources/`):
+- `ofac.py` — fetches `https://www.treasury.gov/ofac/downloads/sdn.xml`; lxml parser; per-entry aliases / DOB / nationality / identifiers / addresses / program-as-reason.
+- `un.py` — fetches `https://scsanctions.un.org/resources/xml/en/consolidated.xml`; parses individual + entity sub-trees separately.
+- `uk_ofsi.py` — fetches `https://docs.fcdo.gov.uk/docs/UK-Sanctions-List.csv`; csv.DictReader; column-defensive (different versions ship slight schema variations).
+- `eu.py` — placeholder. EU FSF requires credentialed access; live wiring is a Phase 6 task.
+
+**Celery ingestion** (`engine/app/tasks/screening_tasks.py`): `refresh_all` Beat task runs every configured source through `_run_one` and upserts via `pg_insert(...).on_conflict_do_nothing(index_elements=["id"])`. Deterministic UUID5 PKs derived from `(list_source, primary_name, dob)` and the shared `NAMESPACE` make the upsert path simple. **Live ingestion is gated on `KESTREL_WATCHLIST_INGESTION_ENABLED=true`** so external bytes don't pull until the operator turns it on. Beat schedule went 4 → 5 jobs (added `watchlist_refresh_daily` at 02:30 BDT, after the nightly scan).
+
+**Synthetic seed** (`engine/seed/load_watchlist_synthetic.py`): 22 hand-curated entries across OFAC (7) / UN (4) / UK_OFSI (3) / BB_DOMESTIC (4) / PEP (4). Names are deliberately fictional — safe to ship in a public repo. Applied to prod 2026-05-05 via Supabase MCP `execute_sql` (data, not a migration).
+
+**Web** (`web/src/app/(platform)/screen/page.tsx` + `web/src/components/screening/screening-panel.tsx`): Sovereign Ledger styled. Form for name + DOB + nationality + NID + passport + min-score + list filter. Default view shows the most-recent-20 watchlist preview; submitting runs `POST /api/screening/entity` and renders the matches table. Vermillion on score ≥ 0.9 = the highest-confidence hits.
+
+**Tests** (`engine/tests/test_screening.py`): 24 pure-helper tests covering name normalisation, score composition, alias similarity, identifier matching (string + list + nested docs bag), parse_screening_date, and the realtime `_score_sanctions` integration. pytest 193 → 217.
+
+**Live verification:** unauth `POST /screening/entity` returns 401 with the proper error envelope (route mounted with auth dep). `SELECT list_source, count(*) FROM watchlist_entries GROUP BY 1` confirms 22 rows seeded. Auto-deploy on Render + Vercel succeeded.
+
 ## What to work on next
 
-V2 phases 1, 2, and 3 shipped. Phases 4–6 still pending. Continuity prompt: **`KESTREL-RESUME-V2.md`** (rooted in `KESTREL-WORLD-CLASS-BUILD-V2.md`).
+V2 phases 1, 2, 3, and 4 shipped. Phases 5–6 still pending. Continuity prompt: **`KESTREL-RESUME-V2.md`** (rooted in `KESTREL-WORLD-CLASS-BUILD-V2.md`).
 
 | Phase | Estimate | Unlock |
 |---|---|---|
-| **P4** Sanctions/PEP/adverse-media screening | 5–6 days | Closes the second-biggest capability gap. OFAC/EU/UN/UK ingestion + screening API + UI. Migration 015. |
-| **P5** KYC/CDD module | 5 days | Greenfield. Closes the third gap. Migration 016. |
-| **P6** Status page + pricing tiers + demo polish | 3–4 days | Credibility layer. |
+| **P5** KYC/CDD module | 5 days | Greenfield. Customer onboarding service + `customers` table (migration 016) + 6 API endpoints + KYC UI + periodic re-screening Beat task. Reuses Phase 4 screening for the inline KYC sanctions check. |
+| **P6** Status page + pricing tiers + demo polish | 3–4 days | Credibility layer. The realtime decision bands become tier-configurable here. |
 
 **Outstanding small-pickups:**
 - Inside V2 P1: apply the remaining multi-bank-seed chunks (accounts / transactions / STRs) to prod via `python -m seed.multi_bank_synthetic --apply`. The cross-bank dashboard works without these but they'd enrich the entity dossier downstream when bank-persona users click through to a flagged subject.

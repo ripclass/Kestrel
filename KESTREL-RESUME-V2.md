@@ -6,16 +6,16 @@ Drop this into the next session. Full state in `CLAUDE.md` (auto-loaded).
 
 ## Context (verified live 2026-05-05)
 
-V2 of the world-class build is in motion. **Phases 1, 2, and 3 of `KESTREL-WORLD-CLASS-BUILD-V2.md` shipped to `main`** — ten commits over 2026-05-04 / 2026-05-05, all auto-deployed to Vercel + Render with no failures. Phases 4–6 still pending.
+V2 of the world-class build is in motion. **Phases 1, 2, 3, and 4 of `KESTREL-WORLD-CLASS-BUILD-V2.md` shipped to `main`** — eleven commits over 2026-05-04 / 2026-05-05, all auto-deployed to Vercel + Render with no failures. Phases 5–6 still pending.
 
 | Surface | Status |
 |---|---|
-| Engine | `https://kestrel-engine.onrender.com` — 107 routes, 193/193 pytest, `/ready` clean |
-| Web | `https://kestrel-nine.vercel.app` — 41 platform pages + `/banks` (V2 P2.1) + `/signup/bank` (V2 P2.2) + `/monitoring/realtime` (V2 P3.4), Sovereign Ledger UI, last commit `67d038b` |
+| Engine | `https://kestrel-engine.onrender.com` — 111 routes, 217/217 pytest, `/ready` clean |
+| Web | `https://kestrel-nine.vercel.app` — 42 platform pages + `/banks` + `/signup/bank` + `/monitoring/realtime` + `/screen` (V2 P4.4), Sovereign Ledger UI, last commit `f566f35` |
 | AI | `anthropic/claude-sonnet-4.6` via OpenRouter on engine + worker + beat (no longer heuristic) |
 | Render services | `kestrel-engine` (`srv-d7757oidbo4c73e98tlg`), `kestrel-worker` (`srv-d7760cuuk2gs73as3oeg`), `kestrel-beat` (`srv-d7sajha8qa3s73e1spv0`) — all running |
-| Beat schedule | nightly scan (02:00 BDT), daily digest (06:30), weekly compliance (Mon 05:00), and **`demo_bank_seed_pending` every 10 min** (V2 P2.3) |
-| Supabase | project `bmlyqlkzeuoglyvfythg`, ap-southeast-1, migrations 001 → 014 applied (013 was a P2.4 hot-fix; 014 is `realtime_scoring_log` from P3.1+P3.2) |
+| Beat schedule | nightly scan (02:00 BDT), daily digest (06:30), weekly compliance (Mon 05:00), `demo_bank_seed_pending` every 10 min (P2.3), and **`watchlist_refresh_daily` at 02:30 BDT** (V2 P4.1, gated on `KESTREL_WATCHLIST_INGESTION_ENABLED=true`) |
+| Supabase | project `bmlyqlkzeuoglyvfythg`, ap-southeast-1, migrations 001 → 015 applied (013 was a P2.4 hot-fix; 014 is `realtime_scoring_log` from P3.1; 015 is `watchlist_entries` from P4.1) |
 
 ## What V2 Phase 1 shipped (don't redo)
 
@@ -70,15 +70,23 @@ If anything looks wrong: query `audit_log` for the request_id, check `render log
 
 **Total Phase 3 estimate spent: ~1 focused day** (vs the 5-6 day estimate). Came in under because the existing entity resolver + matches infrastructure carried most of the heavy lifting; the scoring path is mostly composition + audit logging.
 
-## After Phase 3
+## What V2 Phase 4 shipped (don't redo)
+
+| Commit | Task | Outcome |
+|---|---|---|
+| `f566f35` | **P4.1+P4.2+P4.3+P4.5** Schema + screening service + adverse-media stub + realtime inline integration + ingestion framework + synthetic seed | New router `engine/app/routers/screening.py` mounted at `/screening` with 4 endpoints (`POST /entity` fuzzy match, `POST /adverse-media` ComplyAdvantage adapter stub, `GET /entries` browse, `POST /entries` regulator manual upload). Service `engine/app/services/screening.py` runs pg_trgm + alias-Jaccard fuzzy match with weighted score composition (name 0.4 / DOB 0.3 / nationality 0.2 / identifier 0.1; default threshold 0.7). `realtime_scoring.py` calls `_screen_party` for both transaction parties when metadata carries a `name` — a hit at score ≥ 0.7 adds `from_sanctions_hit` / `to_sanctions_hit` (+50 each), forcing hold/reject. Migration 015 (`watchlist_entries`) applied to prod via Supabase MCP — RLS SELECT-for-any-authed, INSERT/UPDATE/DELETE-for-regulator, gin_trgm + GIN aliases + active partial + recency indexes, unique INDEX on (list_source, primary_name, list_version, COALESCE(dob,…)). Source adapters under `app/screening/sources/{ofac,un,uk_ofsi,eu}.py` with real fetch+parse contracts (lxml for XML, csv for OFSI; EU placeholder). Beat task `watchlist_refresh_daily` at 02:30 BDT, gated on `KESTREL_WATCHLIST_INGESTION_ENABLED=true` so external bytes don't pull until enabled. Synthetic seed (`engine/seed/load_watchlist_synthetic.py`): 22 rows / 5 sources / fictional names. Applied to prod via `execute_sql`. 24 new pure-helper tests; pytest 193 → 217. |
+| (pending — P4.4) | **P4.4** Screening UI + nav + docs update | Web `/screen` page with form (name + DOB + nationality + NID + passport + min-score + list filter) + watchlist preview default view + matches table on submit. Sovereign Ledger styled. Two Next API proxies (`/api/screening/entity`, `/api/screening/entries`). Nav entry under Operations. `docs/api-integration.md` §8 added covering the 4 screening endpoints with cURL + decision-band integration notes. |
+
+**Total Phase 4 estimate spent: ~1 focused day** so far (vs the 5-6 day estimate). Same pattern as Phase 3 — pg_trgm + the entity/matches infrastructure carried most of the weight.
+
+## After Phase 4
 
 | Phase | Estimate | Strategic unlock |
 |---|---|---|
-| **P4** Sanctions/PEP/adverse-media screening | 5–6 days | OFAC/EU/UN/UK ingestion (free public lists, daily cron), screening API, screening UI, ComplyAdvantage adapter as placeholder. Migration **015** for `watchlist_entries`. Real-time scoring integration so cross-rail screening happens inline (touches `engine/app/services/realtime_scoring.py` to add a `from/to_sanctions_hit` reason class). |
-| **P5** KYC/CDD module | 5 days | Greenfield. New `customers` table (migration **016**). Customer onboarding service, 6 API endpoints, KYC UI, periodic re-screening Beat task. |
-| **P6** Status page + pricing tiers + demo polish | 3–4 days | Public status surface driven by `/ready` history, pricing-tier enforcement (`engine/app/services/billing.py` + `organizations.plan_id` migration), weekly demo-data refresher Beat task, `/demo` public route with persona switcher. The realtime-scoring decision bands become tier-configurable here. |
+| **P5** KYC/CDD module | 5 days | Greenfield. New `customers` table (migration **016**). Customer onboarding service, 6 API endpoints, KYC UI, periodic re-screening Beat task. Reuses Phase 4 screening for the inline KYC sanctions check; new customers also get inserted into the shared entities pool so cross-bank intelligence picks up the relationship. |
+| **P6** Status page + pricing tiers + demo polish | 3–4 days | Public status surface driven by `/ready` history, pricing-tier enforcement (`engine/app/services/billing.py` + `organizations.plan_id` migration **017**), weekly demo-data refresher Beat task, `/demo` public route with persona switcher. The realtime-scoring decision bands become tier-configurable here. |
 
-> **Migration numbering:** 014 is now applied. **015** is the next available — make sure phases 4 / 5 / 6 keep contiguous numbering. Don't reuse 014.
+> **Migration numbering:** 015 is now applied. **016** is the next available — make sure phases 5 / 6 keep contiguous numbering. Don't reuse 015.
 
 ## What to read first when you pick this up
 
@@ -87,7 +95,8 @@ If anything looks wrong: query `audit_log` for the request_id, check `render log
 3. `KESTREL-WORLD-CLASS-BUILD-V2.md` — the canonical V2 build prompt. Phases 3–6 in full detail.
 4. `docs/multi-tenant-isolation-verified.md` — V2 P2.4 verification artifact. Cite this doc when answering "is data isolated between bank tenants?" for a procurement audience.
 5. `engine/app/services/cross_bank.py`, `engine/seed/load_demo_bank.py`, `web/src/app/actions/bank-signup.ts` — the V2 P1 + P2 reference patterns for persona-aware services, idempotent per-tenant seeds, and service-role provisioning actions.
-6. `engine/app/services/realtime_scoring.py`, `engine/app/routers/realtime.py`, `web/src/components/monitoring/realtime-dashboard.tsx`, `docs/api-integration.md` — V2 P3 reference patterns for sub-500ms read-only services + structured reason arrays + auto-refresh dashboards + bank-facing API docs. Phase 4 sanctions screening will extend `realtime_scoring.py` with new reason classes; phase 6 will make the decision bands tier-configurable from this base.
+6. `engine/app/services/realtime_scoring.py`, `engine/app/routers/realtime.py`, `web/src/components/monitoring/realtime-dashboard.tsx`, `docs/api-integration.md` — V2 P3 reference patterns for sub-500ms read-only services + structured reason arrays + auto-refresh dashboards + bank-facing API docs. Phase 4 extended `realtime_scoring.py` with sanctions reason classes; phase 6 will make the decision bands tier-configurable from this base.
+7. `engine/app/services/screening.py`, `engine/app/screening/sources/`, `engine/seed/load_watchlist_synthetic.py`, `engine/app/tasks/screening_tasks.py`, `web/src/components/screening/screening-panel.tsx` — V2 P4 reference patterns for fuzzy-match services + source-adapter framework + Beat-driven ingestion gated behind a config switch + synthetic seeds + persona-neutral search UIs. Phase 5 KYC will reuse `screen_entity` for the inline sanctions check during customer onboarding.
 
 ## Hard constraints (don't break)
 

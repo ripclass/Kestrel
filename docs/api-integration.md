@@ -296,16 +296,116 @@ The web app surfaces both at `/monitoring/realtime`. The page auto-refreshes eve
 
 ---
 
-## 8. Versioning & change log
+## 8. Sanctions / PEP screening
 
-This API is **v1 stable**. Future additions (sanctions screening inline in the scoring path, KYC-driven base risk, sovereign-AI confidence routing) will appear as additive fields in the response, never as breaking changes to the existing fields. Reason codes, decision bands, and field shapes are durable contracts.
+```
+POST /screening/entity
+```
+
+Fuzzy-matches a candidate (name + optional DOB / nationality / NID / passport) against the shared `watchlist_entries` pool — OFAC SDN, UN consolidated, UK OFSI, EU consolidated, Bangladesh Bank's domestic list, and PEP. Returns matches scored 0–1 across the four signals (name 0.4 / DOB 0.3 / nationality 0.2 / identifier 0.1).
+
+### Request
+
+```json
+{
+  "name": "Mohammad Karim",
+  "date_of_birth": "1979-03-14",
+  "nationality": "BD",
+  "nid": "1979314001234",
+  "passport": "BR9912345",
+  "screening_lists": ["OFAC", "UN", "UK_OFSI", "BB_DOMESTIC", "PEP"],
+  "minimum_match_score": 0.7
+}
+```
+
+`screening_lists` is optional — omit to search every list. `minimum_match_score` defaults to 0.7; lower it to widen the search at the cost of more false positives.
+
+### Response
+
+```json
+{
+  "matches": [
+    {
+      "list_source": "OFAC",
+      "list_version": "synthetic-2026-05-05",
+      "entry_id": "...",
+      "entry_type": "individual",
+      "matched_name": "Mohammad Karim",
+      "matched_aliases": ["M. Karim", "Mohammad Hossain Karim"],
+      "matched_entry": {
+        "primary_name": "Mohammad Karim",
+        "aliases": ["M. Karim", "Mohammad Hossain Karim"],
+        "date_of_birth": "1979-03-14",
+        "nationality": "BD",
+        "identifiers": {"passport": ["BR9912345"], "nid": ["1979314001234"]},
+        "addresses": [{"city": "Dhaka", "country": "Bangladesh"}],
+        "reason": "SDN-FORMER-MILITARY"
+      },
+      "match_score": 0.94,
+      "match_reasons": [
+        "primary_name fuzzy match similarity=0.99",
+        "date_of_birth exact match",
+        "nationality match",
+        "identifier match"
+      ]
+    }
+  ],
+  "screened_at": "2026-05-05T07:32:14+00:00",
+  "request_id": "..."
+}
+```
+
+### Inline integration with /transactions/score
+
+When `from_account_metadata` or `to_account_metadata` carries a `name` field, the realtime scoring path runs the same screening service inline. A hit at `match_score >= 0.7` adds a `from_sanctions_hit` (or `to_sanctions_hit`) reason worth +50 points — enough on its own to push the transaction score into the `hold` band, and two hits push it past `reject`. The matched list source + score are echoed in `evidence.{from,to}_sanctions_hit`.
+
+This is the recommended way to integrate screening into a core-banking pipeline: send the candidate name on every transaction, let scoring fold in the result, and drive your bank's response off the unified `decision`. Standalone calls to `/screening/entity` remain available for manual analyst workflows.
+
+```
+POST /screening/adverse-media
+```
+
+ComplyAdvantage adapter for adverse-media screening. Returns `{provider: "stub", hits: []}` when `COMPLYADVANTAGE_API_KEY` is not configured. Same request shape as `/screening/entity` minus the identifier fields.
+
+```
+GET /screening/entries?list_source=OFAC&limit=50
+```
+
+Browse the watchlist pool. Any authenticated user can read. Useful for verifying ingestion ran and for an analyst to see the most recent additions.
+
+```
+POST /screening/entries
+```
+
+Manual upload — restricted to regulator-org admins (Bangladesh Bank's domestic watchlist is the primary use case; OFAC / UN / UK OFSI / EU come through the daily ingestion task). The `Bangladesh Bank Domestic Watchlist` source uses `list_source: "BB_DOMESTIC"`.
+
+### cURL example
+
+```bash
+curl -X POST https://kestrel-engine.onrender.com/screening/entity \
+  -H "Authorization: Bearer $KESTREL_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "Mohammad Karim",
+    "date_of_birth": "1979-03-14",
+    "nationality": "BD",
+    "minimum_match_score": 0.7
+  }'
+```
+
+---
+
+## 9. Versioning & change log
+
+This API is **v1 stable**. Future additions (KYC-driven base risk, sovereign-AI confidence routing) will appear as additive fields in the response, never as breaking changes. Reason codes, decision bands, and field shapes are durable contracts.
 
 | Date | Change |
 |---|---|
 | 2026-05-05 | V2 phase 3 — initial public release of `/transactions/score`, `/transactions/score/{id}/feedback`, `/transactions/score/recent`, `/transactions/score/metrics`. |
+| 2026-05-05 | V2 phase 4 — sanctions / PEP / adverse-media screening: `/screening/entity`, `/screening/adverse-media`, `/screening/entries` (GET browse + POST manual upload). New reason classes `from_sanctions_hit` / `to_sanctions_hit` (+50 each) on `/transactions/score`. |
 
 ---
 
-## 9. Support
+## 10. Support
 
 Procurement / pilot conversations: `kamal@enso-intelligence.com`. Engineering integration support: `engineering@enso-intelligence.com`. Always include the `request_id` from the response envelope.
