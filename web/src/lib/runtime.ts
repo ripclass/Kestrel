@@ -27,3 +27,8 @@ export function isDemoModeConfigured() {
 
   return !hasAnySupabasePublicEnv();
 }
+
+export function isBankDirectSignupEnabled() {
+  const explicit = parseEnvBoolean(process.env.ENABLE_BANK_DIRECT_SIGNUP);
+  return explicit ?? true;
+}
