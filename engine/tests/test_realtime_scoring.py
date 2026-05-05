@@ -21,6 +21,7 @@ from app.services.realtime_scoring import (
     _confidence_from_signals,
     _decide,
     _normalize_for_lookup,
+    _percentile,
     _score_account_age,
     _score_amount,
     _score_channel,
@@ -296,3 +297,31 @@ def test_decision_bands_cover_full_score_range() -> None:
     a band without breaking this test."""
     bands_seen = {_decide(s) for s in (0, 30, 60, 80, 100)}
     assert bands_seen == {"approve", "review", "hold", "reject"}
+
+
+# Latency percentile helper -------------------------------------------------
+
+def test_percentile_empty_returns_zero() -> None:
+    assert _percentile([], 50) == 0
+    assert _percentile([], 99) == 0
+
+
+def test_percentile_single_value() -> None:
+    assert _percentile([42], 50) == 42
+    assert _percentile([42], 99) == 42
+
+
+def test_percentile_p50_matches_median_on_odd_set() -> None:
+    assert _percentile([10, 20, 30, 40, 50], 50) == 30
+
+
+def test_percentile_p95_extrapolates_high() -> None:
+    """For 1..100 the linear-interpolated p95 should land near 95."""
+    values = list(range(1, 101))
+    assert _percentile(values, 95) == 95
+    assert _percentile(values, 99) == 99
+    assert _percentile(values, 50) == 50
+
+
+def test_percentile_independent_of_input_order() -> None:
+    assert _percentile([100, 50, 25, 75, 10], 50) == _percentile([10, 25, 50, 75, 100], 50)

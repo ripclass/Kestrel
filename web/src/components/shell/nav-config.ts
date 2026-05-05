@@ -25,6 +25,7 @@ const navItems: NavItem[] = [
   { section: "Operations", label: "Cases", href: "/cases", aka: "Business Processes (goAML)" },
   { section: "Operations", label: "Exchange", href: "/iers", aka: "Information Exchange Request (goAML)" },
   { section: "Operations", label: "Scan", href: "/scan", personas: ["bank_camlco"], aka: "Detection / Matching Executions (goAML)" },
+  { section: "Operations", label: "Real-time", href: "/monitoring/realtime", aka: "Real-time transaction-scoring stream (Kestrel-native)" },
   { section: "Command", label: "National", href: "/reports/national", personas: ["bfiu_director", "bfiu_analyst"], aka: "Reports (goAML)" },
   { section: "Command", label: "Compliance", href: "/reports/compliance", personas: ["bfiu_director", "bank_camlco"], aka: "Reports — Compliance (goAML)" },
   { section: "Command", label: "Trends", href: "/reports/trends", personas: ["bfiu_director"], aka: "Reports — Trend Analysis (goAML)" },

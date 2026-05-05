@@ -84,10 +84,20 @@ export function CrossBankDashboard({ viewer }: { viewer: Viewer }) {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    let cancelled = false;
+  const handleWindowChange = (value: number) => {
     setLoading(true);
     setError(null);
+    setWindowDays(value);
+  };
+
+  const handleSeverityChange = (value: string) => {
+    setLoading(true);
+    setError(null);
+    setSeverity(value);
+  };
+
+  useEffect(() => {
+    let cancelled = false;
 
     const params = new URLSearchParams();
     params.set("window_days", String(windowDays));
@@ -144,7 +154,7 @@ export function CrossBankDashboard({ viewer }: { viewer: Viewer }) {
                 <button
                   key={opt.value}
                   type="button"
-                  onClick={() => setWindowDays(opt.value)}
+                  onClick={() => handleWindowChange(opt.value)}
                   className={`px-3 py-1.5 font-mono text-[11px] uppercase tracking-[0.22em] transition ${
                     windowDays === opt.value
                       ? "bg-foreground text-background"
@@ -164,7 +174,7 @@ export function CrossBankDashboard({ viewer }: { viewer: Viewer }) {
                 <button
                   key={opt.value || "all"}
                   type="button"
-                  onClick={() => setSeverity(opt.value)}
+                  onClick={() => handleSeverityChange(opt.value)}
                   className={`px-3 py-1.5 font-mono text-[11px] uppercase tracking-[0.22em] transition ${
                     severity === opt.value
                       ? "bg-foreground text-background"

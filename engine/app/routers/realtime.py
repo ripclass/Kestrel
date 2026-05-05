@@ -24,6 +24,7 @@ from app.dependencies import get_current_session
 from app.schemas.realtime import (
     RealtimeFeedbackRequest,
     RealtimeFeedbackResponse,
+    RealtimeMetricsResponse,
     RealtimeRecentRow,
     RealtimeScoreRequest,
     RealtimeScoreResponse,
@@ -31,6 +32,7 @@ from app.schemas.realtime import (
 )
 from app.services.realtime_scoring import (
     RealtimeScoringRequest,
+    build_realtime_metrics,
     list_recent_scores,
     record_feedback,
     score_transaction,
@@ -113,3 +115,19 @@ async def recent(
     capped = max(1, min(int(limit or 50), 200))
     rows = await list_recent_scores(session, user=user, limit=capped)
     return [RealtimeRecentRow.model_validate(row) for row in rows]
+
+
+@router.get("/score/metrics", response_model=RealtimeMetricsResponse)
+async def metrics(
+    user: Annotated[AuthenticatedUser, Depends(get_current_user)],
+    session: Annotated[AsyncSession, Depends(get_current_session)],
+    window_hours: int = 24,
+    top_limit: int = 5,
+) -> RealtimeMetricsResponse:
+    payload = await build_realtime_metrics(
+        session,
+        user=user,
+        window_hours=window_hours,
+        top_limit=top_limit,
+    )
+    return RealtimeMetricsResponse.model_validate(payload)

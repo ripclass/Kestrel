@@ -25,10 +25,10 @@ import logging
 import time
 import uuid
 from dataclasses import dataclass
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from typing import Any
 
-from sqlalchemy import select
+from sqlalchemy import Integer, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.auth import AuthenticatedUser
@@ -522,6 +522,135 @@ async def record_feedback(
         "feedback_received": True,
         "feedback_outcome": outcome,
         "feedback_at": log.feedback_at.isoformat(),
+    }
+
+
+def _percentile(values: list[int], pct: float) -> int:
+    """Linear-interpolated percentile. ``pct`` is 0-100. Returns 0 on empty."""
+    if not values:
+        return 0
+    if len(values) == 1:
+        return int(values[0])
+    ordered = sorted(values)
+    rank = (pct / 100.0) * (len(ordered) - 1)
+    lo = int(rank)
+    hi = min(lo + 1, len(ordered) - 1)
+    weight = rank - lo
+    return int(round(ordered[lo] * (1 - weight) + ordered[hi] * weight))
+
+
+async def build_realtime_metrics(
+    session: AsyncSession,
+    *,
+    user: AuthenticatedUser,
+    window_hours: int = 24,
+    top_limit: int = 5,
+) -> dict[str, Any]:
+    """Aggregate metrics for the Phase 3.4 monitoring dashboard.
+
+    - decision distribution + counts in the window
+    - latency p50 / p95 / p99 across the window
+    - top scored transactions in the last hour (by score, then by recency)
+    - cross-bank flagged count in the window
+
+    Persona-aware: bank persona sees its own org. Regulator persona sees the
+    cross-system aggregate. Read-only against ``realtime_scoring_log``.
+    """
+    now = datetime.now(UTC)
+    window = max(1, min(int(window_hours or 24), 168))  # 1h ≤ window ≤ 7 days
+    window_start = now - timedelta(hours=window)
+    last_hour = now - timedelta(hours=1)
+
+    is_regulator = (user.org_type or "").lower() == "regulator"
+
+    base_filters = [RealtimeScoringLog.created_at >= window_start]
+    if not is_regulator:
+        try:
+            org_uuid = uuid.UUID(str(user.org_id))
+        except (TypeError, ValueError):
+            return {
+                "window_hours": window,
+                "total": 0,
+                "decisions": {"approve": 0, "review": 0, "hold": 0, "reject": 0},
+                "cross_bank_flag_count": 0,
+                "latency_ms": {"p50": 0, "p95": 0, "p99": 0, "avg": 0},
+                "top_recent": [],
+                "persona_view": "bank",
+            }
+        base_filters.append(RealtimeScoringLog.org_id == org_uuid)
+
+    # Decision distribution + cross-bank flag count + simple counters.
+    counter_stmt = (
+        select(
+            RealtimeScoringLog.decision,
+            func.count().label("count"),
+            func.sum(
+                func.cast(RealtimeScoringLog.cross_bank_flag, Integer)
+            ).label("cross_bank_count"),
+        )
+        .where(*base_filters)
+        .group_by(RealtimeScoringLog.decision)
+    )
+    decision_counts = {"approve": 0, "review": 0, "hold": 0, "reject": 0}
+    cross_bank_count = 0
+    total = 0
+    result = await session.execute(counter_stmt)
+    for row in result.all():
+        decision = row[0] or "approve"
+        count = int(row[1] or 0)
+        cross_bank = int(row[2] or 0)
+        decision_counts[decision] = decision_counts.get(decision, 0) + count
+        cross_bank_count += cross_bank
+        total += count
+
+    # Latency percentiles — pull all latencies in the window. Bounded by the
+    # window cap above, so this stays tight at our scale (single bank tenants
+    # generate well under ten thousand calls per day in v1).
+    latency_stmt = select(RealtimeScoringLog.latency_ms).where(*base_filters)
+    latency_result = await session.execute(latency_stmt)
+    latencies = [int(value or 0) for (value,) in latency_result.all()]
+    latency_payload = {
+        "p50": _percentile(latencies, 50),
+        "p95": _percentile(latencies, 95),
+        "p99": _percentile(latencies, 99),
+        "avg": int(round(sum(latencies) / len(latencies))) if latencies else 0,
+    }
+
+    # Top scored transactions in the last hour (or window, whichever is shorter)
+    top_window_start = max(last_hour, window_start)
+    top_stmt = (
+        select(RealtimeScoringLog)
+        .where(*base_filters)
+        .where(RealtimeScoringLog.created_at >= top_window_start)
+        .order_by(
+            RealtimeScoringLog.score.desc(),
+            RealtimeScoringLog.created_at.desc(),
+        )
+        .limit(max(1, min(int(top_limit or 5), 25)))
+    )
+    top_rows = (await session.execute(top_stmt)).scalars().all()
+    top_recent = [
+        {
+            "id": str(row.id),
+            "transaction_external_id": row.transaction_external_id,
+            "score": int(row.score),
+            "decision": row.decision,
+            "cross_bank_flag": bool(row.cross_bank_flag),
+            "latency_ms": int(row.latency_ms),
+            "created_at": row.created_at.isoformat() if row.created_at else None,
+        }
+        for row in top_rows
+    ]
+
+    return {
+        "window_hours": window,
+        "total": total,
+        "decisions": decision_counts,
+        "cross_bank_flag_count": cross_bank_count,
+        "latency_ms": latency_payload,
+        "top_recent": top_recent,
+        "persona_view": "regulator" if is_regulator else "bank",
+        "generated_at": now.isoformat(),
     }
 
 

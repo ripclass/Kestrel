@@ -80,5 +80,40 @@ class RealtimeRecentRow(BaseModel):
     created_at: str | None = None
 
 
+class RealtimeDecisionDistribution(BaseModel):
+    approve: int = 0
+    review: int = 0
+    hold: int = 0
+    reject: int = 0
+
+
+class RealtimeLatencyPercentiles(BaseModel):
+    p50: int
+    p95: int
+    p99: int
+    avg: int
+
+
+class RealtimeTopRecent(BaseModel):
+    id: str
+    transaction_external_id: str
+    score: int
+    decision: str
+    cross_bank_flag: bool
+    latency_ms: int
+    created_at: str | None = None
+
+
+class RealtimeMetricsResponse(BaseModel):
+    window_hours: int
+    total: int
+    decisions: RealtimeDecisionDistribution
+    cross_bank_flag_count: int
+    latency_ms: RealtimeLatencyPercentiles
+    top_recent: list[RealtimeTopRecent] = Field(default_factory=list)
+    persona_view: Literal["bank", "regulator"]
+    generated_at: str
+
+
 def channel_is_supported(channel: str) -> bool:
     return (channel or "").upper() in _VALID_CHANNELS
