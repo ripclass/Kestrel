@@ -73,7 +73,15 @@ Seven phases. The sovereign-AI track (phases 1, 2, 4, 5) runs as a continuous ba
 
 ---
 
-## PHASE 1 — AI OUTCOME LOGGING (Week 1)
+## PHASE 1 — AI OUTCOME LOGGING (Week 1) ✅ SHIPPED 2026-05-05
+
+Two commits: `157fa73` (engine: migration 019 + dual-write in `record_ai_invocation` + AIOrchestrator timing + correction service + 3 endpoints + 12 tests), pending commit (web dashboard at `/admin/ai-outcomes` + nav).
+
+**Outcome:** every AI call now writes to `ai_outcome_log` with the redacted prompt, structured output, latency, token counts. Dashboard shows per-task correction-rate. Engine routes 123 → 126. pytest 268 → 280.
+
+**Deferred to follow-up (does not block P2):** thread `meta.outcome_log_id` from the AI envelope into existing call sites — STR draft narrative editor (capture diff on edit → POST `/api/ai/outcomes/{id}/correction`), alert explanation panel (capture dismiss as `outcome_label='rejected'`), KYC review (capture override as `outcome_label='edited'`). Infrastructure is in place; the API surface accepts these calls today; UI just needs to fire them.
+
+The detail below stays for reference.
 
 Foundation. Every AI call writes to `ai_outcome_log` so V3 phases 4-5 have a corpus to train on. The existing `engine/app/ai/audit.py::record_ai_invocation` hook is the integration point — extend it, don't fork.
 

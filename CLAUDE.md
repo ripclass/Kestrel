@@ -6,7 +6,7 @@ Kestrel is a standalone financial crime intelligence platform for Bangladesh. It
 
 ## Current state
 
-> **Prod (2026-05-05):** **V2 fully shipped — phases 1-6 all live on `main`** (last engine commit `caf7507`). Live on `kestrel-nine.vercel.app` + `kestrel-engine.onrender.com`. AI via OpenRouter (`anthropic/claude-sonnet-4.6`). All 3 Render services running. Migrations 001–018 applied. **017** (`uptime_pings` + `status_incidents`) + **018** (`organizations.plan_id`) add the public status surface and pricing-tier columns. The world-class capability matrix at `docs/world-class-capability-matrix.md` shows 14/18 at Excellent · 2 Partial-with-plan · 0 Missing.
+> **Prod (2026-05-05):** V2 fully shipped (phases 1-6) + **V3 phase 1 (AI outcome logging) shipped** — last engine commit `157fa73`. Live on `kestrel-nine.vercel.app` + `kestrel-engine.onrender.com`. AI via OpenRouter (`anthropic/claude-sonnet-4.6`). All 3 Render services running. Migrations 001–019 applied. **019** (`ai_outcome_log`) is the foundation for the V3 sovereign-AI track — every AI call now writes a row with the redacted prompt, structured output, latency, token counts, and analyst correction (if any). Capability matrix at `docs/world-class-capability-matrix.md`: 14/18 Excellent, 2 Partial-with-plan, 0 Missing.
 
 Ten build-out sessions shipped end-to-end:
 - **Intelligence-core** (2026-04-15/16): real detection engine (8 YAML rules + evaluator + scorer + resolver + matcher + pipeline), scan upload path, WeasyPrint PDF case pack, SAR/CTR report types, AI alert auto-explanation + Draft STR, DB-backed typologies, CommandView polish, modifier conditions, incremental scan scope, Phase 10 hardening (request IDs + structured JSON logs + standardised error envelope + `docs/RUNBOOK.md`).
@@ -378,17 +378,39 @@ V2 phase 6 of the world-class build. Two commits on 2026-05-05: `caf7507` (engin
 
 **Verification done at end of P6 engine:** Migrations 017 + 018 applied to prod via Supabase MCP. 5 banks bumped to professional, regulator on enterprise, MFS on starter. Engine routes 117 → 123. CI green on `caf7507`. The 402-on-starter behaviour is verified by inspection (regulator + bank both on plans that include the gated features; an MFS tenant on starter would get 402 if it called `/transactions/score`).
 
-## What's next — V3 / Phase 7
+## V3 phase 1 — AI outcome logging (shipped 2026-05-05)
 
-V2 is fully shipped. The world-class capability matrix at `docs/world-class-capability-matrix.md` documents the post-V2 state: 14/18 at Excellent, 2 at Partial-with-plan, 0 Missing.
+V3 phase 1 of `KESTREL-V3-PROMPT.md`. Foundation for the sovereign-AI track: every AI call writes one row to `ai_outcome_log` with the redacted prompt, structured output, latency, token counts, and an optional analyst correction captured later when a CAMLCO edits the AI-drafted output. Two commits on 2026-05-05: `157fa73` (engine), pending (web + UI hooks).
 
-| V3 track | Estimate | Strategic unlock |
+**Engine** (`engine/app/ai/audit.py::record_ai_invocation`): dual-writes — one row to `audit_log` for compliance (existing behaviour, every pre-V3 call site keeps working) + one row to `ai_outcome_log` for the V3 phase 4 fine-tune corpus. Returns the inserted `log_id` (uuid). The `AIOrchestrator.invoke` path now times the provider call with `time.perf_counter()`, extracts optional `prompt_tokens` / `completion_tokens` / `confidence` from `ProviderResponse` (adapters fill in when upstream returns usage), and threads the `outcome_log_id` back through `AIInvocationResult` → `AIInvocationMeta` so UI callers can post a correction later.
+
+**3 new routes** under `/ai/outcomes`:
+- `POST /outcomes/{log_id}/correction` — analyst edited the AI output, capture diff + outcome_label.
+- `GET /outcomes/dashboard?window_days=30` — per-task accuracy proxy (correction rate), provider distribution, latency, outcome-label histogram.
+- `GET /outcomes/recent?limit=50&only_corrected=true` — recent stream for the dashboard.
+
+**Migration 019** (`019_ai_outcome_log.sql`): table + RLS (own-org-or-regulator on SELECT; own-org only on UPDATE for correction capture). 3 indexes including a partial on rows with `analyst_correction IS NOT NULL` so the V3 phase 4 corpus exporter has a fast path.
+
+**Web** (`web/src/app/(platform)/admin/ai-outcomes/page.tsx`): admin/manager/analyst dashboard. 4 stat tiles (invocations / corrections / tasks / providers), per-task accuracy table (vermillion at correction_rate ≥ 30%, accent at ≥ 15%), recent stream with optional only-corrected filter. 3 API proxies. Nav entry under Admin.
+
+**Tests** (`engine/tests/test_ai_outcome.py`): 12 pure-helper tests covering digest determinism, redact-text serialisation (sort_keys + Bangla unicode), outcome view-shape round-trip, has_correction flag. pytest 268 → 280.
+
+**Deferred follow-up** (not blocking P1 close): wire `outcome_log_id` from the AI envelope into the existing AI call sites — STR draft narrative editor (capture diff on edit), alert explanation panel (capture dismiss as `outcome_label='rejected'`), KYC review (capture override as `outcome_label='edited'`). The infrastructure is in place; this is integration touch-up done as the V3 sovereign track's training data accumulates.
+
+## What's next — V3 phases 2-7
+
+V3 phase 1 shipped. Next is **P2 confidence routing** (week 2 of the V3 prompt) — sovereign-first routing pattern in `engine/app/ai/routing.py` with threshold = ∞ initially so every call still routes to Claude. After that: P3 agentic investigations, P4 training pipeline, P5 quality gates, P6 on-prem (conditional), P7 ops maturity.
+
+| V3 phase | Estimate | Strategic unlock |
 |---|---|---|
-| Sovereign Bangladesh-trained model (replaces Claude via OpenRouter) | Months 1–3 | Train LoRA on `ai_outcome_log` (build the table now during V3 month 0). Confidence-routing pattern in `engine/app/ai/providers/` already supports it. End-state pitch to BFIU: "national-grade AI hosted in-country, trained on the actual cases the analysts are working on." |
-| Agentic AI investigations | 2–3 weeks | Multi-step investigation agent that pulls related entities, drafts hypotheses, surfaces evidence. Closes the last "Missing" capability. |
-| On-prem packaging | 4–6 weeks | First Tier-3 customer drives this. The `enterprise.on_prem_eligible` flag is in place. |
-| Stripe / metered billing | 1–2 weeks | Triggered by first paid pilot signing. Plan resolver and 402 enforcement are already in place. |
-| Hard transaction-cap enforcement | 1 week | Add metered-write counter + 402 on starter plan overage when first starter pilot signs. |
+| **P2** Confidence routing | 1 week | Pattern in place; no behavior change yet. Sets up P4 to flip the threshold without a structural rewrite. |
+| **P3** Agentic AI investigations | 2-3 weeks | Multi-step investigation agent at `POST /agents/investigate`. Closes the last "Missing" capability from the world-class matrix. |
+| **P4** Training pipeline | 2 weeks | LoRA fine-tune harness on Modal/RunPod, sovereign adapter implemented, first cycle run. |
+| **P5** Quality gates + gradual rollout | 1 week | Promotion harness, per-task rollout %, automatic rollback Beat task. |
+| **P6** On-prem packaging | 4-6 weeks (conditional) | First Tier-3 customer drives this. |
+| **P7** Operational maturity | 1-2 weeks (anytime) | Stripe, hard cap enforcement, audit-log retention, latency-regression CI. |
+
+`KESTREL-V3-PROMPT.md` has the canonical task table with full detail.
 
 **Outstanding small-pickups from V2:**
 - Set `KESTREL_WATCHLIST_INGESTION_ENABLED=true` on Render to flip daily watchlist ingestion on (still on synthetic seed).

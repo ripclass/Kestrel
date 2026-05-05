@@ -40,6 +40,7 @@ const navItems: NavItem[] = [
   { section: "Admin", label: "Reference tables", href: "/admin/reference-tables", roles: ["admin", "manager", "superadmin"], aka: "Reference Tables / Lookup Master (goAML)" },
   { section: "Admin", label: "Schedules", href: "/admin/schedules", roles: ["admin", "superadmin"], aka: "Scheduled Processes (goAML Management)" },
   { section: "Admin", label: "Status", href: "/admin/status", roles: ["admin", "superadmin"], personas: ["bfiu_director", "bfiu_analyst"], aka: "Public status incident management (Kestrel-native)" },
+  { section: "Admin", label: "AI outcomes", href: "/admin/ai-outcomes", roles: ["admin", "manager", "superadmin", "analyst"], aka: "AI training corpus + correction-rate dashboard (V3)" },
   { section: "Admin", label: "API Keys", href: "/admin/api-keys", roles: ["admin", "manager", "superadmin"], aka: "Integration Credentials" },
 ];
 
