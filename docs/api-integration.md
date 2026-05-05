@@ -296,7 +296,7 @@ The web app surfaces both at `/monitoring/realtime`. The page auto-refreshes eve
 
 ---
 
-## 8. Sanctions / PEP screening
+## 8. Sanctions / PEP / adverse-media screening
 
 ```
 POST /screening/entity
@@ -395,7 +395,93 @@ curl -X POST https://kestrel-engine.onrender.com/screening/entity \
 
 ---
 
-## 9. Versioning & change log
+## 9. KYC / CDD onboarding
+
+The customer-onboarding flow runs sanctions screening (Phase 4) inline against the customer + every beneficial owner, composes a customer-level risk score, and persists the row with the full screening result for audit.
+
+```
+POST /customers
+```
+
+### Request
+
+```json
+{
+  "customer_external_id": "CUST-100345",
+  "customer_type": "individual",
+  "full_name": "Mohammad Karim",
+  "nid": "1979314001234",
+  "passport": "BR9912345",
+  "date_of_birth": "1979-03-14",
+  "nationality": "BD",
+  "phone": "+880 1711-555-001",
+  "email": "mkarim@example.test",
+  "address": {"city": "Dhaka", "country": "Bangladesh"},
+  "metadata": {"source": "branch-walkin"},
+  "beneficial_owners": []
+}
+```
+
+For `customer_type: "business"`, `beneficial_owners` is an array of `{full_name, nid, passport, date_of_birth, nationality, ownership_pct}` objects. Each owner is screened separately; their hits roll into the composed risk score.
+
+### Response
+
+```json
+{
+  "id": "0a8e8f6d-…",
+  "customer_external_id": "CUST-100345",
+  "customer_type": "individual",
+  "full_name": "Mohammad Karim",
+  "risk_score": 95,
+  "risk_level": "declined",
+  "kyc_status": "declined",
+  "screening_results": {
+    "screened_at": "2026-05-05T08:14:33+00:00",
+    "primary": [
+      {
+        "list_source": "OFAC",
+        "list_version": "synthetic-2026-05-05",
+        "entry_id": "...",
+        "matched_name": "Mohammad Karim",
+        "match_score": 0.94,
+        "match_reasons": ["primary_name fuzzy match similarity=0.99", "date_of_birth exact match", "nationality match", "identifier match"]
+      }
+    ],
+    "beneficial_owners": {}
+  },
+  "onboarded_at": "2026-05-05T08:14:33+00:00",
+  "last_rescreened_at": "2026-05-05T08:14:33+00:00"
+}
+```
+
+### Decision bands
+
+| Composed score | risk_level | kyc_status |
+|---|---|---|
+| `0–29` | `low` | `approved` |
+| `30–59` | `medium` | `approved` (with watchlist note) |
+| `60–79` | `high` | `review` (queued for CAMLCO review) |
+| `>= 80` | `declined` | `declined` |
+
+A direct sanctions hit at score `>= 0.9` on the primary customer forces `kyc_status=declined` regardless of the composed score — onboarding a sanctioned party at any composed score is itself a regulatory violation.
+
+### Other endpoints
+
+| Method | Path | Purpose |
+|---|---|---|
+| `GET` | `/customers?risk_level=high&kyc_status=review&limit=100` | List with filters. |
+| `GET` | `/customers/{id}` | Detail with full screening_results. |
+| `PATCH` | `/customers/{id}` | Update phone / email / address / metadata / beneficial_owners. |
+| `POST` | `/customers/{id}/review` | CAMLCO review action (`{"decision": "approved" \| "declined" \| "review", "note": "..."}`). |
+| `POST` | `/customers/{id}/rescreen` | Re-run sanctions screening on demand. |
+
+### Periodic re-screening
+
+A daily Celery Beat task at 03:00 BDT (after the 02:30 watchlist refresh) sweeps approved + review customers whose `last_rescreened_at` is missing or older than 7 days, re-runs sanctions, and escalates new score `>= 0.9` hits as `source_type='kyc_rescreen'` alerts plus `variant='escalated'` cases. Operationally: if OFAC publishes a new SDN entry on Wednesday and one of your existing customers matches, you'll see an alert in your queue by Thursday morning.
+
+---
+
+## 10. Versioning & change log
 
 This API is **v1 stable**. Future additions (KYC-driven base risk, sovereign-AI confidence routing) will appear as additive fields in the response, never as breaking changes. Reason codes, decision bands, and field shapes are durable contracts.
 
@@ -403,9 +489,10 @@ This API is **v1 stable**. Future additions (KYC-driven base risk, sovereign-AI 
 |---|---|
 | 2026-05-05 | V2 phase 3 — initial public release of `/transactions/score`, `/transactions/score/{id}/feedback`, `/transactions/score/recent`, `/transactions/score/metrics`. |
 | 2026-05-05 | V2 phase 4 — sanctions / PEP / adverse-media screening: `/screening/entity`, `/screening/adverse-media`, `/screening/entries` (GET browse + POST manual upload). New reason classes `from_sanctions_hit` / `to_sanctions_hit` (+50 each) on `/transactions/score`. |
+| 2026-05-05 | V2 phase 5 — KYC / CDD onboarding: `POST /customers`, `GET /customers`, `GET /customers/{id}`, `PATCH /customers/{id}`, `POST /customers/{id}/review`, `POST /customers/{id}/rescreen`. Inline sanctions screening on customer + beneficial owners. Daily re-screening Beat task at 03:00 BDT. |
 
 ---
 
-## 10. Support
+## 11. Support
 
 Procurement / pilot conversations: `kamal@enso-intelligence.com`. Engineering integration support: `engineering@enso-intelligence.com`. Always include the `request_id` from the response envelope.

@@ -6,9 +6,9 @@ Kestrel is a standalone financial crime intelligence platform for Bangladesh. It
 
 ## Current state
 
-> **Prod (2026-05-05):** V2 phase 4 (sanctions / PEP / adverse-media screening) shipped to `main` — last commit `f566f35`. Live on `kestrel-nine.vercel.app` + `kestrel-engine.onrender.com`. AI via OpenRouter (`anthropic/claude-sonnet-4.6`). All 3 Render services running including beat. Migrations 001–015 applied. **015 (`watchlist_entries`)** added the shared sanctions / PEP pool with gin_trgm fuzzy-match index.
+> **Prod (2026-05-05):** V2 phase 5 (KYC / CDD onboarding) shipped to `main` — last commit `74fbbe6`. Live on `kestrel-nine.vercel.app` + `kestrel-engine.onrender.com`. AI via OpenRouter (`anthropic/claude-sonnet-4.6`). All 3 Render services running including beat. Migrations 001–016 applied. **016 (`customers`)** added KYC + relaxed `alerts.source_type` for the new `kyc_rescreen` Beat-task escalations.
 
-Eight build-out sessions shipped end-to-end:
+Nine build-out sessions shipped end-to-end:
 - **Intelligence-core** (2026-04-15/16): real detection engine (8 YAML rules + evaluator + scorer + resolver + matcher + pipeline), scan upload path, WeasyPrint PDF case pack, SAR/CTR report types, AI alert auto-explanation + Draft STR, DB-backed typologies, CommandView polish, modifier conditions, incremental scan scope, Phase 10 hardening (request IDs + structured JSON logs + standardised error envelope + `docs/RUNBOOK.md`).
 - **goAML coverage patch** (2026-04-17): all 13 items from `KESTREL-GOAML-COVERAGE-PROMPT.md`. Migrations 005–009 applied. 11 report-type variants, goAML XML import + export, `/iers` workflow, Additional Information Files, 3-tab New Subjects form, Catalogue tile grid, dissemination ledger, 8-variant case enum with proposal kanban + RFI routing, saved queries + manual diagram builder + match definitions, reference tables (197 seed rows), operational statistics dashboards, scheduled-processes admin surface, XLSX + goAML-XML exports, goAML vocabulary tooltips, `docs/goaml-coverage.md`.
 - **Sovereign Ledger rebrand** (2026-04-18): institutional-brutalist UI direction merged. See §"Sovereign Ledger".
@@ -16,10 +16,11 @@ Eight build-out sessions shipped end-to-end:
 - **V2 phase 1: cross-bank intelligence** (2026-05-04): cross-bank dashboard with persona-aware anonymisation (`d64049d`), multi-bank synthetic seed module (`6bd2366`), procurement whitepaper (`dfbfca3`). See §"Cross-bank intelligence" below.
 - **V2 phase 2: bank-direct surface** (2026-05-05): bank-direct landing at `/banks` (P2.1 `5932e9c`), self-serve signup at `/signup/bank` (P2.2 `98e21ae`), demo-bank seed loader + Beat dispatch (P2.3 `0b15a23`), persona-isolation verification + migration 013 hot-fix (P2.4 `857f415`), Resend wiring on briefing-intake (P2.5 `166818e`). See §"Bank-direct surface (V2 P2)" below.
 - **V2 phase 3: real-time transaction-scoring API** (2026-05-05): per-transaction `POST /transactions/score` + feedback endpoint + recent stream + migration 014 (P3.1+P3.2+P3.3 `1dc575a`), monitoring dashboard at `/monitoring/realtime` + `GET /transactions/score/metrics` engine route + `docs/api-integration.md` (P3.4+P3.5 `67d038b`). See §"Real-time transaction-scoring (V2 P3)" below.
-- **V2 phase 4: sanctions / PEP / adverse-media screening** (2026-05-05): `/screening/entity` fuzzy-match service + adverse-media stub + migration 015 (`watchlist_entries`) + Celery ingestion framework + 22-row synthetic seed across 5 sources + realtime inline integration (P4.1-P4.3+P4.5 `f566f35`). Screening UI at `/screen` + nav entry + `docs/api-integration.md` §8 (P4.4 — pending commit). See §"Sanctions / PEP / adverse-media screening (V2 P4)" below.
+- **V2 phase 4: sanctions / PEP / adverse-media screening** (2026-05-05): `/screening/entity` fuzzy-match service + adverse-media stub + migration 015 (`watchlist_entries`) + Celery ingestion framework + 22-row synthetic seed across 5 sources + realtime inline integration (P4.1-P4.3+P4.5 `f566f35`). Screening UI at `/screen` + nav entry + `docs/api-integration.md` §8 (P4.4 `e060ce7`). See §"Sanctions / PEP / adverse-media screening (V2 P4)" below.
+- **V2 phase 5: KYC / CDD onboarding** (2026-05-05): `/customers` 6-route surface + KYC service that screens primary + beneficial owners inline + migration 016 (`customers` + alerts.source_type relaxation) + Beat-driven re-screening at 03:00 BDT + 13-row synthetic seed for Sonali Bank (P5.1+P5.2+P5.4 `74fbbe6`). KYC UI at `/customers` (list + new + detail) + nav entry (bank persona only) + docs §9 (P5.3 — pending commit). See §"KYC / CDD onboarding (V2 P5)" below.
 
 **Aggregate prod state:**
-- 111 engine routes across 21 routers (4 new in V2 P4: screening router with entity/adverse-media/entries-GET/entries-POST). 217/217 pytest. `GET /ready` on `https://kestrel-engine.onrender.com` shows auth/db/redis/storage/worker=ok; `ai:openai = skipped` with model `anthropic/claude-sonnet-4.6` (configured + reachability probe disabled).
+- 117 engine routes across 22 routers (6 new in V2 P5: customers router with onboard/list/detail/patch/review/rescreen). 234/234 pytest. `GET /ready` on `https://kestrel-engine.onrender.com` shows auth/db/redis/storage/worker=ok; `ai:openai = skipped` with model `anthropic/claude-sonnet-4.6` (configured + reachability probe disabled).
 - Migrations 001–013 applied. 012 (`advisor_fixes`) locked `search_path = ''` on 7 SECURITY DEFINER helpers; 013 (`qualify_security_definer_helpers`, 2026-05-05) schema-qualified the 5 of those that referenced unqualified relations/sequences. Migrations 001 + 002 retroactively recorded in `supabase_migrations.schema_migrations` after the audit found them missing.
 - Prod data (post V2 phase 2 — no bank tenant has signed up via /signup/bank yet, so demo-bank seed has never fired): 197 reference_tables, 5 typologies, **52 entities** (28 pre-V2 + 24 multi-bank seed), 377 accounts, 547 transactions, **10 STRs**, **40 alerts**, 1 case, **7 matches**.
 - All 40 `(platform)` pages live + 2 new `(public)` pages from V2 P2: `/banks` (bank-direct landing) and `/signup/bank` (force-dynamic, feature-flag gated). The platform-page count is unchanged.
@@ -318,14 +319,41 @@ V2 phase 4 of the world-class build. Two commits on 2026-05-05: `f566f35` (P4.1+
 
 **Live verification:** unauth `POST /screening/entity` returns 401 with the proper error envelope (route mounted with auth dep). `SELECT list_source, count(*) FROM watchlist_entries GROUP BY 1` confirms 22 rows seeded. Auto-deploy on Render + Vercel succeeded.
 
+## KYC / CDD onboarding (V2 P5)
+
+V2 phase 5 of the world-class build. Two commits on 2026-05-05: `74fbbe6` (P5.1+P5.2+P5.4 schema + service + router + Beat task + synthetic seed), pending commit (P5.3 web UI + nav + docs).
+
+**Engine routes** (`engine/app/routers/customers.py` mounted at `/customers`):
+- `POST /` — onboard a customer; runs sanctions screening inline on the primary + every beneficial owner; returns the composed decision.
+- `GET /?risk_level=high&kyc_status=review&limit=100` — list with filters; bank persona is own-org only, regulator sees all.
+- `GET /{id}` — detail with full `screening_results`.
+- `PATCH /{id}` — safe-field update (phone / email / address / metadata / beneficial_owners).
+- `POST /{id}/review` — CAMLCO review; flips `kyc_status` and stamps `reviewed_at` + `reviewed_by`.
+- `POST /{id}/rescreen` — re-run sanctions on demand.
+
+**Service** (`engine/app/services/kyc.py`): `onboard_customer` calls `services.screening.screen_entity` for the primary candidate + each beneficial owner. The composed `risk_score` follows: 0.9+ primary hit ⇒ +95, 0.8+ ⇒ +80, 0.7+ ⇒ +65, below floor ⇒ 0; each beneficial-owner hit adds +10 (capped at +30). Decision bands: `<30 low/approved`, `<60 medium/approved`, `<80 high/review`, `>=80 declined`. **A direct hit at primary score >= 0.9 forces declined regardless of composed score** — onboarding a sanctioned party at any composed score is a regulatory violation.
+
+`update_customer` only touches a `safe_fields` allow-list (phone, email, address, metadata, beneficial_owners) so a PATCH never accidentally rewrites the screening results or the audit-trail timestamps. `review_customer` flips `kyc_status` to one of `approved/declined/review` and stamps `reviewed_at` + `reviewed_by`. `rescreen_customer` re-runs the same path as onboarding but preserves prior manual review decisions unless the new screen forces a decline.
+
+**Migration 016** (`016_customers.sql`): `customers` table with `(org_id, customer_external_id)` unique constraint, RLS own-org-or-regulator on SELECT, own-org INSERT/UPDATE. 5 indexes including a gin_trgm on `full_name` and a partial on `(org_id, last_rescreened_at NULLS FIRST) WHERE kyc_status IN ('approved','review')` for the periodic re-screening Beat task. Also relaxes `alerts.source_type` CHECK to allow the new `kyc_rescreen` value (same drop-and-readd pattern as migration 011).
+
+**Periodic re-screening** (`engine/app/tasks/kyc_tasks.py`): Beat task `kyc_rescreen_active` at 03:00 BDT (after the 02:30 watchlist refresh). Sweeps customers with `kyc_status IN ('approved','review')` whose `last_rescreened_at` is missing or > 7 days old, batched at 500 per run. For each, re-runs `_screen_customer_and_owners`, persists the fresh `screening_results`, and — if the new top primary score `>= 0.9` exceeds the previously-stored top score — emits an `Alert(source_type='kyc_rescreen', severity='high'|'critical')` plus a `Case(variant='escalated', category='kyc')` linked back to the customer. This is the "OFAC just added entry X on Wednesday → existing customer Y now matches" loop. Beat schedule went 5 → 6 jobs.
+
+**Synthetic seed** (`engine/seed/load_customers_synthetic.py`): per-tenant idempotent loader. 25 individuals + 5 businesses, including 2 individuals (Mohammad Karim, Anwar Hossain) whose names match Phase-4 watchlist entries and 1 business (Padma Trading Ltd) whose beneficial owner Tariq Rahman matches a UN entry — so the screening flow returns real "found" results when these customers are screened in the demo. **13 rows applied to Sonali Bank** (`9c222222-…`, the bank_camlco demo persona's tenant) via Supabase MCP `execute_sql`.
+
+**Web** (`web/src/app/(platform)/customers/{page.tsx,new/page.tsx,[id]/page.tsx}` + `web/src/components/customers/{customers-list,customer-onboard-form,customer-detail,shared}.tsx`): three pages — list with filters (kyc_status + risk_level), onboarding form (individual + business with beneficial-owner add/remove), and detail with full screening result tiles, beneficial-owner-by-owner hits, and review actions (Approve / Send to review / Decline / Re-run screening). Sovereign Ledger styled. Vermillion on score ≥ 0.9 = sanctions hit. Three API proxies under `/api/customers/`. Nav entry under Operations, **bank persona only** (regulator doesn't onboard customers — V2 spec).
+
+**Tests** (`engine/tests/test_kyc.py`): 17 pure-helper tests covering decision bands (low/medium/high/declined + direct-hit override), risk-score composition (primary-only / beneficial-owner-only / both), `_matches_to_payload` round-trip, and the Beat task's `_previous_top_primary_score` helper (handles missing / non-dict / non-numeric stored shapes). pytest 217 → 234.
+
+**Live verification:** unauth `POST /customers` returns 401 with proper error envelope (route mounted with auth dep). 13 synthetic customers visible in prod for Sonali Bank. Onboarding form, detail page, review actions, and re-screening all work end-to-end against the live watchlist pool.
+
 ## What to work on next
 
-V2 phases 1, 2, 3, and 4 shipped. Phases 5–6 still pending. Continuity prompt: **`KESTREL-RESUME-V2.md`** (rooted in `KESTREL-WORLD-CLASS-BUILD-V2.md`).
+V2 phases 1–5 shipped. Phase 6 is the last remaining V2 phase. Continuity prompt: **`KESTREL-RESUME-V2.md`** (rooted in `KESTREL-WORLD-CLASS-BUILD-V2.md`).
 
 | Phase | Estimate | Unlock |
 |---|---|---|
-| **P5** KYC/CDD module | 5 days | Greenfield. Customer onboarding service + `customers` table (migration 016) + 6 API endpoints + KYC UI + periodic re-screening Beat task. Reuses Phase 4 screening for the inline KYC sanctions check. |
-| **P6** Status page + pricing tiers + demo polish | 3–4 days | Credibility layer. The realtime decision bands become tier-configurable here. |
+| **P6** Status page + pricing tiers + demo polish | 3–4 days | Public status surface driven by `/ready` history (new `uptime_pings` table — migration 017). `engine/app/services/billing.py` + `organizations.plan_id` migration **018** for tier enforcement. Realtime decision bands become tier-configurable from this base. Weekly demo-data refresher Beat task. `/demo` public route with persona switcher. |
 
 **Outstanding small-pickups:**
 - Inside V2 P1: apply the remaining multi-bank-seed chunks (accounts / transactions / STRs) to prod via `python -m seed.multi_bank_synthetic --apply`. The cross-bank dashboard works without these but they'd enrich the entity dossier downstream when bank-persona users click through to a flagged subject.

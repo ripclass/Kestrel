@@ -6,16 +6,16 @@ Drop this into the next session. Full state in `CLAUDE.md` (auto-loaded).
 
 ## Context (verified live 2026-05-05)
 
-V2 of the world-class build is in motion. **Phases 1, 2, 3, and 4 of `KESTREL-WORLD-CLASS-BUILD-V2.md` shipped to `main`** — eleven commits over 2026-05-04 / 2026-05-05, all auto-deployed to Vercel + Render with no failures. Phases 5–6 still pending.
+V2 of the world-class build is in motion. **Phases 1, 2, 3, 4, and 5 of `KESTREL-WORLD-CLASS-BUILD-V2.md` shipped to `main`** — twelve commits over 2026-05-04 / 2026-05-05, all auto-deployed to Vercel + Render with no failures. Phase 6 is the only remaining V2 phase.
 
 | Surface | Status |
 |---|---|
-| Engine | `https://kestrel-engine.onrender.com` — 111 routes, 217/217 pytest, `/ready` clean |
-| Web | `https://kestrel-nine.vercel.app` — 42 platform pages + `/banks` + `/signup/bank` + `/monitoring/realtime` + `/screen` (V2 P4.4), Sovereign Ledger UI, last commit `f566f35` |
+| Engine | `https://kestrel-engine.onrender.com` — 117 routes, 234/234 pytest, `/ready` clean |
+| Web | `https://kestrel-nine.vercel.app` — 43 platform pages + `/banks` + `/signup/bank` + `/monitoring/realtime` + `/screen` + `/customers` (V2 P5.3), Sovereign Ledger UI, last commit `74fbbe6` |
 | AI | `anthropic/claude-sonnet-4.6` via OpenRouter on engine + worker + beat (no longer heuristic) |
 | Render services | `kestrel-engine` (`srv-d7757oidbo4c73e98tlg`), `kestrel-worker` (`srv-d7760cuuk2gs73as3oeg`), `kestrel-beat` (`srv-d7sajha8qa3s73e1spv0`) — all running |
-| Beat schedule | nightly scan (02:00 BDT), daily digest (06:30), weekly compliance (Mon 05:00), `demo_bank_seed_pending` every 10 min (P2.3), and **`watchlist_refresh_daily` at 02:30 BDT** (V2 P4.1, gated on `KESTREL_WATCHLIST_INGESTION_ENABLED=true`) |
-| Supabase | project `bmlyqlkzeuoglyvfythg`, ap-southeast-1, migrations 001 → 015 applied (013 was a P2.4 hot-fix; 014 is `realtime_scoring_log` from P3.1; 015 is `watchlist_entries` from P4.1) |
+| Beat schedule | nightly scan (02:00 BDT), daily digest (06:30), weekly compliance (Mon 05:00), `demo_bank_seed_pending` every 10 min (P2.3), `watchlist_refresh_daily` at 02:30 (P4.1, gated on `KESTREL_WATCHLIST_INGESTION_ENABLED=true`), and **`kyc_rescreen_active` at 03:00 BDT** (V2 P5.4) |
+| Supabase | project `bmlyqlkzeuoglyvfythg`, ap-southeast-1, migrations 001 → 016 applied (013 P2.4 hot-fix; 014 `realtime_scoring_log` P3.1; 015 `watchlist_entries` P4.1; 016 `customers` P5.1) |
 
 ## What V2 Phase 1 shipped (don't redo)
 
@@ -79,14 +79,22 @@ If anything looks wrong: query `audit_log` for the request_id, check `render log
 
 **Total Phase 4 estimate spent: ~1 focused day** so far (vs the 5-6 day estimate). Same pattern as Phase 3 — pg_trgm + the entity/matches infrastructure carried most of the weight.
 
-## After Phase 4
+## What V2 Phase 5 shipped (don't redo)
+
+| Commit | Task | Outcome |
+|---|---|---|
+| `74fbbe6` | **P5.1+P5.2+P5.4** Schema + KYC service + 6-endpoint router + Beat re-screen + synthetic seed | New router `engine/app/routers/customers.py` mounted at `/customers` (POST onboard, GET list, GET detail, PATCH safe-fields, POST review, POST rescreen). Service `engine/app/services/kyc.py` runs `screen_entity` inline on primary + every beneficial owner. Decision bands `<30 low/approved`, `<60 medium/approved`, `<80 high/review`, `>=80 declined`; direct primary hit at score >= 0.9 forces declined regardless of composed score. Migration 016 (`customers`) applied to prod via Supabase MCP — RLS own-org-or-regulator on SELECT, own-org INSERT/UPDATE, 5 indexes including a gin_trgm on `full_name` and a partial on `(org_id, last_rescreened_at NULLS FIRST)` for the Beat task. Also relaxes `alerts.source_type` to allow `kyc_rescreen`. Beat task `kyc_rescreen_active` at 03:00 BDT sweeps approved/review customers > 7 days stale, re-runs sanctions, escalates new score >= 0.9 hits as alerts + cases. Synthetic 13-row seed (10 individuals + 3 businesses) applied to Sonali Bank. 17 new pure-helper tests; pytest 217 → 234. |
+| (pending — P5.3) | **P5.3** KYC UI + nav + docs | Three pages under `/customers`: list with kyc_status + risk_level filters, onboarding form (individual + business with beneficial-owner add/remove), detail with full screening result tiles + beneficial-owner-by-owner hits + review actions (Approve / Send to review / Decline / Re-run screening). Sovereign Ledger styled. Bank persona only in nav (regulators don't onboard customers). 4 API proxies under `/api/customers/`. `docs/api-integration.md` §9 + change log entry. |
+
+**Total Phase 5 estimate spent: ~1 focused day** so far (vs the 5-day estimate). Same pattern as Phases 3 + 4 — the existing screening service from Phase 4 + the audit / RLS / Sovereign-Ledger infrastructure carried most of the weight.
+
+## After Phase 5
 
 | Phase | Estimate | Strategic unlock |
 |---|---|---|
-| **P5** KYC/CDD module | 5 days | Greenfield. New `customers` table (migration **016**). Customer onboarding service, 6 API endpoints, KYC UI, periodic re-screening Beat task. Reuses Phase 4 screening for the inline KYC sanctions check; new customers also get inserted into the shared entities pool so cross-bank intelligence picks up the relationship. |
-| **P6** Status page + pricing tiers + demo polish | 3–4 days | Public status surface driven by `/ready` history, pricing-tier enforcement (`engine/app/services/billing.py` + `organizations.plan_id` migration **017**), weekly demo-data refresher Beat task, `/demo` public route with persona switcher. The realtime-scoring decision bands become tier-configurable here. |
+| **P6** Status page + pricing tiers + demo polish | 3–4 days | Public status surface driven by `/ready` history (new `uptime_pings` table — migration **017**). `engine/app/services/billing.py` + `organizations.plan_id` migration **018** for tier enforcement. Realtime decision bands and KYC thresholds become tier-configurable from this base. Weekly demo-data refresher Beat task. `/demo` public route with persona switcher. |
 
-> **Migration numbering:** 015 is now applied. **016** is the next available — make sure phases 5 / 6 keep contiguous numbering. Don't reuse 015.
+> **Migration numbering:** 016 is now applied. **017** is the next available — make sure phase 6 keeps contiguous numbering. Don't reuse 016.
 
 ## What to read first when you pick this up
 
@@ -96,7 +104,8 @@ If anything looks wrong: query `audit_log` for the request_id, check `render log
 4. `docs/multi-tenant-isolation-verified.md` — V2 P2.4 verification artifact. Cite this doc when answering "is data isolated between bank tenants?" for a procurement audience.
 5. `engine/app/services/cross_bank.py`, `engine/seed/load_demo_bank.py`, `web/src/app/actions/bank-signup.ts` — the V2 P1 + P2 reference patterns for persona-aware services, idempotent per-tenant seeds, and service-role provisioning actions.
 6. `engine/app/services/realtime_scoring.py`, `engine/app/routers/realtime.py`, `web/src/components/monitoring/realtime-dashboard.tsx`, `docs/api-integration.md` — V2 P3 reference patterns for sub-500ms read-only services + structured reason arrays + auto-refresh dashboards + bank-facing API docs. Phase 4 extended `realtime_scoring.py` with sanctions reason classes; phase 6 will make the decision bands tier-configurable from this base.
-7. `engine/app/services/screening.py`, `engine/app/screening/sources/`, `engine/seed/load_watchlist_synthetic.py`, `engine/app/tasks/screening_tasks.py`, `web/src/components/screening/screening-panel.tsx` — V2 P4 reference patterns for fuzzy-match services + source-adapter framework + Beat-driven ingestion gated behind a config switch + synthetic seeds + persona-neutral search UIs. Phase 5 KYC will reuse `screen_entity` for the inline sanctions check during customer onboarding.
+7. `engine/app/services/screening.py`, `engine/app/screening/sources/`, `engine/seed/load_watchlist_synthetic.py`, `engine/app/tasks/screening_tasks.py`, `web/src/components/screening/screening-panel.tsx` — V2 P4 reference patterns for fuzzy-match services + source-adapter framework + Beat-driven ingestion gated behind a config switch + synthetic seeds + persona-neutral search UIs.
+8. `engine/app/services/kyc.py`, `engine/app/tasks/kyc_tasks.py`, `engine/seed/load_customers_synthetic.py`, `web/src/components/customers/customer-onboard-form.tsx` — V2 P5 reference patterns for inline-screening composition (primary + beneficial owners) + idempotent customer upsert with deterministic UUIDs + Beat-driven re-screening that emits alerts + cases on new high-confidence hits + multi-step onboarding form with dynamic beneficial-owner inputs.
 
 ## Hard constraints (don't break)
 
