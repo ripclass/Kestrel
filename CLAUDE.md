@@ -6,7 +6,7 @@ Kestrel is a standalone financial crime intelligence platform for Bangladesh. It
 
 ## Current state
 
-> **Prod (2026-05-05):** V2 fully shipped (phases 1-6) + **V3 phases 1-3 shipped**. P3 (agentic AI investigations) closes the last "Missing" capability from the world-class matrix — capability matrix now reads **15/18 at Excellent**, 2 at Partial-with-plan, 0 Missing. P2 routing is pattern-only (`MIN_CONFIDENCE_TO_ACCEPT=1.01` until P4 lands the first sovereign adapter). Live on `kestrel-nine.vercel.app` + `kestrel-engine.onrender.com`. AI via OpenRouter (`anthropic/claude-sonnet-4.6`). All 3 Render services running. Migrations 001–020 applied (**020** = `agent_investigations`).
+> **Prod (2026-05-05):** V2 fully shipped (phases 1-6) + **V3 phases 1-4 shipped**. Capability matrix: **15/18 at Excellent**, 2 at Partial-with-plan (sovereign AI in production traffic — V3 P5 unlock; first on-prem deployment — V3 P6 unlock), 0 Missing. V3 P4 ships the framework — corpus exporter + LoRA harness scaffold + synthetic data generator + sovereign provider adapter. The first real fine-tune cycle waits for ~30–60 days of analyst corrections to accumulate in `ai_outcome_log`. Live on `kestrel-nine.vercel.app` + `kestrel-engine.onrender.com`. AI via OpenRouter (`anthropic/claude-sonnet-4.6`). All 3 Render services running. Migrations 001–020 applied.
 
 Ten build-out sessions shipped end-to-end:
 - **Intelligence-core** (2026-04-15/16): real detection engine (8 YAML rules + evaluator + scorer + resolver + matcher + pipeline), scan upload path, WeasyPrint PDF case pack, SAR/CTR report types, AI alert auto-explanation + Draft STR, DB-backed typologies, CommandView polish, modifier conditions, incremental scan scope, Phase 10 hardening (request IDs + structured JSON logs + standardised error envelope + `docs/RUNBOOK.md`).
@@ -443,14 +443,34 @@ V3 P3 ships with a **deterministic heuristic decider** that walks the plan (`nei
 
 **Capability matrix updated:** `docs/world-class-capability-matrix.md` flips "Agentic AI investigations" from Partial → Excellent. Net 14/18 → **15/18 at Excellent**, with the 2 remaining Partial-with-plan items (sovereign AI in production traffic, on-prem first deployment) tied to V3 P5 + P6.
 
-## What's next — V3 phases 4-7
+## V3 phase 4 — training pipeline scaffold (shipped 2026-05-05)
 
-V3 phases 1 + 2 + 3 shipped. Next is **P4 training pipeline** (weeks 5–6 of the V3 prompt) — the first sovereign-model fine-tune cycle. Needs ~30-60 days of `ai_outcome_log` corrections to be meaningful, so realistic timeline is "build the pipeline now, run the first cycle in month 3."
+V3 phase 4 of `KESTREL-V3-PROMPT.md`. Framework-shipped, training-cycle-deferred. The first real fine-tune cycle waits for ~30–60 days of analyst corrections to accumulate in `ai_outcome_log`.
+
+**Four pieces:**
+- `engine/scripts/export_training_corpus.py` — pulls ai_outcome_log rows where `analyst_correction IS NOT NULL` over a configurable window (default 60 days), dedupes by `prompt_digest` (latest correction wins on collision), writes JSONL. `--upload` pushes to Supabase Storage at `training/v3-month-N/corpus.jsonl` in the `kestrel-exports` bucket. Output is byte-deterministic across runs.
+- `infra/training/lora_finetune.py` — Modal-flavored scaffold. Real corpus loading + deterministic train/validation split + supported base model whitelist (Llama 3.3 70B/8B, Qwen 2.5 72B/7B). Training step is a documented `NotImplementedError` stub with the full transformers + peft Trainer call as a 30-line block comment. Stub path writes a `metrics.json` that V3 P5's promotion harness will eventually consume. Full pipeline documented in `infra/training/README.md`.
+- `engine/scripts/generate_synthetic_corpus.py` — hand-curated `_SyntheticSeed` inputs covering all 6 production AI tasks. Uses the existing `AIOrchestrator` (Claude via OpenRouter) to expand each seed into N synthetic training pairs. Outputs JSONL in the same shape as the live-correction corpus with `outcome_label='synthetic'` so the trainer can filter; separate file path so quality gates can compare adapters trained on corrections-only vs corrections+synthetic.
+- `engine/app/ai/providers/sovereign_adapter.py` — implements the `LLMProvider` Protocol against a vLLM-compatible HTTP endpoint. Reads token-level log-probs from the response and converts to a 0–1 confidence (mean exp(log-prob) clamped to `[0, 0.95]`). Slots into the V3 P2 routing pattern with no structural change — registered in `AIOrchestrator`'s default providers dict, but the routing layer never selects it until `ai_sovereign_url` is set + a per-task rollout > 0 in `app.ai.thresholds`.
+
+**No new endpoints, no new migrations, no behavior change in production traffic.** Engine routes unchanged at 129. pytest 319 → 349 (+30 new tests across `test_corpus_exporter.py` + `test_sovereign_adapter.py`).
+
+**To run the real cycle when the corpus is ready:**
+```bash
+cd engine && python -m scripts.export_training_corpus --days 60 --out /tmp/corpus.jsonl
+modal run infra/training/lora_finetune.py::train \\
+  --base-model meta-llama/Llama-3.3-70B-Instruct \\
+  --corpus /tmp/corpus.jsonl --output-dir /tmp/kestrel-sovereign-v1
+```
+Then in `engine/app/ai/thresholds.py` flip a per-task `MIN_CONFIDENCE_TO_ACCEPT` from `1.01` to e.g. `0.75` and the matching `TASK_ROLLOUT_PCT` from `0` to e.g. `10`, set `AI_SOVEREIGN_URL`/`AI_SOVEREIGN_MODEL` on Render, and 10% of that task's traffic starts routing through the sovereign adapter. V3 P5 is the promotion harness that automates the threshold flip behind a quality gate.
+
+## What's next — V3 phases 5-7
+
+V3 phases 1 + 2 + 3 + 4 shipped. Next is **P5 quality gates + gradual rollout** (week 7 of the V3 prompt) — the promotion harness that decides whether a candidate sovereign adapter ships. Held-out evaluation set + red-team corpus + per-task accuracy gates. Automatic rollback Beat task on outcome-metric degradation.
 
 | V3 phase | Estimate | Strategic unlock |
 |---|---|---|
-| **P4** Training pipeline | 2 weeks build / month-3 first cycle | LoRA fine-tune harness on Modal/RunPod + sovereign adapter implementing the existing `LLMProvider` Protocol. |
-| **P5** Quality gates + gradual rollout | 1 week | Promotion harness against held-out eval + red-team corpus + per-task accuracy gates. Automatic rollback Beat task on outcome-metric degradation. |
+| **P5** Quality gates + gradual rollout | 1 week | Promotion harness against held-out eval + red-team corpus + per-task accuracy gates. `infra/training/promote_sovereign_adapter.py`. Automatic rollback via the `sovereign_health_check` Beat task. Migration 021 for `sovereign_promotion_log`. |
 | **P6** On-prem packaging | 4-6 weeks (conditional) | First Tier-3 customer drives this. |
 | **P7** Operational maturity | 1-2 weeks (anytime) | Stripe, hard cap enforcement, audit-log retention, latency-regression CI. |
 

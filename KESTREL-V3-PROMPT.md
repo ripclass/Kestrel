@@ -261,7 +261,20 @@ Extend `engine/app/ai/redteam/corpus.py` with agent-specific adversarial scenari
 
 ---
 
-## PHASE 4 — SOVEREIGN MODEL TRAINING PIPELINE (Weeks 5-6)
+## PHASE 4 — SOVEREIGN MODEL TRAINING PIPELINE (Weeks 5-6) ✅ FRAMEWORK SHIPPED 2026-05-05
+
+One commit (`9c3b146`, engine + infra). Framework-shipped, training-cycle-deferred:
+
+- `engine/scripts/export_training_corpus.py` — real CLI, deterministic dedup + JSONL output, optional Supabase Storage upload.
+- `infra/training/lora_finetune.py` — Modal-flavored scaffold with real corpus loading + train/eval split + supported base model whitelist. Training step itself is a documented `NotImplementedError` stub (the actual transformers + peft Trainer block is a comment ready to swap in).
+- `engine/scripts/generate_synthetic_corpus.py` — uses the existing `AIOrchestrator` (Claude) to generate training pairs across all 6 AI tasks; written to a separate file so quality gates can A/B corrections-only vs corrections+synthetic.
+- `engine/app/ai/providers/sovereign_adapter.py` — full `LLMProvider` implementation against a vLLM-compatible HTTP endpoint. Token-log-prob → confidence conversion. Registered in the orchestrator's default providers dict; routing only selects it once `AI_SOVEREIGN_URL` is set + a per-task rollout > 0.
+
+30 new tests; pytest 319 → 349. No new endpoints; no new migrations.
+
+**The first real cycle waits for the corpus.** ~30–60 days of analyst corrections in `ai_outcome_log` is the realistic threshold. Until then the framework sits ready; ops triggers it from `infra/training/lora_finetune.py` when the corpus is meaningful.
+
+The detail below stays for reference.
 
 Build the pipeline. First fine-tune cycle in Week 6. Quality gate evaluation in Week 7 (Phase 5).
 
