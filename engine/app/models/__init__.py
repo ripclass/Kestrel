@@ -19,6 +19,7 @@ from app.models.realtime_scoring import RealtimeScoringLog
 from app.models.reference_table import ReferenceEntry
 from app.models.rule import Rule
 from app.models.saved_query import SavedQuery
+from app.models.sovereign import SovereignPromotionLog, SovereignRollout
 from app.models.status import StatusIncident, UptimePing
 from app.models.str_report import STRReport
 from app.models.transaction import Transaction
@@ -47,6 +48,8 @@ __all__ = [
     "ReferenceEntry",
     "Rule",
     "SavedQuery",
+    "SovereignPromotionLog",
+    "SovereignRollout",
     "StatusIncident",
     "UptimePing",
     "STRReport",

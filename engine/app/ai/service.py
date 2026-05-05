@@ -14,7 +14,7 @@ from app.ai.providers import AnthropicProvider, OpenAIProvider, SovereignProvide
 from app.ai.providers.base import LLMProvider
 from app.ai.redaction import redact_payload
 from app.ai.routing import resolve_task_routes
-from app.ai.thresholds import threshold_for
+from app.services.sovereign_rollout import effective_threshold_for
 from app.ai.types import (
     AITaskName,
     PromptDefinition,
@@ -214,10 +214,18 @@ class AIOrchestrator:
         prompt = get_prompt_definition(task)
         redaction_mode = RedactionMode(self.settings.ai_redaction_mode)
         redacted_payload = redact_payload(payload, redaction_mode)
-        routes = resolve_task_routes(task, self.settings)
+        routes = await resolve_task_routes(task, self.settings)
 
         if not routes:
             raise AIInvocationError("No AI providers are configured for this task.")
+
+        # V3 P5: per-call threshold reads from the DB-backed override
+        # so the rollback Beat task can shrink it without a redeploy.
+        # Single fetch outside the loop — one DB hit per AI invocation.
+        try:
+            task_threshold = await effective_threshold_for(task)
+        except Exception:
+            task_threshold = 1.01
 
         attempts: list[ProviderAttempt] = []
         last_error = "No provider attempts were executed."
@@ -261,7 +269,7 @@ class AIOrchestrator:
                     if raw_confidence is not None
                     else compute_schema_validity(structured_output)
                 )
-                threshold = threshold_for(task)
+                threshold = task_threshold
                 is_last_route = index == len(routes) - 1
                 clears_threshold = confidence >= threshold
 

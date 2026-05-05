@@ -9,10 +9,11 @@ from __future__ import annotations
 
 from typing import Optional
 
+import pytest
 from pydantic import BaseModel, Field
 
 from app.ai.confidence import cap_confidence, compute_schema_validity
-from app.ai.routing import _sovereign_configured, resolve_task_routes
+from app.ai.routing import _build_baseline_routes, _sovereign_configured, resolve_task_routes
 from app.ai.service import _heuristic_confidence
 from app.ai.thresholds import (
     TASK_CONFIDENCE_THRESHOLDS,
@@ -129,32 +130,56 @@ def test_sovereign_configured_requires_url_and_model() -> None:
     )
 
 
-def test_resolve_task_routes_no_sovereign_when_not_configured() -> None:
-    routes = resolve_task_routes(AITaskName.ALERT_EXPLANATION, _settings())
+@pytest.mark.asyncio
+async def test_resolve_task_routes_no_sovereign_when_not_configured() -> None:
+    routes = await resolve_task_routes(AITaskName.ALERT_EXPLANATION, _settings())
     providers = [r.provider for r in routes]
     assert ProviderName.SOVEREIGN not in providers
 
 
-def test_resolve_task_routes_no_sovereign_when_eligibility_zero() -> None:
-    """Even with sovereign configured, rollout=0 means we never prepend.
-    V3 P2 ships with rollout=0 across all tasks."""
+@pytest.mark.asyncio
+async def test_resolve_task_routes_no_sovereign_when_eligibility_zero() -> None:
+    """Even with sovereign configured, static rollout=0 means
+    is_sovereign_eligible returns False, so we never prepend.
+    V3 P2/P5 ship with rollout=0 across all tasks."""
     s = _settings(ai_sovereign_url="http://kestrel-sovereign", ai_sovereign_model="kestrel-v1")
-    routes = resolve_task_routes(AITaskName.ALERT_EXPLANATION, s)
+    routes = await resolve_task_routes(AITaskName.ALERT_EXPLANATION, s)
     providers = [r.provider for r in routes]
     assert ProviderName.SOVEREIGN not in providers
 
 
-def test_resolve_task_routes_prepends_sovereign_when_eligible(monkeypatch) -> None:
-    """Flipping a task to rollout > 0 + sovereign configured = sovereign
-    appears at index 0 of the route chain."""
+@pytest.mark.asyncio
+async def test_resolve_task_routes_prepends_sovereign_when_eligible(monkeypatch) -> None:
+    """Flipping a task to rollout > 0 + sovereign configured + the
+    runtime rollout coin lands favourable = sovereign appears at index 0
+    of the route chain."""
     monkeypatch.setattr(
         "app.ai.routing.is_sovereign_eligible",
         lambda task: True,
     )
+
+    # Stub the DB-backed runtime rollout to a guaranteed-100 so the
+    # coin-flip always lands. Avoids needing a live Postgres.
+    async def _always_full(task):
+        return 100
+
+    monkeypatch.setattr(
+        "app.services.sovereign_rollout.effective_rollout_pct_for",
+        _always_full,
+    )
     s = _settings(ai_sovereign_url="http://kestrel-sovereign", ai_sovereign_model="kestrel-v1")
-    routes = resolve_task_routes(AITaskName.ALERT_EXPLANATION, s)
+    routes = await resolve_task_routes(AITaskName.ALERT_EXPLANATION, s)
     assert routes[0].provider == ProviderName.SOVEREIGN
     assert routes[0].model == "kestrel-v1"
+
+
+def test_build_baseline_routes_excludes_sovereign() -> None:
+    """The sync helper used by the promotion harness + offline tools
+    never prepends sovereign — that decision is per-call and lives in
+    the async path."""
+    s = _settings(ai_sovereign_url="http://x", ai_sovereign_model="m")
+    routes = _build_baseline_routes(AITaskName.ALERT_EXPLANATION, s)
+    assert ProviderName.SOVEREIGN not in [r.provider for r in routes]
 
 
 # Heuristic confidence ------------------------------------------------------

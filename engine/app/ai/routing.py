@@ -1,15 +1,15 @@
 """Per-task provider routing.
 
-V3 phase 2 introduces the sovereign-first / Claude-fallback pattern:
-when ``ai_sovereign_url`` + ``ai_sovereign_model`` are configured AND
-the per-task ``rollout_pct_for(task) > 0``, a sovereign route is
-prepended at index 0 of the chain. The orchestrator's confidence
-threshold gate (``threshold_for(task)``) decides whether the sovereign
-response ships or falls through to Claude.
+V3 P2 scaffolded sovereign-first / Claude-fallback. V3 P5 made the
+"prepend sovereign?" decision per-call by adding a coin-flip against
+``effective_rollout_pct_for(task)`` — the runtime-mutable rollout %
+that lives in the ``sovereign_rollout`` table.
 
-In V3 phase 2 no sovereign endpoint is configured, so this prepend is
-a no-op — every task still routes through OpenAI / Anthropic / Heuristic
-exactly as it did pre-V3. The pattern is in place; behavior is unchanged.
+In V3 P2 / P3 / P4 every task's rollout was 0% so this prepend was
+unconditional-skip. After V3 P5 ops can flip a task's rollout to e.g.
+10 in the DB and ~10% of calls start trying the sovereign route. The
+confidence threshold gate (``effective_threshold_for(task)``) then
+decides whether the sovereign response ships or falls through to Claude.
 """
 from __future__ import annotations
 
@@ -33,29 +33,62 @@ def _sovereign_configured(settings: Settings) -> bool:
     return bool(settings.ai_sovereign_url and settings.ai_sovereign_model)
 
 
-def resolve_task_routes(task: AITaskName, settings: Settings) -> list[TaskRoute]:
+def _build_baseline_routes(task: AITaskName, settings: Settings) -> list[TaskRoute]:
+    """The OpenAI / Anthropic / Heuristic chain — pre-V3-P5 behaviour."""
     routes: list[TaskRoute] = []
-
-    # V3 phase 2: prepend sovereign at index 0 when configured AND
-    # eligible for this task. ``is_sovereign_eligible`` defaults to
-    # False everywhere in V3 P2; flipping a task's rollout > 0 in
-    # ``app.ai.thresholds`` is the single edit point to enable it.
-    if _sovereign_configured(settings) and is_sovereign_eligible(task):
-        routes.append(
-            TaskRoute(
-                provider=ProviderName.SOVEREIGN,
-                model=settings.ai_sovereign_model or "sovereign-v1",
-            )
-        )
-
     provider_order = TASK_PROVIDER_ORDER[task]
     for provider in provider_order:
         if provider == ProviderName.OPENAI and settings.openai_api_key and settings.openai_model:
             routes.append(TaskRoute(provider=provider, model=settings.openai_model))
         if provider == ProviderName.ANTHROPIC and settings.anthropic_api_key and settings.anthropic_model:
             routes.append(TaskRoute(provider=provider, model=settings.anthropic_model))
-
     if settings.ai_fallback_enabled and (settings.demo_mode_enabled() or not routes):
         routes.append(TaskRoute(provider=ProviderName.HEURISTIC, model="heuristic-v1"))
-
     return routes
+
+
+async def resolve_task_routes(task: AITaskName, settings: Settings) -> list[TaskRoute]:
+    """Return the ordered route list for one AI invocation.
+
+    V3 P5 made this async because the per-call sovereign decision now
+    consults the DB-backed rollout config. Callers (the orchestrator,
+    tests, scripts) must await."""
+    # Lazy import for the DB-touching service so anything that imports
+    # routing offline (tests, scripts) doesn't drag SQLAlchemy in until
+    # the production path actually needs it.
+    from app.services.sovereign_rollout import (
+        coin_flip,
+        effective_rollout_pct_for,
+    )
+
+    routes: list[TaskRoute] = []
+    sovereign_eligible = _sovereign_configured(settings) and is_sovereign_eligible(task)
+    if sovereign_eligible:
+        # Static-default rollout > 0 means the task is "in scope" for
+        # sovereign at all. The DB-backed effective rollout decides
+        # how often we actually try it per call.
+        try:
+            rollout_pct = await effective_rollout_pct_for(task)
+        except Exception:
+            # Defensive — if the DB read fails for any reason, fall back
+            # to the static default. Routing must never crash.
+            from app.ai.thresholds import rollout_pct_for as _static_rollout
+            rollout_pct = _static_rollout(task)
+        if coin_flip(rollout_pct):
+            routes.append(
+                TaskRoute(
+                    provider=ProviderName.SOVEREIGN,
+                    model=settings.ai_sovereign_model or "sovereign-v1",
+                )
+            )
+
+    routes.extend(_build_baseline_routes(task, settings))
+    return routes
+
+
+def resolve_task_routes_static(task: AITaskName, settings: Settings) -> list[TaskRoute]:
+    """Sync helper for tests + scripts that don't have an event loop.
+
+    Returns the static-default route list with NO sovereign prepend.
+    The async ``resolve_task_routes`` is the production path."""
+    return _build_baseline_routes(task, settings)

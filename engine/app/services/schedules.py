@@ -91,6 +91,14 @@ _SCHEDULE_METADATA: dict[str, dict[str, str]] = {
             "skipped if the last refresh ran in the last 6 days."
         ),
     },
+    "sovereign_health_check_30min": {
+        "description": (
+            "V3 P5 rollback automation. Every 30 min, compare sovereign "
+            "vs baseline correction rate per task on the last 24h of "
+            "ai_outcome_log. If sovereign trails by >15%, shrink that "
+            "task's rollout_pct by 25 (down to 0)."
+        ),
+    },
 }
 
 

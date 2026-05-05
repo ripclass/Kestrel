@@ -1,7 +1,7 @@
 import asyncio
 
 from app.ai.redaction import redact_payload
-from app.ai.routing import resolve_task_routes
+from app.ai.routing import _build_baseline_routes, resolve_task_routes
 from app.ai.service import AIOrchestrator
 from app.ai.types import AITaskName, ProviderName
 from app.auth import DEMO_USERS
@@ -87,7 +87,10 @@ def test_routes_append_heuristic_fallback_in_demo_mode() -> None:
         anthropic_model="claude-test",
     )
 
-    routes = resolve_task_routes(AITaskName.ALERT_EXPLANATION, settings)
+    # The async resolve_task_routes is the production path; this test
+    # asserts the base chain composition, which lives in the sync helper
+    # (V3 P5: sovereign-prepend is async + per-call coin-flip).
+    routes = _build_baseline_routes(AITaskName.ALERT_EXPLANATION, settings)
 
     assert [route.provider for route in routes] == [
         ProviderName.ANTHROPIC,

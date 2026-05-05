@@ -16,6 +16,7 @@ def test_beat_schedule_declares_expected_jobs() -> None:
         "kyc_rescreen_active",
         "uptime_ping_5min",
         "weekly_demo_refresh",
+        "sovereign_health_check_30min",
     }
 
 
@@ -29,6 +30,7 @@ def test_beat_schedule_targets_real_task_names() -> None:
         "kyc_rescreen_active": "app.tasks.kyc_tasks.rescreen_active_customers",
         "uptime_ping_5min": "app.tasks.status_tasks.record_uptime_ping",
         "weekly_demo_refresh": "app.tasks.demo_refresh_tasks.weekly_demo_refresh",
+        "sovereign_health_check_30min": "app.tasks.sovereign_health_tasks.check",
     }
     beat = celery_app.conf.beat_schedule
     for entry_name, task_path in expected.items():
@@ -46,6 +48,7 @@ def test_build_entries_marks_wired_jobs_scheduled() -> None:
         "kyc_rescreen_active",
         "uptime_ping_5min",
         "weekly_demo_refresh",
+        "sovereign_health_check_30min",
     ):
         assert entries[name].status == "scheduled"
         assert entries[name].cron, f"cron string missing for {name}"
@@ -92,6 +95,7 @@ def test_tasks_modules_are_included() -> None:
         "app.tasks.kyc_tasks",
         "app.tasks.status_tasks",
         "app.tasks.demo_refresh_tasks",
+        "app.tasks.sovereign_health_tasks",
     ):
         assert module in include
 
@@ -115,6 +119,7 @@ def test_registered_tasks_match_beat_targets() -> None:
         "app.tasks.kyc_tasks",
         "app.tasks.status_tasks",
         "app.tasks.demo_refresh_tasks",
+        "app.tasks.sovereign_health_tasks",
     ):
         importlib.import_module(module)
 

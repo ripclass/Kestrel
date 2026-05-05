@@ -207,14 +207,13 @@ def test_agent_redteam_scenarios_present() -> None:
 def test_routing_falls_back_to_heuristic_when_no_keys() -> None:
     """The whole harness depends on this: with no provider keys set,
     routing must surface a heuristic route so the orchestrator has
-    something to invoke."""
-    from app.ai.routing import resolve_task_routes
+    something to invoke. Uses the sync ``_build_baseline_routes`` helper
+    so the assertion stays simple — the production path is async."""
+    from app.ai.routing import _build_baseline_routes
 
     settings = get_settings()
-    routes = resolve_task_routes(AITaskName.STR_NARRATIVE, settings)
+    routes = _build_baseline_routes(AITaskName.STR_NARRATIVE, settings)
     assert any(r.provider == ProviderName.HEURISTIC for r in routes), (
         "Heuristic fallback must be in the route list when keys are absent"
     )
-    # The very first route should be heuristic in this environment
-    # (no provider keys, no real models registered).
     assert routes[-1] == TaskRoute(provider=ProviderName.HEURISTIC, model="heuristic-v1")
