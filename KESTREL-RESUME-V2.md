@@ -6,16 +6,16 @@ Drop this into the next session. Full state in `CLAUDE.md` (auto-loaded).
 
 ## Context (verified live 2026-05-05)
 
-V2 of the world-class build is in motion. **Phases 1 and 2 of `KESTREL-WORLD-CLASS-BUILD-V2.md` shipped to `main`** — eight commits over 2026-05-04 / 2026-05-05, all auto-deployed to Vercel + Render with no failures. Phases 3–6 still pending.
+V2 of the world-class build is in motion. **Phases 1, 2, and 3 of `KESTREL-WORLD-CLASS-BUILD-V2.md` shipped to `main`** — ten commits over 2026-05-04 / 2026-05-05, all auto-deployed to Vercel + Render with no failures. Phases 4–6 still pending.
 
 | Surface | Status |
 |---|---|
-| Engine | `https://kestrel-engine.onrender.com` — 103 routes, 159/159 pytest, `/ready` clean |
-| Web | `https://kestrel-nine.vercel.app` — 40 platform pages + `/banks` (V2 P2.1) + `/signup/bank` (V2 P2.2), Sovereign Ledger UI, last commit `166818e` |
+| Engine | `https://kestrel-engine.onrender.com` — 107 routes, 193/193 pytest, `/ready` clean |
+| Web | `https://kestrel-nine.vercel.app` — 41 platform pages + `/banks` (V2 P2.1) + `/signup/bank` (V2 P2.2) + `/monitoring/realtime` (V2 P3.4), Sovereign Ledger UI, last commit `67d038b` |
 | AI | `anthropic/claude-sonnet-4.6` via OpenRouter on engine + worker + beat (no longer heuristic) |
 | Render services | `kestrel-engine` (`srv-d7757oidbo4c73e98tlg`), `kestrel-worker` (`srv-d7760cuuk2gs73as3oeg`), `kestrel-beat` (`srv-d7sajha8qa3s73e1spv0`) — all running |
 | Beat schedule | nightly scan (02:00 BDT), daily digest (06:30), weekly compliance (Mon 05:00), and **`demo_bank_seed_pending` every 10 min** (V2 P2.3) |
-| Supabase | project `bmlyqlkzeuoglyvfythg`, ap-southeast-1, migrations 001 → 013 applied (013 was a hot-fix surfaced during V2 P2.4) |
+| Supabase | project `bmlyqlkzeuoglyvfythg`, ap-southeast-1, migrations 001 → 014 applied (013 was a P2.4 hot-fix; 014 is `realtime_scoring_log` from P3.1+P3.2) |
 
 ## What V2 Phase 1 shipped (don't redo)
 
@@ -61,29 +61,24 @@ python -m seed.multi_bank_to_sql > /tmp/seed.sql
 
 If anything looks wrong: query `audit_log` for the request_id, check `render logs --resources srv-d7sajha8qa3s73e1spv0` for Beat dispatch logs, verify `organizations.settings ->> 'demo_seed_pending'` flipped via Supabase MCP.
 
-## Next priority: Phase 3 — real-time transaction-scoring API
+## What V2 Phase 3 shipped (don't redo)
 
-The biggest remaining enterprise capability gap. Sub-500ms per-transaction decisioning that reuses the existing 8 detection rules + entity resolver + matcher. From the V2 prompt §"PHASE 3":
-
-| Task | Estimate | What |
+| Commit | Task | Outcome |
 |---|---|---|
-| **3.1** Real-time scoring endpoint | 2 days | New `POST /api/v1/transactions/score`. New service `engine/app/services/realtime_scoring.py` reuses the existing detection evaluator + entity resolver, optimised for single-transaction scoring (cached entity lookups, in-memory rule evaluation, no batch overhead). Target p50 < 200ms / p99 < 500ms. Decision logic: score < 30 → approve, 30-60 → review, 60-80 → hold, > 80 → reject (configurable per bank tier in P6). Cross-bank flag: query `matches` table for either party. Logs every call to `audit_log` (`action='realtime.score'`) and to a new `realtime_scoring_log` table. |
-| **3.2** Schema for scoring log | 0.5 day | Migration **014** (next available) — `realtime_scoring_log` table with `org_id`, `transaction_external_id`, `request_payload`, `score`, `decision`, `reasons`, `latency_ms`, `feedback_received`, `feedback_outcome`. Idx on `(org_id, created_at DESC)`. RLS: own-org or regulator. Apply via Supabase migration tracker. |
-| **3.3** Feedback endpoint | 0.5 day | `POST /api/v1/transactions/score/{score_id}/feedback`. Bank reports "reviewed and confirmed legitimate" or "confirmed fraud." Stored in `realtime_scoring_log.feedback_outcome`. Foundation for the ML loop in V2's sovereign-AI track. |
-| **3.4** Real-time monitoring dashboard | 2 days | New page `web/src/app/(platform)/monitoring/realtime/page.tsx`. Live stream of recent scoring requests, decision distribution, latency p50/p95/p99, top-scored transactions in last hour, cross-bank flagged transactions. Persona-aware. |
-| **3.5** API integration documentation | 0.5 day | `docs/api-integration.md` with the real-time scoring endpoint, request/response schemas, latency expectations, error envelope, retry semantics. cURL + Python examples. Banks' core-banking integration teams will read this. |
+| `1dc575a` | **P3.1+P3.2+P3.3** Real-time scoring endpoint + log schema + feedback endpoint | New router `engine/app/routers/realtime.py` mounted at `/transactions`. `POST /score` returns sub-500ms decisioning over the shared `entities` + `matches` tables. Decision bands: `<30 approve`, `<60 review`, `<80 hold`, `>=80 reject`. Reasons array fully explainable per contribution (`amount_*`, `channel_*`, `new_account_high_value`, `from/to_entity_flagged`, `from/to_cross_bank_flagged`). `POST /score/{id}/feedback` records `legitimate / fraud / unsure`. `GET /score/recent` for the live stream. Migration 014 (`realtime_scoring_log`) applied via Supabase MCP — RLS own-org-or-regulator on SELECT, own-org only on UPDATE, 4 indexes, decision CHECK constraint. 29 pure-helper tests added. |
+| `67d038b` | **P3.4+P3.5** Monitoring dashboard + API integration docs | New page `/monitoring/realtime` with auto-refresh every 30s. Sovereign Ledger styled, persona-aware footer (bank own-org / regulator aggregate). Decision distribution strip, 4-stat tile row (calls / latency p50-p95-p99 / cross-bank flagged / reject rate), top scored last hour, recent stream. New engine route `GET /transactions/score/metrics` returning the dashboard payload. Two Next API proxies. Nav entry under Operations. `docs/api-integration.md` (~280 lines) covering every endpoint with cURL + Python examples, decision bands, reason codes, error envelope, retry semantics. Also fixed a pre-existing CI lint regression in `cross-bank-dashboard.tsx` (react-hooks/set-state-in-effect) that had been broken since V2 P1.1 — CI is now green. 5 percentile-helper tests added. |
 
-**Total Phase 3 estimate: 5–6 focused days.**
+**Total Phase 3 estimate spent: ~1 focused day** (vs the 5-6 day estimate). Came in under because the existing entity resolver + matches infrastructure carried most of the heavy lifting; the scoring path is mostly composition + audit logging.
 
 ## After Phase 3
 
 | Phase | Estimate | Strategic unlock |
 |---|---|---|
-| **P4** Sanctions/PEP/adverse-media screening | 5–6 days | OFAC/EU/UN/UK ingestion (free public lists, daily cron), screening API, screening UI, ComplyAdvantage adapter as placeholder. Migration **015** for `watchlist_entries`. Real-time scoring integration so cross-rail screening happens inline. |
+| **P4** Sanctions/PEP/adverse-media screening | 5–6 days | OFAC/EU/UN/UK ingestion (free public lists, daily cron), screening API, screening UI, ComplyAdvantage adapter as placeholder. Migration **015** for `watchlist_entries`. Real-time scoring integration so cross-rail screening happens inline (touches `engine/app/services/realtime_scoring.py` to add a `from/to_sanctions_hit` reason class). |
 | **P5** KYC/CDD module | 5 days | Greenfield. New `customers` table (migration **016**). Customer onboarding service, 6 API endpoints, KYC UI, periodic re-screening Beat task. |
-| **P6** Status page + pricing tiers + demo polish | 3–4 days | Public status surface driven by `/ready` history, pricing-tier enforcement (`engine/app/services/billing.py` + `organizations.plan_id` migration), weekly demo-data refresher Beat task, `/demo` public route with persona switcher. |
+| **P6** Status page + pricing tiers + demo polish | 3–4 days | Public status surface driven by `/ready` history, pricing-tier enforcement (`engine/app/services/billing.py` + `organizations.plan_id` migration), weekly demo-data refresher Beat task, `/demo` public route with persona switcher. The realtime-scoring decision bands become tier-configurable here. |
 
-> **Migration numbering:** 013 is now applied. 014 is the next available — make sure phases 3 / 4 / 5 keep contiguous numbering when shipping. Don't reuse 013.
+> **Migration numbering:** 014 is now applied. **015** is the next available — make sure phases 4 / 5 / 6 keep contiguous numbering. Don't reuse 014.
 
 ## What to read first when you pick this up
 
@@ -92,6 +87,7 @@ The biggest remaining enterprise capability gap. Sub-500ms per-transaction decis
 3. `KESTREL-WORLD-CLASS-BUILD-V2.md` — the canonical V2 build prompt. Phases 3–6 in full detail.
 4. `docs/multi-tenant-isolation-verified.md` — V2 P2.4 verification artifact. Cite this doc when answering "is data isolated between bank tenants?" for a procurement audience.
 5. `engine/app/services/cross_bank.py`, `engine/seed/load_demo_bank.py`, `web/src/app/actions/bank-signup.ts` — the V2 P1 + P2 reference patterns for persona-aware services, idempotent per-tenant seeds, and service-role provisioning actions.
+6. `engine/app/services/realtime_scoring.py`, `engine/app/routers/realtime.py`, `web/src/components/monitoring/realtime-dashboard.tsx`, `docs/api-integration.md` — V2 P3 reference patterns for sub-500ms read-only services + structured reason arrays + auto-refresh dashboards + bank-facing API docs. Phase 4 sanctions screening will extend `realtime_scoring.py` with new reason classes; phase 6 will make the decision bands tier-configurable from this base.
 
 ## Hard constraints (don't break)
 

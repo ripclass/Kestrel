@@ -6,18 +6,19 @@ Kestrel is a standalone financial crime intelligence platform for Bangladesh. It
 
 ## Current state
 
-> **Prod (2026-05-05):** V2 phase 2 (bank-direct surface) shipped to `main` — last commit `166818e`. Live on `kestrel-nine.vercel.app`. AI via OpenRouter (`anthropic/claude-sonnet-4.6`). All 3 Render services running including beat. Migrations 001–013 applied. **013 (`qualify_security_definer_helpers`)** was a hot-fix found during V2 P2.4 isolation verification — see Known Issues.
+> **Prod (2026-05-05):** V2 phase 3 (real-time transaction-scoring API + monitoring dashboard) shipped to `main` — last commit `67d038b`. Live on `kestrel-nine.vercel.app` + `kestrel-engine.onrender.com`. AI via OpenRouter (`anthropic/claude-sonnet-4.6`). All 3 Render services running including beat. Migrations 001–014 applied. **014 (`realtime_scoring_log`)** added the per-call audit + feedback table.
 
-Six build-out sessions shipped end-to-end:
+Seven build-out sessions shipped end-to-end:
 - **Intelligence-core** (2026-04-15/16): real detection engine (8 YAML rules + evaluator + scorer + resolver + matcher + pipeline), scan upload path, WeasyPrint PDF case pack, SAR/CTR report types, AI alert auto-explanation + Draft STR, DB-backed typologies, CommandView polish, modifier conditions, incremental scan scope, Phase 10 hardening (request IDs + structured JSON logs + standardised error envelope + `docs/RUNBOOK.md`).
 - **goAML coverage patch** (2026-04-17): all 13 items from `KESTREL-GOAML-COVERAGE-PROMPT.md`. Migrations 005–009 applied. 11 report-type variants, goAML XML import + export, `/iers` workflow, Additional Information Files, 3-tab New Subjects form, Catalogue tile grid, dissemination ledger, 8-variant case enum with proposal kanban + RFI routing, saved queries + manual diagram builder + match definitions, reference tables (197 seed rows), operational statistics dashboards, scheduled-processes admin surface, XLSX + goAML-XML exports, goAML vocabulary tooltips, `docs/goaml-coverage.md`.
 - **Sovereign Ledger rebrand** (2026-04-18): institutional-brutalist UI direction merged. See §"Sovereign Ledger".
 - **Post-rebrand sweep** (2026-04-19): graph-lookup modifiers wired (`a55d65d`), Celery Beat schedule wired (`b561949`), orphaned alerter cleanup (`ee16cb3`), JSON-DSL executor for match_definitions (`3ca6528`), a11y focus indicator + reduced-motion (`56bd851`), mobile nav drawer (`f764cfb`), a11y skip-link (`c1edceb`), AI red-team harness (`d122e7d`).
 - **V2 phase 1: cross-bank intelligence** (2026-05-04): cross-bank dashboard with persona-aware anonymisation (`d64049d`), multi-bank synthetic seed module (`6bd2366`), procurement whitepaper (`dfbfca3`). See §"Cross-bank intelligence" below.
 - **V2 phase 2: bank-direct surface** (2026-05-05): bank-direct landing at `/banks` (P2.1 `5932e9c`), self-serve signup at `/signup/bank` (P2.2 `98e21ae`), demo-bank seed loader + Beat dispatch (P2.3 `0b15a23`), persona-isolation verification + migration 013 hot-fix (P2.4 `857f415`), Resend wiring on briefing-intake (P2.5 `166818e`). See §"Bank-direct surface (V2 P2)" below.
+- **V2 phase 3: real-time transaction-scoring API** (2026-05-05): per-transaction `POST /transactions/score` + feedback endpoint + recent stream + migration 014 (P3.1+P3.2+P3.3 `1dc575a`), monitoring dashboard at `/monitoring/realtime` + `GET /transactions/score/metrics` engine route + `docs/api-integration.md` (P3.4+P3.5 `67d038b`). See §"Real-time transaction-scoring (V2 P3)" below.
 
 **Aggregate prod state:**
-- 103 engine routes across 19 routers (no new engine routes in V2 P2 — work was web + signup action + Celery task + DB). 159/159 pytest. `GET /ready` on `https://kestrel-engine.onrender.com` shows auth/db/redis/storage/worker=ok; `ai:openai = skipped` with model `anthropic/claude-sonnet-4.6` (configured + reachability probe disabled).
+- 107 engine routes across 20 routers (4 new in V2 P3: realtime router with score/feedback/recent/metrics). 193/193 pytest. `GET /ready` on `https://kestrel-engine.onrender.com` shows auth/db/redis/storage/worker=ok; `ai:openai = skipped` with model `anthropic/claude-sonnet-4.6` (configured + reachability probe disabled).
 - Migrations 001–013 applied. 012 (`advisor_fixes`) locked `search_path = ''` on 7 SECURITY DEFINER helpers; 013 (`qualify_security_definer_helpers`, 2026-05-05) schema-qualified the 5 of those that referenced unqualified relations/sequences. Migrations 001 + 002 retroactively recorded in `supabase_migrations.schema_migrations` after the audit found them missing.
 - Prod data (post V2 phase 2 — no bank tenant has signed up via /signup/bank yet, so demo-bank seed has never fired): 197 reference_tables, 5 typologies, **52 entities** (28 pre-V2 + 24 multi-bank seed), 377 accounts, 547 transactions, **10 STRs**, **40 alerts**, 1 case, **7 matches**.
 - All 40 `(platform)` pages live + 2 new `(public)` pages from V2 P2: `/banks` (bank-direct landing) and `/signup/bank` (force-dynamic, feature-flag gated). The platform-page count is unchanged.
@@ -260,15 +261,38 @@ V2 phase 2 of the world-class build. Five commits on 2026-05-05: `5932e9c` (P2.1
 
 **Briefing-intake email notifications** (`web/src/app/actions/access.ts`): after every successful `access_requests` insert, send a transactional email via Resend HTTP API. Best-effort: missing `RESEND_API_KEY` → log + early return; non-200 from Resend → log + return; the form-facing response stays `success: true` and the DB row is the source of truth. Reply-to is set to the requester's contact email. Plain-text + HTML bodies, both Sovereign-Ledger flavoured. Configured via Vercel Marketplace Resend integration (writes `RESEND_API_KEY` automatically); destination + From configurable via `BRIEFING_NOTIFY_EMAIL` + `BRIEFING_FROM_EMAIL`.
 
+## Real-time transaction-scoring (V2 P3)
+
+V2 phase 3 of the world-class build. Two commits on 2026-05-05: `1dc575a` (P3.1+P3.2+P3.3 scoring + log + feedback), `67d038b` (P3.4+P3.5 monitoring dashboard + integration docs).
+
+**Engine routes** (`engine/app/routers/realtime.py` mounted at `/transactions`):
+- `POST /score` — single-transaction decisioning. Read-only against shared `entities` + `matches` tables; persists `realtime_scoring_log` + `audit_log`. Decision bands: `<30 approve`, `<60 review`, `<80 hold`, `>=80 reject`. Confidence grows with reason count, capped at 0.95. Target p50 < 200 ms / p99 < 500 ms.
+- `POST /score/{log_id}/feedback` — bank reports `legitimate` / `fraud` / `unsure`. Foundation for the ML loop in the sovereign-AI track.
+- `GET /score/recent?limit=50` — recent stream for the dashboard (bank persona = own org, regulator = cross-system).
+- `GET /score/metrics?window_hours=24&top_limit=5` — aggregated decision distribution + latency p50/p95/p99 + cross-bank flag count + top scored last hour.
+
+**Service** (`engine/app/services/realtime_scoring.py`): `score_transaction` composes explainable contributions (`amount_large`/`amount_very_large`/`structuring_suspect`, `channel_cash_like`/`channel_mfs`, `new_account_high_value`, `from_entity_flagged`/`to_entity_flagged`, `from_cross_bank_flagged`/`to_cross_bank_flagged`). All thresholds tuned for BDT-denominated retail+corporate flows. The score is `sum(contributions)` clamped `[0,100]`. Channel allow-list: `NPSB,BEFTN,RTGS,MFS_BKASH,MFS_NAGAD,MFS_ROCKET,CASH,CHEQUE,CARD,WIRE,LC,DRAFT`. `record_feedback` enforces own-org-only updates at the service layer (defense-in-depth on top of the RLS update policy).
+
+**Migration 014** (`014_realtime_scoring_log.sql`): `realtime_scoring_log` (id, org_id, transaction_external_id, request_payload jsonb, score, decision, reasons jsonb, cross_bank_flag, latency_ms, request_id, feedback_received, feedback_outcome, feedback_at, created_at). RLS: own-org-or-regulator on SELECT, own-org only on UPDATE (the feedback endpoint). 4 indexes including PK; CHECK on decision and feedback_outcome.
+
+**Web** (`web/src/app/(platform)/monitoring/realtime/page.tsx` + `web/src/components/monitoring/realtime-dashboard.tsx`): Sovereign Ledger styled. Auto-refreshes every 30s. Sections: filter bar (1h / 24h / 7d), 4-stat tile row (calls in window, latency p50/p95/p99, cross-bank flagged count, reject rate), decision distribution strip (vermillion on REJECT, accent on HOLD, foreground on REVIEW, muted on APPROVE), top-scored last hour, recent stream. Persona-aware footer makes the bank-vs-regulator scope explicit. Two API proxies: `web/src/app/api/realtime/score/recent/route.ts` and `web/src/app/api/realtime/score/metrics/route.ts`.
+
+**Nav**: Operations → "Real-time" pointing at `/monitoring/realtime`. Visible to both bank and regulator personas.
+
+**Tests**: `engine/tests/test_realtime_scoring.py` — 34 pure-helper tests covering decision bands, amount/channel/account-age/entity-risk/cross-bank scoring contributions, percentile interpolation, normalisation. pytest 159 → 193.
+
+**Docs**: `docs/api-integration.md` — full reference for banks' core-banking integration teams. cURL + Python examples, decision bands, reason-code table, error envelope shape, retry semantics, latency expectations.
+
+**Lint regression fixed**: `web/src/components/intel/cross-bank-dashboard.tsx` had a `react-hooks/set-state-in-effect` violation introduced in V2 P1.1 that broke CI for 3 commits. Fixed by lifting `setLoading(true)` + `setError(null)` out of the `useEffect` into the filter click handlers (same pattern used by the new realtime dashboard). CI is now green.
+
 ## What to work on next
 
-V2 phases 1 and 2 shipped. Phases 3–6 still pending. Continuity prompt: **`KESTREL-RESUME-V2.md`** (rooted in `KESTREL-WORLD-CLASS-BUILD-V2.md`).
+V2 phases 1, 2, and 3 shipped. Phases 4–6 still pending. Continuity prompt: **`KESTREL-RESUME-V2.md`** (rooted in `KESTREL-WORLD-CLASS-BUILD-V2.md`).
 
 | Phase | Estimate | Unlock |
 |---|---|---|
-| **P3** Real-time scoring API | 5–6 days | The biggest enterprise capability gap. Sub-500ms decisioning with explainable reasons. |
-| **P4** Sanctions/PEP/adverse-media screening | 5–6 days | Closes the second-biggest capability gap. OFAC/EU/UN/UK ingestion + screening API + UI. |
-| **P5** KYC/CDD module | 5 days | Greenfield. Closes the third gap. |
+| **P4** Sanctions/PEP/adverse-media screening | 5–6 days | Closes the second-biggest capability gap. OFAC/EU/UN/UK ingestion + screening API + UI. Migration 015. |
+| **P5** KYC/CDD module | 5 days | Greenfield. Closes the third gap. Migration 016. |
 | **P6** Status page + pricing tiers + demo polish | 3–4 days | Credibility layer. |
 
 **Outstanding small-pickups:**
