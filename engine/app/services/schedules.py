@@ -77,6 +77,20 @@ _SCHEDULE_METADATA: dict[str, dict[str, str]] = {
             "(score >= 0.9) escalate as alerts + cases for analyst review."
         ),
     },
+    "uptime_ping_5min": {
+        "description": (
+            "Record a per-component uptime sample to the uptime_pings ledger "
+            "every 5 minutes. Backs the 30/90-day uptime % on the public "
+            "status page."
+        ),
+    },
+    "weekly_demo_refresh": {
+        "description": (
+            "Shift synthetic demo data forward by ~7 days every Monday at "
+            "04:00 BDT so demos always show recent activity. Idempotent — "
+            "skipped if the last refresh ran in the last 6 days."
+        ),
+    },
 }
 
 

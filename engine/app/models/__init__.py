@@ -17,6 +17,7 @@ from app.models.realtime_scoring import RealtimeScoringLog
 from app.models.reference_table import ReferenceEntry
 from app.models.rule import Rule
 from app.models.saved_query import SavedQuery
+from app.models.status import StatusIncident, UptimePing
 from app.models.str_report import STRReport
 from app.models.transaction import Transaction
 from app.models.watchlist import WatchlistEntry
@@ -42,6 +43,8 @@ __all__ = [
     "ReferenceEntry",
     "Rule",
     "SavedQuery",
+    "StatusIncident",
+    "UptimePing",
     "STRReport",
     "Transaction",
     "WatchlistEntry",

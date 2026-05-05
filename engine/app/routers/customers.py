@@ -29,6 +29,7 @@ from app.schemas.customer import (
     CustomerReviewInput,
     CustomerView,
 )
+from app.services.billing import require_feature
 from app.services.kyc import (
     BeneficialOwner,
     CustomerOnboardRequest,
@@ -56,6 +57,10 @@ async def onboard(
     user: Annotated[AuthenticatedUser, Depends(require_roles("manager", "admin", "superadmin", "analyst"))],
     session: Annotated[AsyncSession, Depends(get_current_session)],
 ) -> CustomerView:
+    try:
+        await require_feature(session, user=user, feature="kyc")
+    except PermissionError as exc:
+        raise HTTPException(status_code=status.HTTP_402_PAYMENT_REQUIRED, detail=str(exc)) from exc
     request = CustomerOnboardRequest(
         customer_external_id=body.customer_external_id,
         customer_type=body.customer_type,

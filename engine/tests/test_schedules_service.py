@@ -14,6 +14,8 @@ def test_beat_schedule_declares_expected_jobs() -> None:
         "demo_bank_seed_pending",
         "watchlist_refresh_daily",
         "kyc_rescreen_active",
+        "uptime_ping_5min",
+        "weekly_demo_refresh",
     }
 
 
@@ -25,6 +27,8 @@ def test_beat_schedule_targets_real_task_names() -> None:
         "demo_bank_seed_pending": "app.tasks.demo_seed_tasks.apply_pending",
         "watchlist_refresh_daily": "app.tasks.screening_tasks.refresh_all",
         "kyc_rescreen_active": "app.tasks.kyc_tasks.rescreen_active_customers",
+        "uptime_ping_5min": "app.tasks.status_tasks.record_uptime_ping",
+        "weekly_demo_refresh": "app.tasks.demo_refresh_tasks.weekly_demo_refresh",
     }
     beat = celery_app.conf.beat_schedule
     for entry_name, task_path in expected.items():
@@ -40,6 +44,8 @@ def test_build_entries_marks_wired_jobs_scheduled() -> None:
         "demo_bank_seed_pending",
         "watchlist_refresh_daily",
         "kyc_rescreen_active",
+        "uptime_ping_5min",
+        "weekly_demo_refresh",
     ):
         assert entries[name].status == "scheduled"
         assert entries[name].cron, f"cron string missing for {name}"
@@ -84,6 +90,8 @@ def test_tasks_modules_are_included() -> None:
         "app.tasks.demo_seed_tasks",
         "app.tasks.screening_tasks",
         "app.tasks.kyc_tasks",
+        "app.tasks.status_tasks",
+        "app.tasks.demo_refresh_tasks",
     ):
         assert module in include
 
@@ -105,6 +113,8 @@ def test_registered_tasks_match_beat_targets() -> None:
         "app.tasks.demo_seed_tasks",
         "app.tasks.screening_tasks",
         "app.tasks.kyc_tasks",
+        "app.tasks.status_tasks",
+        "app.tasks.demo_refresh_tasks",
     ):
         importlib.import_module(module)
 

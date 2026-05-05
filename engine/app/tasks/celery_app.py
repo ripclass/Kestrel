@@ -15,6 +15,8 @@ celery_app = Celery(
         "app.tasks.demo_seed_tasks",
         "app.tasks.screening_tasks",
         "app.tasks.kyc_tasks",
+        "app.tasks.status_tasks",
+        "app.tasks.demo_refresh_tasks",
     ],
 )
 celery_app.conf.task_default_queue = "kestrel"
@@ -51,6 +53,16 @@ celery_app.conf.beat_schedule = {
         "task": "app.tasks.kyc_tasks.rescreen_active_customers",
         "schedule": crontab(minute=0, hour=3),
         "options": {"expires": 60 * 60 * 6},
+    },
+    "uptime_ping_5min": {
+        "task": "app.tasks.status_tasks.record_uptime_ping",
+        "schedule": crontab(minute="*/5"),
+        "options": {"expires": 60 * 5},
+    },
+    "weekly_demo_refresh": {
+        "task": "app.tasks.demo_refresh_tasks.weekly_demo_refresh",
+        "schedule": crontab(minute=0, hour=4, day_of_week=1),
+        "options": {"expires": 60 * 60 * 12},
     },
 }
 

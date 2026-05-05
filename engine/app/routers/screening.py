@@ -43,6 +43,7 @@ from app.services.adverse_media import (
     is_provider_configured,
     search_adverse_media,
 )
+from app.services.billing import require_feature
 from app.services.screening import ScreeningRequest, screen_entity
 
 router = APIRouter()
@@ -54,6 +55,10 @@ async def screen(
     user: Annotated[AuthenticatedUser, Depends(require_roles("manager", "admin", "superadmin", "analyst"))],
     session: Annotated[AsyncSession, Depends(get_current_session)],
 ) -> ScreeningEntityResponse:
+    try:
+        await require_feature(session, user=user, feature="sanctions")
+    except PermissionError as exc:
+        raise HTTPException(status_code=status.HTTP_402_PAYMENT_REQUIRED, detail=str(exc)) from exc
     request = ScreeningRequest(
         name=body.name,
         date_of_birth=body.date_of_birth,
@@ -97,6 +102,10 @@ async def screen_media(
     user: Annotated[AuthenticatedUser, Depends(require_roles("manager", "admin", "superadmin", "analyst"))],
     session: Annotated[AsyncSession, Depends(get_current_session)],
 ) -> AdverseMediaResponse:
+    try:
+        await require_feature(session, user=user, feature="sanctions")
+    except PermissionError as exc:
+        raise HTTPException(status_code=status.HTTP_402_PAYMENT_REQUIRED, detail=str(exc)) from exc
     hits = await search_adverse_media(
         AdverseMediaQuery(name=body.name, nationality=body.nationality, fuzziness=body.fuzziness)
     )

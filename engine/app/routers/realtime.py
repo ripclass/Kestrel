@@ -30,6 +30,7 @@ from app.schemas.realtime import (
     RealtimeScoreResponse,
     channel_is_supported,
 )
+from app.services.billing import require_feature
 from app.services.realtime_scoring import (
     RealtimeScoringRequest,
     build_realtime_metrics,
@@ -52,6 +53,10 @@ async def score(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail=f"Unsupported channel '{body.channel}'.",
         )
+    try:
+        await require_feature(session, user=user, feature="realtime")
+    except PermissionError as exc:
+        raise HTTPException(status_code=status.HTTP_402_PAYMENT_REQUIRED, detail=str(exc)) from exc
     request = RealtimeScoringRequest(
         transaction_id=body.transaction_id,
         from_account=body.from_account,
