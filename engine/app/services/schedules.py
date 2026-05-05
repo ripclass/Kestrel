@@ -107,6 +107,15 @@ _SCHEDULE_METADATA: dict[str, dict[str, str]] = {
             "air-gapped mode — opt-in via KESTREL_TELEMETRY_ENABLED=true."
         ),
     },
+    "audit_retention_daily": {
+        "description": (
+            "V3 P7.3 audit-log retention. Daily at 03:30 BDT, sweep "
+            "audit_log rows older than AUDIT_LOG_RETENTION_DAYS (default "
+            "365). When KESTREL_AUDIT_ARCHIVE_BUCKET is set, write to "
+            "audit-archive/YYYY-MM/<batch>.jsonl in Supabase Storage "
+            "before deletion."
+        ),
+    },
 }
 
 

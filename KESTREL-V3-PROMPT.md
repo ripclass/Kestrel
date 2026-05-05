@@ -400,7 +400,19 @@ Customer-side license file with feature flags (mirrors the cloud `plan_id` model
 
 ---
 
-## PHASE 7 — OPERATIONAL MATURITY (1–2 weeks, anytime)
+## PHASE 7 — OPERATIONAL MATURITY (1–2 weeks, anytime) ✅ SHIPPED 2026-05-05
+
+One commit closing all four sub-tasks. Migration **022** (`organizations` Stripe columns + `metered_writes` table) applied to prod. **V3 is now fully shipped.**
+
+**What landed:**
+- **P7.1** `engine/app/routers/stripe_webhooks.py` mounted at `POST /webhooks/stripe`. Pure HMAC-SHA256 signature verification (no `stripe` SDK). `engine/app/services/stripe_billing.py` reactively mirrors subscription state to `organizations` rows: sub created/updated → sync price → plan via `STRIPE_PRICE_ID_*` env mapping, sub deleted → downgrade to starter, payment_failed → 7-day `plan_grace_until`, payment_succeeded → clear grace.
+- **P7.2** `engine/app/services/metering.py` + new `metered_writes` table. `gate_then_increment` runs before scoring; over-cap callers get 402. Period rolls at first-of-month Asia/Dhaka. Concurrent-safe via `INSERT … ON CONFLICT DO UPDATE` on `transaction_count + 1`. Regulator orgs exempt; uncapped plans skip the check.
+- **P7.3** `engine/app/tasks/retention_tasks.py` daily at 03:30 BDT. Cutoff = `now - AUDIT_LOG_RETENTION_DAYS` (default 365). Optional Supabase Storage archive at `audit-archive/YYYY-MM/<batch>.jsonl` when `KESTREL_AUDIT_ARCHIVE_BUCKET` is set. Capped at 40 batches × 500 rows = 20k rows/run. Beat schedule 10 → 11 jobs.
+- **P7.4** `engine/tests/test_scoring_latency.py` — 100-call pure-helper burst, p99 < 5 ms budget. `.github/workflows/latency-regression.yml` runs only this test on PRs touching `realtime_scoring.py`.
+
+**Aggregate impact:** engine routes 129 → 130 (+1: webhook), Beat 10 → 11 jobs, pytest 421 → 459 (+38 new). Migration 022 applied via Supabase MCP.
+
+The detail below stays for reference.
 
 Small wins that pay for themselves. Schedule whenever there's a gap.
 

@@ -31,6 +31,7 @@ from app.schemas.realtime import (
     channel_is_supported,
 )
 from app.services.billing import require_feature
+from app.services.metering import gate_then_increment
 from app.services.realtime_scoring import (
     RealtimeScoringRequest,
     build_realtime_metrics,
@@ -55,6 +56,10 @@ async def score(
         )
     try:
         await require_feature(session, user=user, feature="realtime")
+    except PermissionError as exc:
+        raise HTTPException(status_code=status.HTTP_402_PAYMENT_REQUIRED, detail=str(exc)) from exc
+    try:
+        await gate_then_increment(session, user=user)
     except PermissionError as exc:
         raise HTTPException(status_code=status.HTTP_402_PAYMENT_REQUIRED, detail=str(exc)) from exc
     request = RealtimeScoringRequest(

@@ -22,3 +22,8 @@ class Organization(TimestampMixin, Base):
     plan_overrides: Mapped[dict] = mapped_column(JSONB, default=dict)
     plan_set_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     plan_set_by: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True))
+    stripe_customer_id: Mapped[str | None] = mapped_column(String(64))
+    stripe_subscription_id: Mapped[str | None] = mapped_column(String(64))
+    stripe_subscription_status: Mapped[str | None] = mapped_column(String(32))
+    stripe_price_id: Mapped[str | None] = mapped_column(String(64))
+    plan_grace_until: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))

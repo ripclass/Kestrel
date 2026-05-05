@@ -6,7 +6,7 @@ Kestrel is a standalone financial crime intelligence platform for Bangladesh. It
 
 ## Current state
 
-> **Prod (2026-05-05):** V2 fully shipped (phases 1-6) + **V3 phases 1-6 shipped (framework)**. Capability matrix: **15/18 at Excellent**, 2 at Partial-with-plan (sovereign AI serving production traffic — gated on V3 P4 corpus + first cleared promotion-harness run; first on-prem customer rollout — V3 P6 framework shipped, awaiting first signed Tier-3 customer for production hardening). V3 P6 ships the framework: multi-stage `Dockerfile.engine` + `Dockerfile.web`, `infra/onprem/docker-compose.yml` (Postgres + Redis + engine + worker + beat + web + Caddy), boot-time migration runner (`scripts/bootstrap.py`), `KESTREL_DEPLOYMENT_MODE=onprem` config flag that strips OpenAI/Anthropic from the AI route chain, `engine/scripts/import_watchlist_archive.py` for air-gapped sanctions feeds, license file at `/etc/kestrel/license.yaml`, optional telemetry pingback Beat task. Cloud is `kestrel-nine.vercel.app` + `kestrel-engine.onrender.com`, AI via OpenRouter (`anthropic/claude-sonnet-4.6`), all 3 Render services running. Migrations 001–021 applied.
+> **Prod (2026-05-05):** V2 fully shipped (phases 1-6) + **V3 phases 1-7 shipped**. Capability matrix: **15/18 at Excellent**, 2 at Partial-with-plan (sovereign AI serving production traffic — gated on V3 P4 corpus + first cleared promotion-harness run; first on-prem customer rollout — framework shipped, awaiting first signed Tier-3 customer). V3 P7 closes operational maturity: Stripe webhook receiver (`POST /webhooks/stripe` with HMAC-SHA256 signature verification, no proactive Stripe outbound calls), monthly transaction-cap metering (`metered_writes` table, 402 PAYMENT REQUIRED on starter-tier overage, period rolls at first-of-month Asia/Dhaka), audit-log retention Beat task (daily 03:30 BDT, 365-day default cutoff, optional Supabase Storage archive), latency regression CI (100-call pure-helper burst, p99 < 5ms budget). Cloud is `kestrel-nine.vercel.app` + `kestrel-engine.onrender.com`, AI via OpenRouter (`anthropic/claude-sonnet-4.6`), all 3 Render services running. Migrations 001–022 applied.
 
 Ten build-out sessions shipped end-to-end:
 - **Intelligence-core** (2026-04-15/16): real detection engine (8 YAML rules + evaluator + scorer + resolver + matcher + pipeline), scan upload path, WeasyPrint PDF case pack, SAR/CTR report types, AI alert auto-explanation + Draft STR, DB-backed typologies, CommandView polish, modifier conditions, incremental scan scope, Phase 10 hardening (request IDs + structured JSON logs + standardised error envelope + `docs/RUNBOOK.md`).
@@ -507,13 +507,31 @@ V3 phase 6 of `KESTREL-V3-PROMPT.md`. Framework-shipped, customer-rollout-deferr
 
 **What's deliberately NOT in this phase:** IdP integration (cloud uses Supabase Auth; on-prem will need OIDC or SAML against the customer's directory), Cosign image signing + SBOM, HA topology overrides. All three are customer-pull engagements driven by the first signed Tier-3 customer.
 
-## What's next — V3 phase 7
+## V3 phase 7 — operational maturity (shipped 2026-05-05)
 
-V3 phases 1 + 2 + 3 + 4 + 5 + 6 shipped. The sovereign-AI track is mechanically complete; the on-prem framework is in place. What remains for V3 is operational maturity that pays for itself anytime a gap opens up.
+V3 phase 7 of `KESTREL-V3-PROMPT.md`. One commit (engine + harness + 38 new tests). Migration **022** (`organizations` Stripe columns + `metered_writes` table) applied to prod via Supabase MCP. **V3 fully closed.**
 
-| V3 phase | Estimate | Strategic unlock |
-|---|---|---|
-| **P7** Operational maturity | 1-2 weeks (anytime) | Stripe, hard cap enforcement, audit-log retention, latency-regression CI. |
+**Four sub-tasks:**
+
+- **P7.1 Stripe billing framework**: `engine/app/routers/stripe_webhooks.py` mounted at `POST /webhooks/stripe`. Pure HMAC-SHA256 signature verification against `STRIPE_WEBHOOK_SECRET` (no `stripe` SDK — keeps the on-prem image lighter). `engine/app/services/stripe_billing.py` mirrors subscription state onto `organizations` rows reactively: `customer.subscription.created/updated` → sync `stripe_subscription_id` + `stripe_subscription_status` + `plan_id` (resolved via `STRIPE_PRICE_ID_*` env mapping); `customer.subscription.deleted` → downgrade to starter; `invoice.payment_failed` → set `plan_grace_until = now + 7d` + status `past_due`; `invoice.payment_succeeded` → clear grace + restore status. **No proactive outbound calls** — engine is purely reactive, which keeps the on-prem story clean (an air-gapped customer can disable Stripe entirely without breaking the rest of the billing surface).
+
+- **P7.2 Hard transaction-cap enforcement**: `engine/app/services/metering.py` + new `metered_writes` table (PK `(org_id, period_start)`). `gate_then_increment` is called from `routers/realtime.py::score` before scoring; over-cap callers get **402 PAYMENT REQUIRED** with an upgrade message. Period rollover is at first-of-month Asia/Dhaka (UTC+6) — `current_period_start` computes the Dhaka calendar date. Increment uses `INSERT … ON CONFLICT DO UPDATE` with `transaction_count + 1` so concurrent calls serialise correctly on the row. Regulator orgs are exempt (platform operator doesn't pay per-transaction). Plans without a cap (professional + enterprise) skip the check entirely.
+
+- **P7.3 Audit-log retention**: `engine/app/tasks/retention_tasks.py` runs daily at 03:30 BDT (after the 03:00 KYC re-screen). Cutoff = `now - AUDIT_LOG_RETENTION_DAYS` (default 365). When `KESTREL_AUDIT_ARCHIVE_BUCKET` is set, batches of 500 rows are serialised as deterministic JSONL, uploaded to Supabase Storage at `audit-archive/YYYY-MM/<batch>.jsonl` with `x-upsert: true`, then deleted. When the env is unset, the task still deletes (compliance copy lives in the customer's Postgres backup). Capped at `MAX_BATCHES_PER_RUN = 40` so a single run can't chew through more than 20k rows. Beat schedule grew 10 → 11 jobs (`audit_retention_daily`).
+
+- **P7.4 Latency regression CI**: `engine/tests/test_scoring_latency.py` — 100-call pure-helper burst (composes `_score_amount` + `_score_channel` + `_decide` + `_confidence_from_signals`); fails the build if p99 > 5 ms. Pinned decision-band thresholds (approve / review / hold / reject) so a quiet edit can't silently shift them. `.github/workflows/latency-regression.yml` runs only this test on PRs and main pushes that touch `realtime_scoring.py` or its test.
+
+**Aggregate impact:**
+- Engine routes 129 → **130** (+1: `POST /webhooks/stripe`). Beat schedule 10 → 11 jobs (`audit_retention_daily`).
+- pytest 421 → **459** (+38 new across `test_metering.py` (9) + `test_stripe_billing.py` (16) + `test_audit_retention.py` (8) + `test_scoring_latency.py` (3) + `test_schedules_service.py` deltas (+2)).
+- Migration 022: `organizations.stripe_customer_id` + `stripe_subscription_id` (both UNIQUE) + `stripe_subscription_status` (CHECK on Stripe's status enum) + `stripe_price_id` + `plan_grace_until`. New `metered_writes` table with RLS (own-org-or-regulator on SELECT, own-org INSERT/UPDATE).
+- New env vars: `STRIPE_WEBHOOK_SECRET`, `STRIPE_PRICE_ID_STARTER` / `_PROFESSIONAL` / `_ENTERPRISE`, `AUDIT_LOG_RETENTION_DAYS` (default 365), `KESTREL_AUDIT_ARCHIVE_BUCKET`.
+
+**To start metered billing:** create the three Stripe Prices for starter/professional/enterprise, set the four `STRIPE_*` env vars on Render, configure the webhook endpoint at `https://kestrel-engine.onrender.com/webhooks/stripe` in the Stripe Dashboard, then move tenants from manual `plan_id` setting to Stripe Checkout. The webhook receiver is feature-complete; the customer-facing Checkout flow is a separate web build.
+
+## What's next — V3 closed
+
+V3 phases 1 through 7 shipped. The remaining capability-matrix items (sovereign AI in production traffic, first on-prem customer) are now data-soak / customer-pull rather than engineering. Outstanding small-pickups from V2 (watchlist ingestion env flag, ComplyAdvantage key, EU FSF credential, Render Beat hook, multi-bank seed apply, Resend integration) still apply.
 
 `KESTREL-V3-PROMPT.md` has the canonical task table with full detail.
 

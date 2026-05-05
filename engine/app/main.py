@@ -33,6 +33,7 @@ from app.routers import (
     screening,
     status_public,
     str_reports,
+    stripe_webhooks,
     system,
 )
 
@@ -113,3 +114,4 @@ app.include_router(match_definitions.router, prefix="/match-definitions", tags=[
 app.include_router(reference_tables.router, prefix="/reference-tables", tags=["reference-tables"])
 app.include_router(reports.router, prefix="/reports", tags=["reports"])
 app.include_router(admin.router, prefix="/admin", tags=["admin"])
+app.include_router(stripe_webhooks.router, prefix="/webhooks", tags=["webhooks"])

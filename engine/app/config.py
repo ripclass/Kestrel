@@ -77,6 +77,10 @@ class Settings(BaseSettings):
     kestrel_telemetry_enabled: bool = False
     kestrel_telemetry_url: str | None = None
 
+    # V3 phase 7: audit-log retention.
+    audit_log_retention_days: int = 365
+    kestrel_audit_archive_bucket: str | None = None
+
     def is_onprem(self) -> bool:
         return self.kestrel_deployment_mode.lower() == "onprem"
 

@@ -13,6 +13,7 @@ from app.models.dissemination import Dissemination
 from app.models.entity import Entity
 from app.models.match import Match
 from app.models.match_definition import MatchDefinition, MatchExecution
+from app.models.metering import MeteredWrite
 from app.models.org import Organization
 from app.models.profile import Profile
 from app.models.realtime_scoring import RealtimeScoringLog
@@ -42,6 +43,7 @@ __all__ = [
     "Match",
     "MatchDefinition",
     "MatchExecution",
+    "MeteredWrite",
     "Organization",
     "Profile",
     "RealtimeScoringLog",

@@ -1,0 +1,40 @@
+name: Latency regression
+
+on:
+  pull_request:
+    paths:
+      - "engine/app/services/realtime_scoring.py"
+      - "engine/tests/test_scoring_latency.py"
+      - "engine/pyproject.toml"
+      - ".github/workflows/latency-regression.yml"
+  push:
+    branches: [main]
+    paths:
+      - "engine/app/services/realtime_scoring.py"
+      - "engine/tests/test_scoring_latency.py"
+      - "engine/pyproject.toml"
+      - ".github/workflows/latency-regression.yml"
+
+jobs:
+  pure-helper-burst:
+    name: Realtime scoring pure-helper burst
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: engine
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -e .[dev]
+
+      - name: Latency burst
+        run: pytest tests/test_scoring_latency.py -q
