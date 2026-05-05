@@ -68,6 +68,18 @@ class Settings(BaseSettings):
     ai_sovereign_model: str | None = None
     ai_sovereign_threshold_default: float = 1.01
 
+    # V3 phase 6: on-prem deployment mode. "cloud" is the default Render
+    # deployment; "onprem" hardens the engine for air-gapped customer
+    # environments — disables outbound AI providers (OpenAI/Anthropic),
+    # disables live watchlist ingestion, defaults telemetry off.
+    kestrel_deployment_mode: str = "cloud"
+    kestrel_license_file: str | None = None
+    kestrel_telemetry_enabled: bool = False
+    kestrel_telemetry_url: str | None = None
+
+    def is_onprem(self) -> bool:
+        return self.kestrel_deployment_mode.lower() == "onprem"
+
     def cors_origin_list(self) -> list[str]:
         return [item.strip() for item in self.allowed_origins.split(",") if item.strip()]
 

@@ -354,7 +354,25 @@ A new Beat task `sovereign_health_check` runs every 30 min. Reads the last 1000 
 
 ---
 
-## PHASE 6 — ON-PREM PACKAGING (Weeks 8-10, conditional)
+## PHASE 6 — ON-PREM PACKAGING (Weeks 8-10, conditional) ✅ FRAMEWORK SHIPPED 2026-05-05
+
+Framework-shipped, customer-rollout-deferred — same pattern as P4. The deployable artifacts and the engine code paths are in place; production hardening (IdP integration, image signing, HA topology) lands alongside the first signed Tier-3 customer.
+
+**What landed:**
+- `infra/onprem/Dockerfile.engine` (Python 3.12, multi-stage, ships psql for the migration runner) + `Dockerfile.web` (Node 22, Next.js standalone via `BUILD_OUTPUT=standalone` env gate; Vercel build untouched).
+- `infra/onprem/docker-compose.yml` (Postgres + Redis + engine + worker + beat + web + Caddy on a single VM).
+- `infra/onprem/scripts/bootstrap.py` — idempotent migration runner; wraps `psql` against the local Postgres; lexicographic order; per-migration single-transaction; pg_isready poll so compose `depends_on` works; container restart loop holds traffic until DB schema is current.
+- `engine/app/config.py` + `engine/app/ai/routing.py` — `kestrel_deployment_mode` setting (cloud|onprem). Onprem mode strips OpenAI + Anthropic from the AI route chain (defence-in-depth even if keys leak via env). Heuristic remains the floor; sovereign is prepended when configured + eligible.
+- `engine/scripts/import_watchlist_archive.py` — air-gapped offline import. Operator drops OFAC/UN/UK feed files in a directory; script classifies by filename, parses via existing source adapters, upserts via the same `_upsert_batch` the daily Beat task uses (deterministic UUID5 PKs, `ON CONFLICT DO NOTHING`). `--dry-run` available.
+- `engine/app/services/licensing.py` — license file at `/etc/kestrel/license.yaml` parsed on boot; same Plan/TenantPlan abstraction the cloud uses; same enable-only override semantics. Expiry warns but doesn't stop the engine.
+- `engine/app/tasks/telemetry_tasks.py` — opt-in daily Beat task (`KESTREL_TELEMETRY_ENABLED=true`); posts aggregate counts only (no PII, no business content). Beat schedule 9 → 10 jobs.
+- `docs/onprem-deployment.md` — operator guide.
+
+**Aggregate impact:** engine routes unchanged at 129, no migrations, no API routes, no web UI. pytest 384 → 421 (+37 new). Cloud deployment unchanged because all new code paths gate on `KESTREL_DEPLOYMENT_MODE=onprem`.
+
+**Deliberately not in this phase (driven by first customer):** IdP integration (OIDC/SAML), Cosign image signing + SBOM, HA topology, customer acceptance docs.
+
+The detail below stays for reference.
 
 Only fire when a Tier-3 customer signs. Don't build speculatively.
 

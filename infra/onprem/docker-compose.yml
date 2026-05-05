@@ -1,0 +1,130 @@
+# Kestrel on-prem stack.
+#
+# Customer-side requirement: Docker Engine 24+ with the Compose plugin.
+# All five services run on a single VM. Customer's GPU box (vLLM serving the
+# sovereign model) sits on the same LAN; engine reaches it via the
+# AI_SOVEREIGN_URL env var (e.g. http://10.0.0.10:8000/v1).
+#
+# Bring-up (first run):
+#   1. cp examples/.env.example .env  &&  edit secrets
+#   2. cp examples/license.yaml /etc/kestrel/license.yaml
+#   3. docker compose -f infra/onprem/docker-compose.yml up -d
+#
+# Engine container runs `kestrel-bootstrap` on entry to apply migrations,
+# then starts uvicorn. Postgres + Redis are local; no internet egress.
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-kestrel}
+      POSTGRES_USER: ${POSTGRES_USER:-kestrel}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set}
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    command: ["redis-server", "--save", "60", "1", "--appendonly", "no"]
+    volumes:
+      - redis-data:/data
+
+  engine:
+    build:
+      context: ../..
+      dockerfile: infra/onprem/Dockerfile.engine
+    image: kestrel-engine:onprem
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_started
+    environment:
+      KESTREL_DEPLOYMENT_MODE: onprem
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-kestrel}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-kestrel}
+      DATABASE_URL_SYNC: postgresql://${POSTGRES_USER:-kestrel}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-kestrel}
+      REDIS_URL: redis://redis:6379/0
+      KESTREL_LICENSE_FILE: /etc/kestrel/license.yaml
+      KESTREL_TELEMETRY_ENABLED: ${KESTREL_TELEMETRY_ENABLED:-false}
+      AI_SOVEREIGN_URL: ${AI_SOVEREIGN_URL:-}
+      AI_SOVEREIGN_MODEL: ${AI_SOVEREIGN_MODEL:-}
+      AI_SOVEREIGN_API_KEY: ${AI_SOVEREIGN_API_KEY:-}
+      ALLOWED_ORIGINS: ${ALLOWED_ORIGINS:-https://kestrel.local}
+      SUPABASE_JWT_SECRET: ${SUPABASE_JWT_SECRET:-}
+      KESTREL_ENABLE_DEMO_MODE: ${KESTREL_ENABLE_DEMO_MODE:-false}
+    volumes:
+      - ./license.yaml:/etc/kestrel/license.yaml:ro
+      - watchlist-archive:/var/lib/kestrel/watchlist
+    expose:
+      - "8000"
+
+  worker:
+    image: kestrel-engine:onprem
+    restart: unless-stopped
+    depends_on:
+      engine:
+        condition: service_started
+    command: ["/usr/local/bin/entrypoint-worker"]
+    environment:
+      KESTREL_DEPLOYMENT_MODE: onprem
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-kestrel}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-kestrel}
+      REDIS_URL: redis://redis:6379/0
+      KESTREL_TELEMETRY_ENABLED: ${KESTREL_TELEMETRY_ENABLED:-false}
+
+  beat:
+    image: kestrel-engine:onprem
+    restart: unless-stopped
+    depends_on:
+      engine:
+        condition: service_started
+    command: ["/usr/local/bin/entrypoint-beat"]
+    environment:
+      KESTREL_DEPLOYMENT_MODE: onprem
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-kestrel}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-kestrel}
+      REDIS_URL: redis://redis:6379/0
+
+  web:
+    build:
+      context: ../..
+      dockerfile: infra/onprem/Dockerfile.web
+    image: kestrel-web:onprem
+    restart: unless-stopped
+    environment:
+      ENGINE_URL: http://engine:8000
+      NEXT_PUBLIC_ENGINE_URL: ${KESTREL_PUBLIC_ENGINE_URL:-/api}
+      NEXT_PUBLIC_SUPABASE_URL: ${NEXT_PUBLIC_SUPABASE_URL:-}
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: ${NEXT_PUBLIC_SUPABASE_ANON_KEY:-}
+      NEXT_PUBLIC_ENABLE_DEMO_MODE: ${NEXT_PUBLIC_ENABLE_DEMO_MODE:-false}
+    expose:
+      - "3000"
+
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    depends_on:
+      - engine
+      - web
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      KESTREL_PUBLIC_HOST: ${KESTREL_PUBLIC_HOST:-kestrel.local}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+
+volumes:
+  postgres-data:
+  redis-data:
+  watchlist-archive:
+  caddy-data:
+  caddy-config:

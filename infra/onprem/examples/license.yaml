@@ -1,0 +1,29 @@
+# Kestrel on-prem license file.
+#
+# Issued per-customer by Kestrel HQ. Place at `/etc/kestrel/license.yaml`
+# (mounted into the engine container by docker-compose).
+#
+# `plan_id` controls feature gating (the same enforcement as cloud's
+# pricing-tier middleware in services/billing.py). `plan_overrides` enables
+# specific features on top of the plan; it can ENABLE features the plan
+# doesn't include but cannot DISABLE plan-included features (same semantics
+# as cloud).
+#
+# `expires_at` is a soft check — the engine logs a warning when within 30
+# days of expiry. It does not stop the service. Customer-pull renewal.
+
+customer: "Example Bank PLC"
+issued_at: "2026-05-05T00:00:00Z"
+expires_at: "2027-05-05T00:00:00Z"
+plan_id: enterprise
+plan_overrides:
+  realtime_scoring: true
+  sanctions_screening: true
+  kyc: true
+  agentic_investigations: true
+  sovereign_ai: true
+  cross_bank_intelligence: false # disabled in single-bank on-prem deployments
+seats_max: 50
+contact:
+  primary: "compliance@example.com.bd"
+  technical: "ops@example.com.bd"

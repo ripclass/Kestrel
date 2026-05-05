@@ -99,6 +99,14 @@ _SCHEDULE_METADATA: dict[str, dict[str, str]] = {
             "task's rollout_pct by 25 (down to 0)."
         ),
     },
+    "telemetry_pingback_daily": {
+        "description": (
+            "V3 P6 on-prem telemetry. Daily at 01:00 BDT, post aggregate "
+            "counts (orgs / transactions / open alerts / submitted STRs / "
+            "AI invocations) to KESTREL_TELEMETRY_URL. Defaults off in "
+            "air-gapped mode — opt-in via KESTREL_TELEMETRY_ENABLED=true."
+        ),
+    },
 }
 
 

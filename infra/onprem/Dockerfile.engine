@@ -1,0 +1,75 @@
+# Kestrel engine — single image used for FastAPI / Celery worker / Celery beat.
+#
+# Build context: repo root (so that `engine/` and `supabase/` are visible).
+# Build:    docker build -f infra/onprem/Dockerfile.engine -t kestrel-engine:onprem .
+# Run:      docker run --env-file .env -p 8000:8000 kestrel-engine:onprem
+#
+# The same image runs all three roles. `entrypoint-*.sh` selects which.
+
+FROM python:3.12-slim AS builder
+
+ENV PIP_NO_CACHE_DIR=1 \
+    PIP_DISABLE_PIP_VERSION_CHECK=1 \
+    PYTHONDONTWRITEBYTECODE=1
+
+WORKDIR /build
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    build-essential \
+    libpq-dev \
+    libxml2-dev \
+    libxslt1-dev \
+    libpango-1.0-0 \
+    libpangoft2-1.0-0 \
+    libcairo2 \
+    && rm -rf /var/lib/apt/lists/*
+
+COPY engine/pyproject.toml ./engine/pyproject.toml
+COPY engine/app ./engine/app
+COPY engine/seed ./engine/seed
+
+RUN pip install --prefix=/install ./engine
+
+
+FROM python:3.12-slim
+
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    KESTREL_DEPLOYMENT_MODE=onprem \
+    PORT=8000
+
+# Native libs WeasyPrint + lxml + asyncpg need at runtime.
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    libpq5 \
+    libxml2 \
+    libxslt1.1 \
+    libpango-1.0-0 \
+    libpangoft2-1.0-0 \
+    libcairo2 \
+    libgdk-pixbuf-2.0-0 \
+    fonts-dejavu \
+    postgresql-client \
+    curl \
+    && rm -rf /var/lib/apt/lists/*
+
+COPY --from=builder /install /usr/local
+
+WORKDIR /app
+COPY engine/app ./app
+COPY engine/seed ./seed
+COPY supabase/migrations ./supabase/migrations
+COPY infra/onprem/scripts/bootstrap.py /usr/local/bin/kestrel-bootstrap
+COPY infra/onprem/scripts/entrypoint-engine.sh /usr/local/bin/entrypoint-engine
+COPY infra/onprem/scripts/entrypoint-worker.sh /usr/local/bin/entrypoint-worker
+COPY infra/onprem/scripts/entrypoint-beat.sh /usr/local/bin/entrypoint-beat
+
+RUN chmod +x /usr/local/bin/kestrel-bootstrap \
+             /usr/local/bin/entrypoint-engine \
+             /usr/local/bin/entrypoint-worker \
+             /usr/local/bin/entrypoint-beat
+
+EXPOSE 8000
+
+# docker-compose overrides this per service. Default is the FastAPI role
+# so a bare `docker run` still produces a usable engine.
+CMD ["/usr/local/bin/entrypoint-engine"]

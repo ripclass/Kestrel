@@ -1,0 +1,38 @@
+# Kestrel on-prem reverse proxy.
+#
+# Customer terminates TLS here; defaults to self-signed via Caddy's internal CA.
+# Replace the {$KESTREL_PUBLIC_HOST} site address with the real hostname when
+# the customer's PKI is available; Caddy will switch to ACME automatically if
+# the host is publicly reachable, otherwise to internal CA.
+
+{
+    # Disable outbound auto-cert by default; on-prem starts air-gapped.
+    auto_https disable_certs
+}
+
+{$KESTREL_PUBLIC_HOST:kestrel.local} {
+    tls internal
+
+    encode gzip
+
+    handle_path /api/* {
+        reverse_proxy engine:8000
+    }
+
+    handle /health {
+        reverse_proxy engine:8000
+    }
+
+    handle /ready {
+        reverse_proxy engine:8000
+    }
+
+    handle {
+        reverse_proxy web:3000
+    }
+
+    log {
+        output stdout
+        format console
+    }
+}

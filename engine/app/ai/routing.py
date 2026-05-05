@@ -34,15 +34,24 @@ def _sovereign_configured(settings: Settings) -> bool:
 
 
 def _build_baseline_routes(task: AITaskName, settings: Settings) -> list[TaskRoute]:
-    """The OpenAI / Anthropic / Heuristic chain — pre-V3-P5 behaviour."""
+    """The OpenAI / Anthropic / Heuristic chain — pre-V3-P5 behaviour.
+
+    V3 P6: in onprem mode, OpenAI/Anthropic are skipped entirely (no internet
+    egress allowed). Heuristic remains the floor; sovereign is prepended by
+    ``resolve_task_routes`` when configured + eligible. Onprem with no
+    sovereign endpoint = heuristic-only — adequate for STR drafting and
+    entity extraction; degraded for narrative generation."""
     routes: list[TaskRoute] = []
+    onprem = settings.is_onprem()
     provider_order = TASK_PROVIDER_ORDER[task]
     for provider in provider_order:
+        if onprem:
+            continue
         if provider == ProviderName.OPENAI and settings.openai_api_key and settings.openai_model:
             routes.append(TaskRoute(provider=provider, model=settings.openai_model))
         if provider == ProviderName.ANTHROPIC and settings.anthropic_api_key and settings.anthropic_model:
             routes.append(TaskRoute(provider=provider, model=settings.anthropic_model))
-    if settings.ai_fallback_enabled and (settings.demo_mode_enabled() or not routes):
+    if settings.ai_fallback_enabled and (onprem or settings.demo_mode_enabled() or not routes):
         routes.append(TaskRoute(provider=ProviderName.HEURISTIC, model="heuristic-v1"))
     return routes
 

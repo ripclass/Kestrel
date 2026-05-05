@@ -18,6 +18,7 @@ celery_app = Celery(
         "app.tasks.status_tasks",
         "app.tasks.demo_refresh_tasks",
         "app.tasks.sovereign_health_tasks",
+        "app.tasks.telemetry_tasks",
     ],
 )
 celery_app.conf.task_default_queue = "kestrel"
@@ -69,6 +70,11 @@ celery_app.conf.beat_schedule = {
         "task": "app.tasks.sovereign_health_tasks.check",
         "schedule": crontab(minute="*/30"),
         "options": {"expires": 60 * 25},
+    },
+    "telemetry_pingback_daily": {
+        "task": "app.tasks.telemetry_tasks.pingback",
+        "schedule": crontab(minute=0, hour=1),
+        "options": {"expires": 60 * 60 * 6},
     },
 }
 

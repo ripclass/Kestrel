@@ -6,7 +6,7 @@ Kestrel is a standalone financial crime intelligence platform for Bangladesh. It
 
 ## Current state
 
-> **Prod (2026-05-05):** V2 fully shipped (phases 1-6) + **V3 phases 1-5 shipped**. Capability matrix: **15/18 at Excellent**, 2 at Partial-with-plan (sovereign AI serving production traffic — gated on V3 P4 corpus + first cleared promotion-harness run; first on-prem deployment — V3 P6 unlock), 0 Missing. V3 P5 closes the rollout-mechanics gap: the sovereign route now has runtime-mutable per-task threshold + rollout %, a coin-flip-per-call traffic split, a three-gate promotion harness, and a Beat-driven automatic rollback that shrinks rollout on degradation. Defaults pin every task to "off" (rollout 0, threshold > 1.0); the single edit to start serving sovereign traffic is one INSERT on `sovereign_rollout`. Live on `kestrel-nine.vercel.app` + `kestrel-engine.onrender.com`. AI via OpenRouter (`anthropic/claude-sonnet-4.6`). All 3 Render services running. Migrations 001–021 applied.
+> **Prod (2026-05-05):** V2 fully shipped (phases 1-6) + **V3 phases 1-6 shipped (framework)**. Capability matrix: **15/18 at Excellent**, 2 at Partial-with-plan (sovereign AI serving production traffic — gated on V3 P4 corpus + first cleared promotion-harness run; first on-prem customer rollout — V3 P6 framework shipped, awaiting first signed Tier-3 customer for production hardening). V3 P6 ships the framework: multi-stage `Dockerfile.engine` + `Dockerfile.web`, `infra/onprem/docker-compose.yml` (Postgres + Redis + engine + worker + beat + web + Caddy), boot-time migration runner (`scripts/bootstrap.py`), `KESTREL_DEPLOYMENT_MODE=onprem` config flag that strips OpenAI/Anthropic from the AI route chain, `engine/scripts/import_watchlist_archive.py` for air-gapped sanctions feeds, license file at `/etc/kestrel/license.yaml`, optional telemetry pingback Beat task. Cloud is `kestrel-nine.vercel.app` + `kestrel-engine.onrender.com`, AI via OpenRouter (`anthropic/claude-sonnet-4.6`), all 3 Render services running. Migrations 001–021 applied.
 
 Ten build-out sessions shipped end-to-end:
 - **Intelligence-core** (2026-04-15/16): real detection engine (8 YAML rules + evaluator + scorer + resolver + matcher + pipeline), scan upload path, WeasyPrint PDF case pack, SAR/CTR report types, AI alert auto-explanation + Draft STR, DB-backed typologies, CommandView polish, modifier conditions, incremental scan scope, Phase 10 hardening (request IDs + structured JSON logs + standardised error envelope + `docs/RUNBOOK.md`).
@@ -486,13 +486,33 @@ The sovereign route now has the runtime knobs to ship to a fraction of traffic, 
 
 **The single edit point to start serving sovereign traffic:** when V3 P4's corpus is large enough and a sovereign adapter has cleared the harness, ops INSERT one row on `sovereign_rollout` (e.g. `task_name='alert_explanation', threshold=0.75, rollout_pct=10`). Routing + outcome logging + Beat-driven rollback are all wired.
 
-## What's next — V3 phases 6-7
+## V3 phase 6 — on-prem packaging framework (shipped 2026-05-05)
 
-V3 phases 1 + 2 + 3 + 4 + 5 shipped. The sovereign-AI track is mechanically complete — corpus exporter (P1 + P4) → confidence routing scaffold (P2) → training framework (P4) → promotion harness + rollout knobs + automatic rollback (P5). What remains is the data soak: ~30–60 days of analyst corrections in `ai_outcome_log` before the first fine-tune cycle is worth running.
+V3 phase 6 of `KESTREL-V3-PROMPT.md`. Framework-shipped, customer-rollout-deferred. Same pattern as V3 P4 — the deployable artifacts and the engine code paths are in place; production hardening (IdP integration, image signing, HA topology) lands alongside the first signed Tier-3 customer.
+
+**Six pieces:**
+- **`infra/onprem/Dockerfile.engine`** — multi-stage Python 3.12 image. Builder layer compiles the `kestrel-engine` wheel + native libs (libpq / lxml / WeasyPrint deps). Runtime layer ships `psql` for the migration runner and the three entrypoint scripts (engine / worker / beat). Same image runs all three roles; `command:` in compose selects.
+- **`infra/onprem/Dockerfile.web`** — Node 22 Alpine. Builds Next.js with `BUILD_OUTPUT=standalone` (new env-gated `output` field in `web/next.config.ts`; cloud Vercel build is unchanged because the env var is unset). Runtime image ships only the standalone server + `.next/static` + `public/`.
+- **`infra/onprem/docker-compose.yml`** — Postgres 16 + Redis 7 + engine (FastAPI) + worker (Celery) + beat (Celery beat) + web (Next.js) + Caddy (TLS termination). `KESTREL_PUBLIC_HOST` controls the Caddy site name (defaults to `kestrel.local`); `tls internal` for self-signed first-boot. Env file at `infra/onprem/.env`; license file mounted at `/etc/kestrel/license.yaml`.
+- **`infra/onprem/scripts/bootstrap.py`** — boot-time migration runner. Wraps `psql` against `DATABASE_URL_SYNC` (or asyncpg→libpq rewrite of `DATABASE_URL`). Idempotent via `supabase_migrations.schema_migrations`; lexicographic order; per-migration single-transaction (`psql -1`); `pg_isready` polls for up-to-30 attempts so docker-compose `depends_on` works. Exits non-zero on first failed migration so the container restart loop holds engine traffic.
+- **`engine/app/config.py` + `engine/app/ai/routing.py`** — new `kestrel_deployment_mode` setting (`cloud`|`onprem`). In onprem mode `_build_baseline_routes` skips OpenAI/Anthropic entirely (defence-in-depth — even if API keys leak via env, the chain never includes them). Heuristic remains the floor; sovereign is prepended by `resolve_task_routes` when configured + eligible. Onprem with no sovereign endpoint = heuristic-only; engine never makes outbound AI calls.
+- **`engine/scripts/import_watchlist_archive.py`** — air-gapped offline import. Operator drops OFAC `sdn.xml` / UN `consolidated.xml` / UK `UK-Sanctions-List.csv` into a directory, script classifies by filename, parses via existing `app.screening.sources.{ofac,un,uk_ofsi}`, upserts via the same `_upsert_batch` the daily Beat task uses (deterministic UUID5 PKs, `ON CONFLICT DO NOTHING`). `--dry-run` parses + reports counts without DB writes.
+- **`engine/app/services/licensing.py` + `engine/app/tasks/telemetry_tasks.py`** — license file at `/etc/kestrel/license.yaml` parsed on boot; maps to the existing `Plan` / `TenantPlan` abstraction (same enable-only `plan_overrides` semantics as cloud). License is a config artefact, not a crypto one — file-system permissions are the customer's responsibility; expiry warns but doesn't stop the engine. Telemetry is opt-in (`KESTREL_TELEMETRY_ENABLED=true` + `KESTREL_TELEMETRY_URL`); daily 01:00 BDT Beat task posts aggregate counts only (orgs / transactions / open alerts / submitted-STRs-30d / AI-invocations-30d) — no PII, no business detail.
+
+**Aggregate impact:**
+- Engine routes unchanged at 129. Beat schedule grew 9 → 10 jobs (`telemetry_pingback_daily`).
+- pytest 384 → **421** (+37 new across `test_onprem_routing.py` (5) + `test_licensing.py` (16) + `test_watchlist_archive.py` (10) + `test_telemetry_pingback.py` (4) + `test_schedules_service.py` deltas (+2)).
+- No new migrations. No new API routes. No web UI changes. Cloud deployment unchanged — the new code paths only fire when `KESTREL_DEPLOYMENT_MODE=onprem` (and `web/next.config.ts` `output: standalone` is gated on `BUILD_OUTPUT=standalone` which Vercel doesn't set).
+- `docs/onprem-deployment.md` (new) is the operator guide: bring-up sequence, AI configuration, air-gapped watchlist sync, license/telemetry, backup pattern.
+
+**What's deliberately NOT in this phase:** IdP integration (cloud uses Supabase Auth; on-prem will need OIDC or SAML against the customer's directory), Cosign image signing + SBOM, HA topology overrides. All three are customer-pull engagements driven by the first signed Tier-3 customer.
+
+## What's next — V3 phase 7
+
+V3 phases 1 + 2 + 3 + 4 + 5 + 6 shipped. The sovereign-AI track is mechanically complete; the on-prem framework is in place. What remains for V3 is operational maturity that pays for itself anytime a gap opens up.
 
 | V3 phase | Estimate | Strategic unlock |
 |---|---|---|
-| **P6** On-prem packaging | 4-6 weeks (conditional) | First Tier-3 customer drives this. |
 | **P7** Operational maturity | 1-2 weeks (anytime) | Stripe, hard cap enforcement, audit-log retention, latency-regression CI. |
 
 `KESTREL-V3-PROMPT.md` has the canonical task table with full detail.
