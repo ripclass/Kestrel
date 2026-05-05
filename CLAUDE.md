@@ -6,9 +6,9 @@ Kestrel is a standalone financial crime intelligence platform for Bangladesh. It
 
 ## Current state
 
-> **Prod (2026-05-05):** V2 phase 5 (KYC / CDD onboarding) shipped to `main` — last commit `74fbbe6`. Live on `kestrel-nine.vercel.app` + `kestrel-engine.onrender.com`. AI via OpenRouter (`anthropic/claude-sonnet-4.6`). All 3 Render services running including beat. Migrations 001–016 applied. **016 (`customers`)** added KYC + relaxed `alerts.source_type` for the new `kyc_rescreen` Beat-task escalations.
+> **Prod (2026-05-05):** **V2 fully shipped — phases 1-6 all live on `main`** (last engine commit `caf7507`). Live on `kestrel-nine.vercel.app` + `kestrel-engine.onrender.com`. AI via OpenRouter (`anthropic/claude-sonnet-4.6`). All 3 Render services running. Migrations 001–018 applied. **017** (`uptime_pings` + `status_incidents`) + **018** (`organizations.plan_id`) add the public status surface and pricing-tier columns. The world-class capability matrix at `docs/world-class-capability-matrix.md` shows 14/18 at Excellent · 2 Partial-with-plan · 0 Missing.
 
-Nine build-out sessions shipped end-to-end:
+Ten build-out sessions shipped end-to-end:
 - **Intelligence-core** (2026-04-15/16): real detection engine (8 YAML rules + evaluator + scorer + resolver + matcher + pipeline), scan upload path, WeasyPrint PDF case pack, SAR/CTR report types, AI alert auto-explanation + Draft STR, DB-backed typologies, CommandView polish, modifier conditions, incremental scan scope, Phase 10 hardening (request IDs + structured JSON logs + standardised error envelope + `docs/RUNBOOK.md`).
 - **goAML coverage patch** (2026-04-17): all 13 items from `KESTREL-GOAML-COVERAGE-PROMPT.md`. Migrations 005–009 applied. 11 report-type variants, goAML XML import + export, `/iers` workflow, Additional Information Files, 3-tab New Subjects form, Catalogue tile grid, dissemination ledger, 8-variant case enum with proposal kanban + RFI routing, saved queries + manual diagram builder + match definitions, reference tables (197 seed rows), operational statistics dashboards, scheduled-processes admin surface, XLSX + goAML-XML exports, goAML vocabulary tooltips, `docs/goaml-coverage.md`.
 - **Sovereign Ledger rebrand** (2026-04-18): institutional-brutalist UI direction merged. See §"Sovereign Ledger".
@@ -17,10 +17,11 @@ Nine build-out sessions shipped end-to-end:
 - **V2 phase 2: bank-direct surface** (2026-05-05): bank-direct landing at `/banks` (P2.1 `5932e9c`), self-serve signup at `/signup/bank` (P2.2 `98e21ae`), demo-bank seed loader + Beat dispatch (P2.3 `0b15a23`), persona-isolation verification + migration 013 hot-fix (P2.4 `857f415`), Resend wiring on briefing-intake (P2.5 `166818e`). See §"Bank-direct surface (V2 P2)" below.
 - **V2 phase 3: real-time transaction-scoring API** (2026-05-05): per-transaction `POST /transactions/score` + feedback endpoint + recent stream + migration 014 (P3.1+P3.2+P3.3 `1dc575a`), monitoring dashboard at `/monitoring/realtime` + `GET /transactions/score/metrics` engine route + `docs/api-integration.md` (P3.4+P3.5 `67d038b`). See §"Real-time transaction-scoring (V2 P3)" below.
 - **V2 phase 4: sanctions / PEP / adverse-media screening** (2026-05-05): `/screening/entity` fuzzy-match service + adverse-media stub + migration 015 (`watchlist_entries`) + Celery ingestion framework + 22-row synthetic seed across 5 sources + realtime inline integration (P4.1-P4.3+P4.5 `f566f35`). Screening UI at `/screen` + nav entry + `docs/api-integration.md` §8 (P4.4 `e060ce7`). See §"Sanctions / PEP / adverse-media screening (V2 P4)" below.
-- **V2 phase 5: KYC / CDD onboarding** (2026-05-05): `/customers` 6-route surface + KYC service that screens primary + beneficial owners inline + migration 016 (`customers` + alerts.source_type relaxation) + Beat-driven re-screening at 03:00 BDT + 13-row synthetic seed for Sonali Bank (P5.1+P5.2+P5.4 `74fbbe6`). KYC UI at `/customers` (list + new + detail) + nav entry (bank persona only) + docs §9 (P5.3 — pending commit). See §"KYC / CDD onboarding (V2 P5)" below.
+- **V2 phase 5: KYC / CDD onboarding** (2026-05-05): `/customers` 6-route surface + KYC service that screens primary + beneficial owners inline + migration 016 (`customers` + alerts.source_type relaxation) + Beat-driven re-screening at 03:00 BDT + 13-row synthetic seed for Sonali Bank (P5.1+P5.2+P5.4 `74fbbe6`). KYC UI at `/customers` (list + new + detail) + nav entry (bank persona only) + docs §9 (P5.3 `50aff3f`). See §"KYC / CDD onboarding (V2 P5)" below.
+- **V2 phase 6: status / pricing / demo polish** (2026-05-05): public status surface at `/status` driven by `uptime_pings` 5-min Beat ledger + `status_incidents` ledger (P6.1 engine + web). Pricing-tier enforcement via migrations 017+018 + `services/billing.py` + 402 PAYMENT REQUIRED on starter-tier calls to paid features (P6.2). Weekly demo refresher Beat task at Mon 04:00 BDT (P6.3). `/demo` public route with persona switcher (P6.3 web). `docs/world-class-capability-matrix.md` (new) closes V2 with 14/18 capabilities at Excellent (P6.4). Engine commit `caf7507`; web commit pending. See §"Status + pricing + demo (V2 P6)" below.
 
 **Aggregate prod state:**
-- 117 engine routes across 22 routers (6 new in V2 P5: customers router with onboard/list/detail/patch/review/rescreen). 234/234 pytest. `GET /ready` on `https://kestrel-engine.onrender.com` shows auth/db/redis/storage/worker=ok; `ai:openai = skipped` with model `anthropic/claude-sonnet-4.6` (configured + reachability probe disabled).
+- 123 engine routes across 23 routers (6 new in V2 P6: status_public router with summary/incidents/plans + admin status incident management). 268/268 pytest. `GET /ready` on `https://kestrel-engine.onrender.com` shows auth/db/redis/storage/worker=ok; `ai:openai = skipped` with model `anthropic/claude-sonnet-4.6` (configured + reachability probe disabled).
 - Migrations 001–013 applied. 012 (`advisor_fixes`) locked `search_path = ''` on 7 SECURITY DEFINER helpers; 013 (`qualify_security_definer_helpers`, 2026-05-05) schema-qualified the 5 of those that referenced unqualified relations/sequences. Migrations 001 + 002 retroactively recorded in `supabase_migrations.schema_migrations` after the audit found them missing.
 - Prod data (post V2 phase 2 — no bank tenant has signed up via /signup/bank yet, so demo-bank seed has never fired): 197 reference_tables, 5 typologies, **52 entities** (28 pre-V2 + 24 multi-bank seed), 377 accounts, 547 transactions, **10 STRs**, **40 alerts**, 1 case, **7 matches**.
 - All 40 `(platform)` pages live + 2 new `(public)` pages from V2 P2: `/banks` (bank-direct landing) and `/signup/bank` (force-dynamic, feature-flag gated). The platform-page count is unchanged.
@@ -347,13 +348,55 @@ V2 phase 5 of the world-class build. Two commits on 2026-05-05: `74fbbe6` (P5.1+
 
 **Live verification:** unauth `POST /customers` returns 401 with proper error envelope (route mounted with auth dep). 13 synthetic customers visible in prod for Sonali Bank. Onboarding form, detail page, review actions, and re-screening all work end-to-end against the live watchlist pool.
 
-## What to work on next
+## Status + pricing + demo (V2 P6)
 
-V2 phases 1–5 shipped. Phase 6 is the last remaining V2 phase. Continuity prompt: **`KESTREL-RESUME-V2.md`** (rooted in `KESTREL-WORLD-CLASS-BUILD-V2.md`).
+V2 phase 6 of the world-class build. Two commits on 2026-05-05: `caf7507` (engine: migrations 017+018 + status service + billing service + Beat tasks + tests), pending commit (web + docs).
 
-| Phase | Estimate | Unlock |
+**Status surface** (`engine/app/routers/status_public.py` mounted at `/status` with no auth + admin companions at `/admin/status`):
+- `GET /status/summary` — public. Per-component current status + 30/90-day uptime % + active incidents.
+- `GET /status/incidents` — public. Recent incident feed.
+- `GET /status/plans` — public. The three plans for the bank-direct landing.
+- `POST /admin/status/incidents` — regulator only. Posts a new incident.
+- `POST /admin/status/incidents/{id}/resolve` — regulator only. Closes an incident.
+- `GET /admin/status/plan` — authed. Caller's resolved plan + overrides.
+
+**Service** (`engine/app/services/status.py`): `build_status_summary` reads the latest ping per component + computes uptime % from `uptime_pings`. `_overall_status` is worst-of (down > degraded > up; unknown-only is degraded — don't claim up when we don't know). `_uptime_pct` returns 1.0 when there are no pings (degrade gracefully).
+
+**Uptime Beat task** (`engine/app/tasks/status_tasks.py`): `record_uptime_ping` runs every 5 min, calls `services.readiness.build_readiness_report`, and writes one row per component. Collapses `ai:openai` + `ai:anthropic` into a single `ai` component using a worst-of `_is_worse` helper. Failure paths are silenced — a database outage shouldn't make this task itself crash and lose subsequent checks.
+
+**Migration 017** (`017_status.sql`): `uptime_pings` (id bigserial, observed_at, component, status, latency_ms, detail) + `status_incidents` (id uuid, started_at, ended_at, severity, component, summary, message, posted_by). RLS public-read on both; writes regulator-only. 4 indexes.
+
+**Pricing tiers** (`engine/app/services/billing.py`): three plans in code — starter (Tk 60 lakh, 5 seats, 500k transactions/mo, core+cross_bank), professional (Tk 1.5 crore, 15 seats, unlimited, +realtime+sanctions+kyc), enterprise (Tk 4 crore, 50 seats, unlimited, +agentic+priority_support, on_prem_eligible). `resolve_tenant_plan` reads `organizations.plan_id` + `plan_overrides`. `has_feature` allows per-tenant overrides to *enable* a feature but never to *disable* a plan-included one. `require_feature` is a service-layer dependency wrapper that wires into routes — `/transactions/score`, `/screening/entity`, `/screening/adverse-media`, `/customers` (POST) all call it; starter-tier callers receive **402 PAYMENT REQUIRED** with an upgrade message.
+
+**Migration 018** (`018_billing.sql`): adds `plan_id` (CHECK starter/professional/enterprise, default starter), `plan_set_by` (uuid → auth.users), `plan_set_at`, `plan_overrides` (jsonb). Regulator orgs auto-set to enterprise on apply; existing bank tenants bumped to professional via `execute_sql` so the demo flows continue working.
+
+**Demo refresher** (`engine/app/tasks/demo_refresh_tasks.py`): `weekly_demo_refresh` Beat task on Mon 04:00 BDT shifts `transactions.posted_at` and `alerts.created_at` forward by 7 days for any rows older than 7 but newer than 400 days. Idempotent via `organizations.settings.last_demo_refresh_at` on the regulator org — skipped if the last run was within 6 days. **Beat schedule went 6 → 8 jobs**: nightly_scan / daily_digest / weekly_compliance / demo_bank_seed / watchlist_refresh / kyc_rescreen / **uptime_ping_5min** / **weekly_demo_refresh**.
+
+**Web** (`web/src/app/(public)/status/page.tsx` + `web/src/components/status/status-board.tsx`): public status board. Auto-refreshes every 60s. Per-component cards with status tone (vermillion = outage, accent = degraded), 30/90-day uptime %, last-ping relative time, recent incidents with severity tones. SLA footer (99.5% Pro / 99.9% Enterprise). `web/src/app/(public)/demo/page.tsx`: public landing with three persona cards (Bank CAMLCO / BFIU Director / BFIU Analyst) explaining what each persona sees, demo email pointers, sign-in CTA. `web/src/app/(platform)/admin/status/page.tsx`: incident management (regulator+admin only) — post / view / resolve incidents. 3 API proxies.
+
+**Tests** (`engine/tests/test_billing.py` + `test_status_service.py`): 34 new pure-helper tests covering plan resolution, feature flags, override semantics, plan pricing, status worst-of aggregation, ping-status mapping for the Beat task, and AI component collapse. pytest 234 → 268.
+
+**Verification done at end of P6 engine:** Migrations 017 + 018 applied to prod via Supabase MCP. 5 banks bumped to professional, regulator on enterprise, MFS on starter. Engine routes 117 → 123. CI green on `caf7507`. The 402-on-starter behaviour is verified by inspection (regulator + bank both on plans that include the gated features; an MFS tenant on starter would get 402 if it called `/transactions/score`).
+
+## What's next — V3 / Phase 7
+
+V2 is fully shipped. The world-class capability matrix at `docs/world-class-capability-matrix.md` documents the post-V2 state: 14/18 at Excellent, 2 at Partial-with-plan, 0 Missing.
+
+| V3 track | Estimate | Strategic unlock |
 |---|---|---|
-| **P6** Status page + pricing tiers + demo polish | 3–4 days | Public status surface driven by `/ready` history (new `uptime_pings` table — migration 017). `engine/app/services/billing.py` + `organizations.plan_id` migration **018** for tier enforcement. Realtime decision bands become tier-configurable from this base. Weekly demo-data refresher Beat task. `/demo` public route with persona switcher. |
+| Sovereign Bangladesh-trained model (replaces Claude via OpenRouter) | Months 1–3 | Train LoRA on `ai_outcome_log` (build the table now during V3 month 0). Confidence-routing pattern in `engine/app/ai/providers/` already supports it. End-state pitch to BFIU: "national-grade AI hosted in-country, trained on the actual cases the analysts are working on." |
+| Agentic AI investigations | 2–3 weeks | Multi-step investigation agent that pulls related entities, drafts hypotheses, surfaces evidence. Closes the last "Missing" capability. |
+| On-prem packaging | 4–6 weeks | First Tier-3 customer drives this. The `enterprise.on_prem_eligible` flag is in place. |
+| Stripe / metered billing | 1–2 weeks | Triggered by first paid pilot signing. Plan resolver and 402 enforcement are already in place. |
+| Hard transaction-cap enforcement | 1 week | Add metered-write counter + 402 on starter plan overage when first starter pilot signs. |
+
+**Outstanding small-pickups from V2:**
+- Set `KESTREL_WATCHLIST_INGESTION_ENABLED=true` on Render to flip daily watchlist ingestion on (still on synthetic seed).
+- Provision `COMPLYADVANTAGE_API_KEY` to switch the adverse-media adapter from stub to live.
+- EU FSF watchlist credential (1-day wire-up after the credential lands).
+- Render Beat deploy hook URL is stale (returns 404). Engine deploys fine via Render's connected-repo path; fix when convenient.
+- Apply remaining multi-bank seed chunks (64 accounts + 105 transactions + 35 STRs) via `python -m seed.multi_bank_synthetic --apply`.
+- Install Vercel Marketplace Resend integration to flip `RESEND_API_KEY` on (briefing-intake emails currently no-op).
 
 **Outstanding small-pickups:**
 - Inside V2 P1: apply the remaining multi-bank-seed chunks (accounts / transactions / STRs) to prod via `python -m seed.multi_bank_synthetic --apply`. The cross-bank dashboard works without these but they'd enrich the entity dossier downstream when bank-persona users click through to a flagged subject.

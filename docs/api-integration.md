@@ -481,7 +481,54 @@ A daily Celery Beat task at 03:00 BDT (after the 02:30 watchlist refresh) sweeps
 
 ---
 
-## 10. Versioning & change log
+## 10. Public status surface
+
+```
+GET /status/summary       — public, no auth
+GET /status/incidents     — public, no auth
+GET /status/plans         — public, no auth
+```
+
+Drives the public status page at `kestrel-nine.vercel.app/status`. The summary returns:
+
+```json
+{
+  "status": "up",
+  "components": [
+    {"component": "auth", "status": "up", "uptime_30d": 0.9989, "uptime_90d": 0.9974, "observed_at": "...", "detail": "..."},
+    {"component": "database", "status": "up", "uptime_30d": 0.9999, ...},
+    ...
+  ],
+  "incidents": [
+    {"id": "...", "severity": "minor", "component": "ai", "summary": "...", "is_active": false, ...}
+  ],
+  "overall_uptime_30d": 0.9991,
+  "generated_at": "..."
+}
+```
+
+Uptime is computed from the `uptime_pings` ledger (5-minute Beat task). Incidents are manually posted by regulator-org admins via `/admin/status/incidents`.
+
+### Pricing tier enforcement
+
+`GET /status/plans` returns the three plans defined in `engine/app/services/billing.py` — banks-direct landing reads this so any code-level price change flows through automatically.
+
+When a starter-tier tenant calls a paid feature (`/transactions/score`, `/screening/entity`, `/screening/adverse-media`, `/customers`), the engine returns:
+
+```
+HTTP/1.1 402 Payment Required
+{
+  "detail": "Feature 'realtime' is not included in the Starter plan. Contact procurement to upgrade.",
+  "request_id": "...",
+  "timestamp": "..."
+}
+```
+
+`GET /admin/status/plan` (authed) returns the caller's resolved plan + per-tenant overrides — useful when an integration team is debugging "why am I getting 402?".
+
+---
+
+## 11. Versioning & change log
 
 This API is **v1 stable**. Future additions (KYC-driven base risk, sovereign-AI confidence routing) will appear as additive fields in the response, never as breaking changes. Reason codes, decision bands, and field shapes are durable contracts.
 
@@ -490,9 +537,10 @@ This API is **v1 stable**. Future additions (KYC-driven base risk, sovereign-AI 
 | 2026-05-05 | V2 phase 3 — initial public release of `/transactions/score`, `/transactions/score/{id}/feedback`, `/transactions/score/recent`, `/transactions/score/metrics`. |
 | 2026-05-05 | V2 phase 4 — sanctions / PEP / adverse-media screening: `/screening/entity`, `/screening/adverse-media`, `/screening/entries` (GET browse + POST manual upload). New reason classes `from_sanctions_hit` / `to_sanctions_hit` (+50 each) on `/transactions/score`. |
 | 2026-05-05 | V2 phase 5 — KYC / CDD onboarding: `POST /customers`, `GET /customers`, `GET /customers/{id}`, `PATCH /customers/{id}`, `POST /customers/{id}/review`, `POST /customers/{id}/rescreen`. Inline sanctions screening on customer + beneficial owners. Daily re-screening Beat task at 03:00 BDT. |
+| 2026-05-05 | V2 phase 6 — Public status surface: `GET /status/{summary,incidents,plans}` (no auth) + `POST /admin/status/incidents` + `POST /admin/status/incidents/{id}/resolve`. Pricing-tier 402 PAYMENT REQUIRED on `/transactions/score`, `/screening/entity`, `/screening/adverse-media`, `/customers` for starter-tier tenants. New Beat jobs: `uptime_ping_5min` and `weekly_demo_refresh`. |
 
 ---
 
-## 11. Support
+## 12. Support
 
 Procurement / pilot conversations: `kamal@enso-intelligence.com`. Engineering integration support: `engineering@enso-intelligence.com`. Always include the `request_id` from the response envelope.

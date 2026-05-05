@@ -4,6 +4,20 @@ A national financial-crime intelligence platform for Bangladesh — built so inv
 
 > **Live deployment**: published from `main` via the GitHub Actions workflows in `.github/workflows/`. The production URL is configured per environment in Vercel and Render and is not committed to the repo. See `docs/production-plan.md` for environment status.
 
+## Public surfaces
+
+| URL | Audience | What's there |
+|---|---|---|
+| [`/`](https://kestrel-nine.vercel.app/) | Procurement (BFIU-direction) | Sovereign Ledger landing — capability summary, briefing-intake form. |
+| [`/banks`](https://kestrel-nine.vercel.app/banks) | Procurement (bank-direction) | Bank-direct landing — pricing tiers, BB Circular 26/2024 callout, cross-bank intelligence section. |
+| [`/signup/bank`](https://kestrel-nine.vercel.app/signup/bank) | Bank pilots | Self-serve signup — magic-link invite, automatic demo-bank seed. |
+| [`/status`](https://kestrel-nine.vercel.app/status) | Anyone | Public status page — component-level uptime, 30/90-day %, recent incidents. |
+| [`/demo`](https://kestrel-nine.vercel.app/demo) | Demo viewers | Three-persona demo explainer + sign-in. |
+
+**Capability matrix:** see [`docs/world-class-capability-matrix.md`](docs/world-class-capability-matrix.md) — 14/18 enterprise capabilities at Excellent, 2 at Partial-with-plan, 0 Missing.
+
+**API integration:** see [`docs/api-integration.md`](docs/api-integration.md) — full reference for banks' core-banking integration teams. Real-time scoring, sanctions screening, KYC onboarding, status surface.
+
 ## What is Kestrel
 
 Bangladesh's existing AML reporting pipeline is built around goAML, which is a filing cabinet — every bank submits STRs into it, but no analyst has a useful surface for connecting reports across banks, tracing money flows, or seeing the same suspect appear in three institutions at once.

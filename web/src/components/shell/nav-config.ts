@@ -39,6 +39,7 @@ const navItems: NavItem[] = [
   { section: "Admin", label: "Match definitions", href: "/admin/match-definitions", roles: ["admin", "manager", "superadmin"], aka: "Match Definitions / Executions (goAML Intel)" },
   { section: "Admin", label: "Reference tables", href: "/admin/reference-tables", roles: ["admin", "manager", "superadmin"], aka: "Reference Tables / Lookup Master (goAML)" },
   { section: "Admin", label: "Schedules", href: "/admin/schedules", roles: ["admin", "superadmin"], aka: "Scheduled Processes (goAML Management)" },
+  { section: "Admin", label: "Status", href: "/admin/status", roles: ["admin", "superadmin"], personas: ["bfiu_director", "bfiu_analyst"], aka: "Public status incident management (Kestrel-native)" },
   { section: "Admin", label: "API Keys", href: "/admin/api-keys", roles: ["admin", "manager", "superadmin"], aka: "Integration Credentials" },
 ];
 
