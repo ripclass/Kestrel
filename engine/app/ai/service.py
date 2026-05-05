@@ -10,7 +10,7 @@ from app.ai.audit import record_ai_invocation
 from app.ai.confidence import cap_confidence, compute_schema_validity
 from app.ai.evaluations import validate_structured_output
 from app.ai.prompts import get_prompt_definition
-from app.ai.providers import AnthropicProvider, OpenAIProvider
+from app.ai.providers import AnthropicProvider, OpenAIProvider, SovereignProvider
 from app.ai.providers.base import LLMProvider
 from app.ai.redaction import redact_payload
 from app.ai.routing import resolve_task_routes
@@ -195,6 +195,10 @@ class AIOrchestrator:
             ProviderName.OPENAI: OpenAIProvider(self.settings),
             ProviderName.ANTHROPIC: AnthropicProvider(self.settings),
             ProviderName.HEURISTIC: HeuristicProvider(),
+            # V3 phase 4.4: sovereign provider registered by default.
+            # Until ai_sovereign_url is set + a per-task rollout > 0 in
+            # app.ai.thresholds, the routing layer never selects it.
+            ProviderName.SOVEREIGN: SovereignProvider(self.settings),
         }
         self.audit_logger = audit_logger
 
