@@ -12,6 +12,7 @@ celery_app = Celery(
         "app.tasks.scan_tasks",
         "app.tasks.str_tasks",
         "app.tasks.export_tasks",
+        "app.tasks.demo_seed_tasks",
     ],
 )
 celery_app.conf.task_default_queue = "kestrel"
@@ -33,6 +34,11 @@ celery_app.conf.beat_schedule = {
         "task": "app.tasks.export_tasks.weekly_compliance_report",
         "schedule": crontab(minute=0, hour=5, day_of_week=1),
         "options": {"expires": 60 * 60 * 24},
+    },
+    "demo_bank_seed_pending": {
+        "task": "app.tasks.demo_seed_tasks.apply_pending",
+        "schedule": crontab(minute="*/10"),
+        "options": {"expires": 60 * 30},
     },
 }
 

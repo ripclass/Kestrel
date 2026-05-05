@@ -56,6 +56,13 @@ _SCHEDULE_METADATA: dict[str, dict[str, str]] = {
             "+ dissemination."
         ),
     },
+    "demo_bank_seed_pending": {
+        "description": (
+            "Find every bank tenant flagged with settings.demo_seed_pending=true "
+            "by the self-serve signup flow and apply the demo seed to populate "
+            "the new workspace."
+        ),
+    },
 }
 
 
