@@ -19,7 +19,7 @@ The pre-V2 baseline is documented in `docs/production-audit-2026-04.md`. Every "
 | 5 | KYC / CDD automation | ❌ MISSING | ✅ EXCELLENT | V2 P5: `/customers` 6-route surface, inline screening on primary + beneficial owners, daily re-screening Beat task, 4 review actions. |
 | 6 | Entity-centric analysis | ✅ EXCELLENT | ✅ EXCELLENT | Shared entity pool with 9 entity types + cross-bank attribution; pre-V2. |
 | 7 | Cross-institutional collaborative analytics | ✅ EXCELLENT (backend) | ✅ EXCELLENT (marketed) | V2 P1: cross-bank dashboard at `/intelligence/cross-bank`, persona-aware anonymisation, multi-bank synthetic seed, procurement whitepaper. |
-| 8 | Agentic AI investigations | ❌ MISSING | ⚠️ PARTIAL (deferred to V3) | Not in V2 scope. Phase 7. |
+| 8 | Agentic AI investigations | ❌ MISSING | ✅ EXCELLENT | V3 P3 (2026-05-05): bounded multi-step agent at `POST /agents/investigate`, 6-tool whitelist, hop + wall-clock caps, evidence trail, promote-to-STR. |
 | 9 | Explainable AI | ✅ EXCELLENT | ✅ EXCELLENT | Every alert + score carries reason objects with rule code + contribution + evidence; pre-V2. |
 | 10 | API-first architecture | ✅ EXCELLENT | ✅ EXCELLENT | 123 routes across 22 routers, OpenAPI spec auto-generated; `docs/api-integration.md` covers the bank-facing surfaces. |
 | 11 | Real-time payment rail coverage | 🟡 STUB | ✅ EXCELLENT | V2 P3 channel allow-list covers NPSB, BEFTN, RTGS, MFS_BKASH/NAGAD/ROCKET, CASH, CHEQUE, CARD, WIRE, LC, DRAFT — all 12 Bangladesh-relevant rails. |
@@ -31,9 +31,9 @@ The pre-V2 baseline is documented in `docs/production-audit-2026-04.md`. Every "
 | 17 | Cloud + on-prem flexibility | ❌ MISSING | ⚠️ PARTIAL (`on_prem_eligible` flag on the enterprise plan; first deployment in Phase 7) | V2 P6 billing service captures the on-prem promise per plan; the actual on-prem packaging is post-V2. |
 | 18 | Multi-tenant security | ✅ EXCELLENT | ✅ EXCELLENT | RLS-shared `entities` / `connections` / `matches` + per-org isolation everywhere else; documented in `docs/multi-tenant-isolation-verified.md`. |
 
-**Summary:** 14 of 18 at Excellent · 2 at Partial (with active Phase-7 plans) · 0 at Missing. The 2 Partials (agentic AI + on-prem packaging) are explicitly Phase 7 work, not V2 blockers.
+**Summary (post V3 P3):** **15 of 18 at Excellent** · 2 at Partial (with active V3 plans) · 0 at Missing. The 2 Partials (sovereign AI in production traffic, first on-prem deployment) tie to V3 P5 + P6 respectively.
 
-Pre-V2 was 9 Excellent / 4 Partial / 5 Missing. **V2 moved 5 capabilities to Excellent and 1 to Partial-with-plan, eliminating all "Missing" entries.**
+Pre-V2 was 9 Excellent / 4 Partial / 5 Missing. **V2 moved 5 capabilities to Excellent and 1 to Partial-with-plan, eliminating all "Missing" entries. V3 P3 then flipped Agentic AI from Partial → Excellent.**
 
 ---
 

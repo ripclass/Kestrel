@@ -1,6 +1,7 @@
 import { RiskScore } from "@/components/common/risk-score";
 import { DisseminateAction } from "@/components/disseminations/disseminate-action";
 import { EntityConnections } from "@/components/investigate/entity-connections";
+import { InvestigationPanel } from "@/components/investigate/investigation-panel";
 import { ReportingHistory } from "@/components/investigate/reporting-history";
 import { ActivityTimeline } from "@/components/investigate/activity-timeline";
 import { NetworkCanvas } from "@/components/investigate/network-canvas";
@@ -58,6 +59,10 @@ export function EntityDossier({ entity }: { entity: EntityDossierType }) {
           </Meta>
         </div>
       </section>
+      <InvestigationPanel
+        entityId={entity.id}
+        entityName={entity.displayName ?? entity.displayValue}
+      />
       <NetworkCanvas graph={entity.graph} />
       <div className="grid gap-6 xl:grid-cols-[0.9fr_1.1fr]">
         <EntityConnections entities={entity.connections} />

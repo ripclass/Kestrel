@@ -6,7 +6,7 @@ Kestrel is a standalone financial crime intelligence platform for Bangladesh. It
 
 ## Current state
 
-> **Prod (2026-05-05):** V2 fully shipped (phases 1-6) + **V3 phases 1-2 shipped**. P2 is pattern-only (sovereign-first / Claude-fallback routing scaffolded with `MIN_CONFIDENCE_TO_ACCEPT=1.01` so behavior is unchanged until P4 lands the first sovereign adapter). Live on `kestrel-nine.vercel.app` + `kestrel-engine.onrender.com`. AI via OpenRouter (`anthropic/claude-sonnet-4.6`). All 3 Render services running. Migrations 001–019 applied. **019** (`ai_outcome_log`) is the foundation for the V3 sovereign-AI track — every AI call now writes a row with the redacted prompt, structured output, latency, token counts, and analyst correction (if any). Capability matrix at `docs/world-class-capability-matrix.md`: 14/18 Excellent, 2 Partial-with-plan, 0 Missing.
+> **Prod (2026-05-05):** V2 fully shipped (phases 1-6) + **V3 phases 1-3 shipped**. P3 (agentic AI investigations) closes the last "Missing" capability from the world-class matrix — capability matrix now reads **15/18 at Excellent**, 2 at Partial-with-plan, 0 Missing. P2 routing is pattern-only (`MIN_CONFIDENCE_TO_ACCEPT=1.01` until P4 lands the first sovereign adapter). Live on `kestrel-nine.vercel.app` + `kestrel-engine.onrender.com`. AI via OpenRouter (`anthropic/claude-sonnet-4.6`). All 3 Render services running. Migrations 001–020 applied (**020** = `agent_investigations`).
 
 Ten build-out sessions shipped end-to-end:
 - **Intelligence-core** (2026-04-15/16): real detection engine (8 YAML rules + evaluator + scorer + resolver + matcher + pipeline), scan upload path, WeasyPrint PDF case pack, SAR/CTR report types, AI alert auto-explanation + Draft STR, DB-backed typologies, CommandView polish, modifier conditions, incremental scan scope, Phase 10 hardening (request IDs + structured JSON logs + standardised error envelope + `docs/RUNBOOK.md`).
@@ -416,15 +416,41 @@ V3 phase 2 of `KESTREL-V3-PROMPT.md`. Sovereign-first / Claude-fallback routing 
 
 **Tests** (`engine/tests/test_confidence_routing.py`): 17 pure-helper tests covering schema-validity scoring, threshold lookup, sovereign eligibility, routing prepend, heuristic confidence formula. pytest 280 → 297.
 
-## What's next — V3 phases 3-7
+## V3 phase 3 — agentic AI investigations (shipped 2026-05-05)
 
-V3 phases 1 + 2 shipped. Next is **P3 agentic investigations** (weeks 3–4 of the V3 prompt) — the most user-visible V3 work. Multi-step investigation agent at `POST /agents/investigate` that pulls related entities, drafts hypotheses, and surfaces evidence the analyst can promote to an STR.
+V3 phase 3 of `KESTREL-V3-PROMPT.md`. Closes the last "Missing" capability on the world-class matrix.
+
+**Bounded multi-step investigation agent** at `POST /agents/investigate`. Hard caps: 8 hops + 60-second wall-clock. Tool whitelist: `resolve_entity`, `neighbours`, `recent_alerts`, `recent_strs`, `screen_entity`, `build_narrative`. Each hop: build context (analyst prompt + accumulated evidence + remaining budget) → ask AI for next tool or `done` → dispatch tool from registry → accumulate evidence → continue. Returns hypothesis + evidence trail + suggested_actions + confidence + hops_used + latency_ms.
+
+V3 P3 ships with a **deterministic heuristic decider** that walks the plan (`neighbours → recent_alerts → recent_strs → screen_entity → build_narrative → done`). The agent works end-to-end without an LLM round-trip per hop — keeps demos snappy and tests deterministic. When V3 P4 lands the sovereign adapter, swap in an orchestrator-driven decider; loop is identical.
+
+**Three new endpoints** (`engine/app/routers/agents.py` mounted at `/agents`):
+- `POST /investigate` — runs the agent + persists. Auth: manager/admin/superadmin/analyst.
+- `GET /investigations` — list with optional `entity_id` filter.
+- `GET /investigations/{id}` — detail.
+
+**Tool registry** (`engine/app/agents/tools.py`): every tool returns a `ToolResult` with bounded payload. Tool failures become evidence rows with `error != None`, not exceptions. The agent loop has its own catch-all defence-in-depth.
+
+**Migration 020** (`agent_investigations`): id, org_id, entity_id, prompt, status (running/completed/failed/cancelled/exhausted), hypothesis, evidence jsonb, suggested_actions text[], confidence, hops_used, latency_ms, error. RLS own-org-or-regulator on SELECT, own-org INSERT/UPDATE.
+
+**INVESTIGATION_AGENT_HOP** AI task added to `AITaskName` + prompt registry + routing + thresholds (default ∞ + 0% per V3 P2 conventions). The existing `record_ai_invocation` dual-write picks up per-hop AI calls automatically — every hop's invocation lands in `ai_outcome_log`.
+
+**V3 P3.4 red-team corpus** (`engine/app/ai/redteam/corpus.py`): 5 agent-specific adversarial scenarios — metadata injection, tool-output poisoning, hop-budget exhaustion, unknown-tool-call refusal, tool-failure recovery. Promotion gate for any future sovereign agent adapter (V3 P5).
+
+**Web** (`web/src/components/investigate/investigation-panel.tsx` mounted on `/investigate/entity/[id]`): "Investigate this entity (AI)" panel with prompt textarea + run button + result tiles (status / confidence / hops / latency) + hypothesis + suggested actions + evidence trail. "Promote to STR draft" button stows the result in sessionStorage and navigates to `/strs/new` with the investigation id in URL params (full STR-prefill integration is a follow-up). Two API proxies under `/api/agents/`.
+
+**Tests** (`engine/tests/test_investigation_agent.py`): 21 pure-helper tests covering allowed-tools invariant, hop/wall-clock caps, context summariser bounding, heuristic decider plan walk, hypothesis + confidence + suggested-action synthesisers. `test_ai_redteam.py` extended with the agent-scenarios coverage gate. pytest 297 → 319.
+
+**Capability matrix updated:** `docs/world-class-capability-matrix.md` flips "Agentic AI investigations" from Partial → Excellent. Net 14/18 → **15/18 at Excellent**, with the 2 remaining Partial-with-plan items (sovereign AI in production traffic, on-prem first deployment) tied to V3 P5 + P6.
+
+## What's next — V3 phases 4-7
+
+V3 phases 1 + 2 + 3 shipped. Next is **P4 training pipeline** (weeks 5–6 of the V3 prompt) — the first sovereign-model fine-tune cycle. Needs ~30-60 days of `ai_outcome_log` corrections to be meaningful, so realistic timeline is "build the pipeline now, run the first cycle in month 3."
 
 | V3 phase | Estimate | Strategic unlock |
 |---|---|---|
-| **P3** Agentic AI investigations | 2-3 weeks | Multi-step investigation agent. Closes the last "Missing" capability from the world-class matrix. |
-| **P4** Training pipeline | 2 weeks | LoRA fine-tune harness on Modal/RunPod, sovereign adapter implemented, first cycle run. |
-| **P5** Quality gates + gradual rollout | 1 week | Promotion harness, per-task rollout %, automatic rollback Beat task. |
+| **P4** Training pipeline | 2 weeks build / month-3 first cycle | LoRA fine-tune harness on Modal/RunPod + sovereign adapter implementing the existing `LLMProvider` Protocol. |
+| **P5** Quality gates + gradual rollout | 1 week | Promotion harness against held-out eval + red-team corpus + per-task accuracy gates. Automatic rollback Beat task on outcome-metric degradation. |
 | **P6** On-prem packaging | 4-6 weeks (conditional) | First Tier-3 customer drives this. |
 | **P7** Operational maturity | 1-2 weeks (anytime) | Stripe, hard cap enforcement, audit-log retention, latency-regression CI. |
 

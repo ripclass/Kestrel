@@ -215,7 +215,18 @@ TASK_THRESHOLDS: dict[str, float] = {
 
 ---
 
-## PHASE 3 — AGENTIC AI INVESTIGATIONS (Weeks 3-4)
+## PHASE 3 — AGENTIC AI INVESTIGATIONS (Weeks 3-4) ✅ SHIPPED 2026-05-05
+
+Two commits: `aa4c932` (engine: agent loop primitive + 6-tool registry + service + 3-route router + migration 020 + 5 red-team scenarios + 21 tests) and pending (web: investigation panel on entity dossier + 2 API proxies + promote-to-STR sessionStorage hand-off).
+
+**Outcome:** capability matrix flips "Agentic AI investigations" from Partial → Excellent. Net **15/18 at Excellent**. Engine routes 126 → 129. pytest 297 → 319.
+
+**Deferred follow-ups (do not block P4):**
+- Replace the deterministic heuristic decider with the AI-orchestrator-driven hop decider (calls `INVESTIGATION_AGENT_HOP` task per hop). Drop-in replacement; orchestrator already handles the threshold gate + outcome logging.
+- SSE streaming of hop progress to the web UI (V1 ships synchronous POST + spinner — ~3-5s wall-clock per investigation under the heuristic decider).
+- Full STR-prefill integration when promoting an investigation to a draft STR. Currently sessionStorage stows the evidence + the URL carries the investigation id; the STR draft form ignores it for now.
+
+The detail below stays for reference.
 
 Closes the last Missing capability. Multi-step investigation agent that pulls related entities, drafts hypotheses, surfaces evidence, and produces an investigation summary the analyst can promote to an STR.
 
