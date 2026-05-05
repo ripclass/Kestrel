@@ -298,7 +298,26 @@ The `analyst_correction`-only corpus will be small at first. Augment with Claude
 
 ---
 
-## PHASE 5 — QUALITY GATES + GRADUAL ROLLOUT (Week 7)
+## PHASE 5 — QUALITY GATES + GRADUAL ROLLOUT (Week 7) ✅ SHIPPED 2026-05-05
+
+One commit `e2dabe3` (engine + promotion harness + 35 new tests). Migration **021** (`sovereign_rollout`) applied to prod via Supabase MCP.
+
+**Outcome:** the sovereign route now has the runtime knobs to ship to a fraction of traffic, the harness to clear before that fraction is non-zero, and a Beat-driven rollback that shrinks the fraction without a deploy. Engine + harness only — no web UI; ops mutate the rollout via SQL on `sovereign_rollout`.
+
+- **`sovereign_rollout` table** (migration 021): runtime-mutable per-task config — `(task_name PK, threshold numeric default 1.01, rollout_pct integer 0-100, reason, updated_by, updated_at)`. Defaults pin every task to "off" (rollout 0, threshold > 1.0). Any-authed reads, regulator-only writes.
+- **`sovereign_promotion_log` table** (migration 021): audit trail for harness runs — adapter path, base model, candidate metrics, gate results, all_passed bool, ran_at, ran_by, notes.
+- **`engine/app/services/sovereign_rollout.py`**: `effective_threshold_for(task)` + `effective_rollout_pct_for(task)` overlay DB rows on top of static defaults. 60 s in-process cache + async-lock load. `set_effective_config(...)` mutates + invalidates. `coin_flip(rollout_pct)` is the per-call gate.
+- **`engine/app/ai/routing.py` rewrite**: `resolve_task_routes` is now async. Per-call coin flip against `effective_rollout_pct_for(task)` decides whether to prepend the sovereign route. New sync `_build_baseline_routes` + `resolve_task_routes_static` for the harness + offline tests.
+- **`engine/app/ai/service.py`**: orchestrator awaits `resolve_task_routes` once per call and `effective_threshold_for(task)` once outside the route loop (one DB hit per invocation, not N).
+- **`infra/training/promote_sovereign_adapter.py`**: CLI promotion harness. Three gates — held-out delta ≤5% (`HELD_OUT_DELTA = 0.05`), red-team zero-hallucination, per-task accuracy (STR required-fields 100%, entity-extraction precision >0.9, alert-explanation reasons reference ≥1 rule code, executive-briefing PII regex clean). `--persist` writes to `sovereign_promotion_log`. Reads sample outputs from `adapter_dir/samples/*.json` so it runs offline in CI. Exit 0 on all-pass, 1 on any failure.
+- **`engine/app/tasks/sovereign_health_tasks.py`**: Beat task `app.tasks.sovereign_health_tasks.check`. Every 30 min, reads last 24 h of `ai_outcome_log` (cap 8000 rows), collapses non-sovereign providers into a `baseline` bucket, and on `correction_rate(sovereign) - correction_rate(baseline) > 0.15` (with `MIN_ROWS_PER_PROVIDER = 30` on each side), shrinks rollout via `set_effective_config(rollout_pct = max(0, current - 25), reason="health_check ...")`. Pages operator (warning log) when rollout hits 0.
+- **`engine/app/tasks/celery_app.py` + `engine/app/services/schedules.py`**: Beat schedule grew 8 → 9 jobs (`sovereign_health_check_30min`).
+- **35 new tests** across `test_sovereign_rollout.py` (17) + `test_promotion_harness.py` (18). Pinned constants (DEGRADATION_MARGIN, ROLLOUT_REDUCTION_STEP, MIN_ROWS_PER_PROVIDER) so a quiet edit can't silently change rollback behavior. Suite 349 → 384 passing.
+- Test refactor: 5 pre-V3-P5 tests calling the sync `resolve_task_routes` were updated — 3 made `@pytest.mark.asyncio`, 2 switched to `_build_baseline_routes`. `is_sovereign_eligible` was hoisted to a module-level import in `routing.py` so monkeypatch works.
+
+**The single edit point to start serving sovereign traffic:** when V3 P4's corpus is large enough and a sovereign adapter has cleared the harness, ops INSERT one row on `sovereign_rollout` (e.g. `task_name='alert_explanation', threshold=0.75, rollout_pct=10`). Routing + outcome logging + Beat-driven rollback are all wired.
+
+The detail below stays for reference.
 
 A new sovereign adapter ships only after passing:
 

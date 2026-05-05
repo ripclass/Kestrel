@@ -6,7 +6,7 @@ Kestrel is a standalone financial crime intelligence platform for Bangladesh. It
 
 ## Current state
 
-> **Prod (2026-05-05):** V2 fully shipped (phases 1-6) + **V3 phases 1-4 shipped**. Capability matrix: **15/18 at Excellent**, 2 at Partial-with-plan (sovereign AI in production traffic — V3 P5 unlock; first on-prem deployment — V3 P6 unlock), 0 Missing. V3 P4 ships the framework — corpus exporter + LoRA harness scaffold + synthetic data generator + sovereign provider adapter. The first real fine-tune cycle waits for ~30–60 days of analyst corrections to accumulate in `ai_outcome_log`. Live on `kestrel-nine.vercel.app` + `kestrel-engine.onrender.com`. AI via OpenRouter (`anthropic/claude-sonnet-4.6`). All 3 Render services running. Migrations 001–020 applied.
+> **Prod (2026-05-05):** V2 fully shipped (phases 1-6) + **V3 phases 1-5 shipped**. Capability matrix: **15/18 at Excellent**, 2 at Partial-with-plan (sovereign AI serving production traffic — gated on V3 P4 corpus + first cleared promotion-harness run; first on-prem deployment — V3 P6 unlock), 0 Missing. V3 P5 closes the rollout-mechanics gap: the sovereign route now has runtime-mutable per-task threshold + rollout %, a coin-flip-per-call traffic split, a three-gate promotion harness, and a Beat-driven automatic rollback that shrinks rollout on degradation. Defaults pin every task to "off" (rollout 0, threshold > 1.0); the single edit to start serving sovereign traffic is one INSERT on `sovereign_rollout`. Live on `kestrel-nine.vercel.app` + `kestrel-engine.onrender.com`. AI via OpenRouter (`anthropic/claude-sonnet-4.6`). All 3 Render services running. Migrations 001–021 applied.
 
 Ten build-out sessions shipped end-to-end:
 - **Intelligence-core** (2026-04-15/16): real detection engine (8 YAML rules + evaluator + scorer + resolver + matcher + pipeline), scan upload path, WeasyPrint PDF case pack, SAR/CTR report types, AI alert auto-explanation + Draft STR, DB-backed typologies, CommandView polish, modifier conditions, incremental scan scope, Phase 10 hardening (request IDs + structured JSON logs + standardised error envelope + `docs/RUNBOOK.md`).
@@ -464,13 +464,34 @@ modal run infra/training/lora_finetune.py::train \\
 ```
 Then in `engine/app/ai/thresholds.py` flip a per-task `MIN_CONFIDENCE_TO_ACCEPT` from `1.01` to e.g. `0.75` and the matching `TASK_ROLLOUT_PCT` from `0` to e.g. `10`, set `AI_SOVEREIGN_URL`/`AI_SOVEREIGN_MODEL` on Render, and 10% of that task's traffic starts routing through the sovereign adapter. V3 P5 is the promotion harness that automates the threshold flip behind a quality gate.
 
-## What's next — V3 phases 5-7
+## V3 phase 5 — quality gates + gradual rollout (shipped 2026-05-05)
 
-V3 phases 1 + 2 + 3 + 4 shipped. Next is **P5 quality gates + gradual rollout** (week 7 of the V3 prompt) — the promotion harness that decides whether a candidate sovereign adapter ships. Held-out evaluation set + red-team corpus + per-task accuracy gates. Automatic rollback Beat task on outcome-metric degradation.
+V3 phase 5 of `KESTREL-V3-PROMPT.md`. One commit `e2dabe3` (engine + harness + 35 new tests). Migration **021** (`sovereign_rollout` + `sovereign_promotion_log`) applied to prod via Supabase MCP.
+
+The sovereign route now has the runtime knobs to ship to a fraction of traffic, the harness to clear before that fraction goes non-zero, and a Beat-driven automatic rollback that shrinks the fraction without a deploy.
+
+**Five pieces:**
+- **`sovereign_rollout` table** (migration 021) — runtime-mutable per-task config: `(task_name PK, threshold numeric default 1.01, rollout_pct integer 0–100, reason, updated_by, updated_at)`. Defaults pin every task to "off". Any-authed reads, regulator-only writes.
+- **`sovereign_promotion_log` table** (migration 021) — audit trail for harness runs: adapter path, base model, candidate metrics jsonb, gate results jsonb, all_passed bool, ran_at, ran_by, notes.
+- **`engine/app/services/sovereign_rollout.py`** — the runtime overlay. `effective_threshold_for(task)` and `effective_rollout_pct_for(task)` overlay DB rows on top of static defaults from `app/ai/thresholds.py`. 60 s in-process cache + async-lock load. `set_effective_config(...)` mutates + invalidates. `coin_flip(rollout_pct)` is the per-call gate. `EffectiveConfig` is a frozen dataclass.
+- **`infra/training/promote_sovereign_adapter.py`** — CLI promotion harness with three gates: held-out delta ≤ 5% (`HELD_OUT_DELTA = 0.05`), red-team zero-hallucination, per-task accuracy (STR required-fields 100%, entity-extraction precision > 0.9, alert-explanation reasons reference ≥ 1 rule code, executive-briefing PII regex clean). Reads sample outputs from `adapter_dir/samples/*.json` so the harness runs offline in CI. `--persist` writes a row to `sovereign_promotion_log`. Outputs YAML report; exit 0 on all-pass / 1 on any failure (CI-gateable).
+- **`engine/app/tasks/sovereign_health_tasks.py`** — Beat task `app.tasks.sovereign_health_tasks.check`. Every 30 min, scans the last 24 h of `ai_outcome_log` (cap 8000 rows), collapses non-sovereign providers into a `baseline` bucket, and on `correction_rate(sovereign) - correction_rate(baseline) > 0.15` (`MIN_ROWS_PER_PROVIDER = 30` on each side), shrinks rollout via `set_effective_config(rollout_pct = max(0, current - 25), reason="health_check ...")`. Pages operator (warning log) when rollout hits 0.
+
+**Routing rewrite:** `engine/app/ai/routing.py::resolve_task_routes` is now async — per-call coin flip against `effective_rollout_pct_for(task)` decides whether to prepend the sovereign route. Hoisted `is_sovereign_eligible` to a module-level import so monkeypatch works. New sync `_build_baseline_routes` + `resolve_task_routes_static` for the harness + offline tests. `engine/app/ai/service.py` orchestrator awaits resolve once per call and `effective_threshold_for(task)` once outside the route loop (one DB hit per invocation, not N).
+
+**Aggregate impact:**
+- Engine routes unchanged at 129. Beat schedule grew 8 → 9 jobs (`sovereign_health_check_30min`).
+- pytest 349 → 384 (+35 new across `test_sovereign_rollout.py` (17) + `test_promotion_harness.py` (18)). Constants pinned (`DEGRADATION_MARGIN`, `ROLLOUT_REDUCTION_STEP`, `MIN_ROWS_PER_PROVIDER`) so a quiet edit can't silently change rollback behavior.
+- 5 pre-V3-P5 tests calling sync `resolve_task_routes` were updated — 3 made `@pytest.mark.asyncio`, 2 switched to `_build_baseline_routes`.
+
+**The single edit point to start serving sovereign traffic:** when V3 P4's corpus is large enough and a sovereign adapter has cleared the harness, ops INSERT one row on `sovereign_rollout` (e.g. `task_name='alert_explanation', threshold=0.75, rollout_pct=10`). Routing + outcome logging + Beat-driven rollback are all wired.
+
+## What's next — V3 phases 6-7
+
+V3 phases 1 + 2 + 3 + 4 + 5 shipped. The sovereign-AI track is mechanically complete — corpus exporter (P1 + P4) → confidence routing scaffold (P2) → training framework (P4) → promotion harness + rollout knobs + automatic rollback (P5). What remains is the data soak: ~30–60 days of analyst corrections in `ai_outcome_log` before the first fine-tune cycle is worth running.
 
 | V3 phase | Estimate | Strategic unlock |
 |---|---|---|
-| **P5** Quality gates + gradual rollout | 1 week | Promotion harness against held-out eval + red-team corpus + per-task accuracy gates. `infra/training/promote_sovereign_adapter.py`. Automatic rollback via the `sovereign_health_check` Beat task. Migration 021 for `sovereign_promotion_log`. |
 | **P6** On-prem packaging | 4-6 weeks (conditional) | First Tier-3 customer drives this. |
 | **P7** Operational maturity | 1-2 weeks (anytime) | Stripe, hard cap enforcement, audit-log retention, latency-regression CI. |
 
