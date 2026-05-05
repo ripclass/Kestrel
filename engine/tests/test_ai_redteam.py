@@ -173,11 +173,35 @@ def test_provider_request_carries_redacted_payload_only() -> None:
 def test_corpus_covers_every_ai_task() -> None:
     """Pin a CI gate: when a new AITaskName ships, the corpus must add
     at least one case for it. Forces red-team coverage to grow with
-    the task surface."""
+    the task surface.
+
+    INVESTIGATION_AGENT_HOP (V3 phase 3) is covered by the bespoke
+    AGENT_REDTEAM_SCENARIOS list at the bottom of corpus.py — it's an
+    inner-loop hop schema, not a single-shot AI task, so the standard
+    RedTeamCase shape doesn't fit. The dedicated agent scenarios are
+    asserted non-empty separately below."""
+    from app.ai.types import AITaskName as _Task
+
     covered = {case.task for case in ALL_CASES}
     declared = set(AITaskName)
-    missing = declared - covered
+    exempt = {_Task.INVESTIGATION_AGENT_HOP}
+    missing = (declared - covered) - exempt
     assert not missing, f"AI tasks without red-team coverage: {sorted(missing)}"
+
+
+def test_agent_redteam_scenarios_present() -> None:
+    """V3 phase 3.4 — the agent-specific adversarial corpus must stay
+    non-empty. Promotion gate for the V3 phase 5 sovereign agent
+    adapter depends on the agent surviving every scenario here."""
+    from app.ai.redteam.corpus import AGENT_REDTEAM_SCENARIOS
+
+    assert len(AGENT_REDTEAM_SCENARIOS) >= 4
+    ids = {s["id"] for s in AGENT_REDTEAM_SCENARIOS}
+    # Pin the canonical attack surface — adding more is fine, removing is not.
+    assert "agent.metadata_injection" in ids
+    assert "agent.tool_output_poisoning" in ids
+    assert "agent.hop_budget_exhaustion" in ids
+    assert "agent.unknown_tool_call" in ids
 
 
 def test_routing_falls_back_to_heuristic_when_no_keys() -> None:

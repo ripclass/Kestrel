@@ -25,6 +25,7 @@ TASK_PROVIDER_ORDER: dict[AITaskName, list[ProviderName]] = {
     AITaskName.CASE_SUMMARY: [ProviderName.ANTHROPIC, ProviderName.OPENAI],
     AITaskName.TYPOLOGY_SUGGESTION: [ProviderName.OPENAI, ProviderName.ANTHROPIC],
     AITaskName.EXECUTIVE_BRIEFING: [ProviderName.ANTHROPIC, ProviderName.OPENAI],
+    AITaskName.INVESTIGATION_AGENT_HOP: [ProviderName.ANTHROPIC, ProviderName.OPENAI],
 }
 
 

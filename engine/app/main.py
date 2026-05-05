@@ -11,6 +11,7 @@ from app.config import get_settings
 from app.observability import RequestIDMiddleware, configure_logging, current_request_id
 from app.routers import (
     admin,
+    agents,
     ai,
     alerts,
     cases,
@@ -98,6 +99,7 @@ app.include_router(screening.router, prefix="/screening", tags=["screening"])
 app.include_router(customers.router, prefix="/customers", tags=["customers"])
 app.include_router(status_public.router, prefix="/status", tags=["status"])
 app.include_router(status_public.admin_router, prefix="/admin/status", tags=["status"])
+app.include_router(agents.router, prefix="/agents", tags=["agents"])
 app.include_router(str_reports.router, prefix="/str-reports", tags=["str-reports"])
 app.include_router(ctr.router, prefix="/ctr", tags=["ctr"])
 app.include_router(alerts.router, prefix="/alerts", tags=["alerts"])

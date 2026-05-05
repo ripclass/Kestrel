@@ -28,6 +28,10 @@ class AITaskName(StrEnum):
     CASE_SUMMARY = "case_summary"
     TYPOLOGY_SUGGESTION = "typology_suggestion"
     EXECUTIVE_BRIEFING = "executive_briefing"
+    # V3 phase 3: per-hop AI call inside the bounded investigation agent
+    # loop. Each hop returns the next tool to call (or 'done' with a
+    # final hypothesis + suggested actions).
+    INVESTIGATION_AGENT_HOP = "investigation_agent_hop"
 
 
 class RedactionMode(StrEnum):

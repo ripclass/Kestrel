@@ -39,6 +39,7 @@ TASK_CONFIDENCE_THRESHOLDS: dict[AITaskName, float] = {
     AITaskName.EXECUTIVE_BRIEFING: _INF,
     AITaskName.TYPOLOGY_SUGGESTION: _INF,
     AITaskName.CASE_SUMMARY: _INF,
+    AITaskName.INVESTIGATION_AGENT_HOP: _INF,
 }
 
 # Per-task gradual rollout %. 0 = no sovereign traffic for this task even
@@ -53,6 +54,7 @@ TASK_ROLLOUT_PCT: dict[AITaskName, int] = {
     AITaskName.EXECUTIVE_BRIEFING: 0,
     AITaskName.TYPOLOGY_SUGGESTION: 0,
     AITaskName.CASE_SUMMARY: 0,
+    AITaskName.INVESTIGATION_AGENT_HOP: 0,
 }
 
 
