@@ -64,3 +64,5 @@ vestox-snapshot.yml
 # Playwright temp captures
 .playwright-mcp/
 
+
+.firecrawl/
