@@ -13,6 +13,7 @@ def test_beat_schedule_declares_expected_jobs() -> None:
         "weekly_compliance_report",
         "demo_bank_seed_pending",
         "watchlist_refresh_daily",
+        "kyc_rescreen_active",
     }
 
 
@@ -23,6 +24,7 @@ def test_beat_schedule_targets_real_task_names() -> None:
         "weekly_compliance_report": "app.tasks.export_tasks.weekly_compliance_report",
         "demo_bank_seed_pending": "app.tasks.demo_seed_tasks.apply_pending",
         "watchlist_refresh_daily": "app.tasks.screening_tasks.refresh_all",
+        "kyc_rescreen_active": "app.tasks.kyc_tasks.rescreen_active_customers",
     }
     beat = celery_app.conf.beat_schedule
     for entry_name, task_path in expected.items():
@@ -37,6 +39,7 @@ def test_build_entries_marks_wired_jobs_scheduled() -> None:
         "weekly_compliance_report",
         "demo_bank_seed_pending",
         "watchlist_refresh_daily",
+        "kyc_rescreen_active",
     ):
         assert entries[name].status == "scheduled"
         assert entries[name].cron, f"cron string missing for {name}"
@@ -80,6 +83,7 @@ def test_tasks_modules_are_included() -> None:
         "app.tasks.export_tasks",
         "app.tasks.demo_seed_tasks",
         "app.tasks.screening_tasks",
+        "app.tasks.kyc_tasks",
     ):
         assert module in include
 
@@ -100,6 +104,7 @@ def test_registered_tasks_match_beat_targets() -> None:
         "app.tasks.export_tasks",
         "app.tasks.demo_seed_tasks",
         "app.tasks.screening_tasks",
+        "app.tasks.kyc_tasks",
     ):
         importlib.import_module(module)
 

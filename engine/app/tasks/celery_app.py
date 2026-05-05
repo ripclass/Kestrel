@@ -14,6 +14,7 @@ celery_app = Celery(
         "app.tasks.export_tasks",
         "app.tasks.demo_seed_tasks",
         "app.tasks.screening_tasks",
+        "app.tasks.kyc_tasks",
     ],
 )
 celery_app.conf.task_default_queue = "kestrel"
@@ -44,6 +45,11 @@ celery_app.conf.beat_schedule = {
     "watchlist_refresh_daily": {
         "task": "app.tasks.screening_tasks.refresh_all",
         "schedule": crontab(minute=30, hour=2),
+        "options": {"expires": 60 * 60 * 6},
+    },
+    "kyc_rescreen_active": {
+        "task": "app.tasks.kyc_tasks.rescreen_active_customers",
+        "schedule": crontab(minute=0, hour=3),
         "options": {"expires": 60 * 60 * 6},
     },
 }

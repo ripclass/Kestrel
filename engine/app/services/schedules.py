@@ -70,6 +70,13 @@ _SCHEDULE_METADATA: dict[str, dict[str, str]] = {
             "shared watchlist_entries pool."
         ),
     },
+    "kyc_rescreen_active": {
+        "description": (
+            "Sweep approved + review customers whose last screen is older than "
+            "7 days; re-run sanctions screening. New high-confidence hits "
+            "(score >= 0.9) escalate as alerts + cases for analyst review."
+        ),
+    },
 }
 
 
