@@ -57,6 +57,9 @@ class Settings(BaseSettings):
     anthropic_version: str = "2023-06-01"
     anthropic_model: str | None = None
 
+    complyadvantage_api_key: str | None = None
+    complyadvantage_base_url: str = "https://api.complyadvantage.com"
+
     def cors_origin_list(self) -> list[str]:
         return [item.strip() for item in self.allowed_origins.split(",") if item.strip()]
 

@@ -63,6 +63,13 @@ _SCHEDULE_METADATA: dict[str, dict[str, str]] = {
             "the new workspace."
         ),
     },
+    "watchlist_refresh_daily": {
+        "description": (
+            "Refresh sanctions / PEP / adverse-media watchlists from public "
+            "sources (OFAC SDN, UN consolidated, UK OFSI) and upsert into the "
+            "shared watchlist_entries pool."
+        ),
+    },
 }
 
 

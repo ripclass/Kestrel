@@ -18,6 +18,7 @@ from app.models.rule import Rule
 from app.models.saved_query import SavedQuery
 from app.models.str_report import STRReport
 from app.models.transaction import Transaction
+from app.models.watchlist import WatchlistEntry
 
 __all__ = [
     "Account",
@@ -41,4 +42,5 @@ __all__ = [
     "SavedQuery",
     "STRReport",
     "Transaction",
+    "WatchlistEntry",
 ]

@@ -28,6 +28,7 @@ from app.routers import (
     reports,
     saved_queries,
     scan,
+    screening,
     str_reports,
     system,
 )
@@ -91,6 +92,7 @@ app.include_router(investigate.router, prefix="/investigate", tags=["investigate
 app.include_router(network.router, prefix="/network", tags=["network"])
 app.include_router(scan.router, prefix="/scan", tags=["scan"])
 app.include_router(realtime.router, prefix="/transactions", tags=["transactions"])
+app.include_router(screening.router, prefix="/screening", tags=["screening"])
 app.include_router(str_reports.router, prefix="/str-reports", tags=["str-reports"])
 app.include_router(ctr.router, prefix="/ctr", tags=["ctr"])
 app.include_router(alerts.router, prefix="/alerts", tags=["alerts"])

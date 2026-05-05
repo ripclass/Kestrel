@@ -38,6 +38,12 @@ from app.models.entity import Entity
 from app.models.match import Match
 from app.models.realtime_scoring import RealtimeScoringLog
 from app.observability import current_request_id
+from app.services.screening import (
+    ScreeningMatch,
+    ScreeningRequest,
+    parse_screening_date,
+    screen_entity,
+)
 
 logger = logging.getLogger("kestrel.realtime")
 
@@ -56,6 +62,12 @@ _MEDIUM_RISK_CHANNELS = {"MFS_BKASH", "MFS_NAGAD", "MFS_ROCKET"}
 _DECISION_APPROVE_MAX = 30
 _DECISION_REVIEW_MAX = 60
 _DECISION_HOLD_MAX = 80
+
+# Sanctions screening: a hit at or above this similarity-weighted score
+# forces a 50-point contribution. Two hits (both parties) push the score
+# past the rejection band even if every other signal is benign.
+_SANCTIONS_HIT_THRESHOLD = 0.7
+_SANCTIONS_HIT_POINTS = 50
 
 
 @dataclass
@@ -346,6 +358,71 @@ def _score_cross_bank(
     )
 
 
+async def _screen_party(
+    session: AsyncSession,
+    *,
+    metadata: dict[str, Any] | None,
+) -> list[ScreeningMatch]:
+    """Run sanctions screening for one transaction party.
+
+    Returns an empty list when the metadata doesn't carry a name (most
+    machine-to-machine integrations send NID + account number only — no
+    screening is possible without a candidate name). Bounded by the
+    `screen_entity` query (200 rows max from the watchlist pool); typical
+    latency stays well within the realtime budget.
+    """
+    if not metadata or not isinstance(metadata, dict):
+        return []
+    name = metadata.get("name") or metadata.get("full_name")
+    if not name or not str(name).strip():
+        return []
+    request = ScreeningRequest(
+        name=str(name),
+        date_of_birth=parse_screening_date(
+            metadata.get("date_of_birth") or metadata.get("dob")
+        ),
+        nationality=metadata.get("nationality"),
+        nid=metadata.get("nid") or metadata.get("national_id"),
+        passport=metadata.get("passport"),
+        minimum_match_score=_SANCTIONS_HIT_THRESHOLD,
+    )
+    return await screen_entity(session, request=request)
+
+
+def _score_sanctions(
+    *,
+    matches: list[ScreeningMatch],
+    side: str,
+    reasons: list[dict[str, Any]],
+    evidence: dict[str, Any],
+) -> int:
+    if not matches:
+        return 0
+    top = matches[0]
+    evidence[f"{side}_sanctions_hit"] = {
+        "list_source": top.list_source,
+        "match_score": top.match_score,
+        "matched_name": top.matched_name,
+    }
+    return _add_reason(
+        reasons,
+        rule=f"{side}_sanctions_hit",
+        points=_SANCTIONS_HIT_POINTS,
+        reason_text=(
+            f"{side.capitalize()} party matches {top.list_source} watchlist entry "
+            f"'{top.matched_name}' (score={top.match_score:.2f})."
+        ),
+        detail={
+            "list_source": top.list_source,
+            "list_version": top.list_version,
+            "entry_id": top.entry_id,
+            "match_score": top.match_score,
+            "match_reasons": top.match_reasons,
+            "additional_hits": len(matches) - 1,
+        },
+    )
+
+
 async def score_transaction(
     session: AsyncSession,
     *,
@@ -400,6 +477,14 @@ async def score_transaction(
     score += _score_cross_bank(match=from_match, side="from", reasons=reasons, evidence=evidence)
     score += _score_cross_bank(match=to_match, side="to", reasons=reasons, evidence=evidence)
     cross_bank_flag = bool(from_match) or bool(to_match)
+
+    from_sanctions = await _screen_party(session, metadata=request.from_account_metadata)
+    to_sanctions = await _screen_party(session, metadata=request.to_account_metadata)
+    score += _score_sanctions(matches=from_sanctions, side="from", reasons=reasons, evidence=evidence)
+    score += _score_sanctions(matches=to_sanctions, side="to", reasons=reasons, evidence=evidence)
+    sanctions_flag = bool(from_sanctions) or bool(to_sanctions)
+    if sanctions_flag:
+        evidence["sanctions_flag"] = True
 
     score = max(0, min(100, score))
     decision = _decide(score)
