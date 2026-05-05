@@ -1,4 +1,5 @@
 from app.models.account import Account
+from app.models.ai_outcome import AIOutcomeLog
 from app.models.alert import Alert
 from app.models.audit import AuditLog
 from app.models.base import Base
@@ -24,6 +25,7 @@ from app.models.watchlist import WatchlistEntry
 
 __all__ = [
     "Account",
+    "AIOutcomeLog",
     "Alert",
     "AuditLog",
     "Base",

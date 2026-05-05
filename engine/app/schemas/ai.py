@@ -19,6 +19,12 @@ class AIInvocationMeta(BaseModel):
     fallback_used: bool
     audit_logged: bool
     attempts: list[AIInvocationAttempt]
+    # V3 phase 1: surface the outcome-log id back to UI callers so a
+    # subsequent analyst correction can be tied to the originating
+    # invocation. ``None`` when the dual-write to ai_outcome_log failed
+    # (e.g. transient DB hiccup) — UI should fall back to read-only.
+    outcome_log_id: str | None = None
+    latency_ms: int | None = None
 
 
 class ExtractedEntity(BaseModel):

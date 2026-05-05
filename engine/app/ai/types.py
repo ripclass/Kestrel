@@ -56,6 +56,12 @@ class ProviderResponse(BaseModel):
     model: str
     content: str
     raw_response: dict[str, object] = Field(default_factory=dict)
+    # Optional usage telemetry — adapters fill in when the upstream API
+    # returns the values; omitted otherwise. Used by the V3 outcome-log
+    # writer to capture per-call cost + token volume.
+    prompt_tokens: int | None = None
+    completion_tokens: int | None = None
+    confidence: float | None = None
 
 
 class ProviderAttempt(BaseModel):

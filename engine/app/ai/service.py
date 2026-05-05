@@ -1,4 +1,6 @@
 import json
+import time
+import uuid as _uuid
 from dataclasses import dataclass
 from typing import Any
 
@@ -152,6 +154,10 @@ class AIInvocationResult:
     audit_logged: bool
     attempts: list[ProviderAttempt]
     output: BaseModel
+    # V3 phase 1: log_id surfaces back to the caller so a subsequent
+    # analyst correction can be tied to the originating AI invocation.
+    outcome_log_id: _uuid.UUID | None = None
+    latency_ms: int | None = None
 
 
 class AIOrchestrator:
@@ -198,8 +204,10 @@ class AIOrchestrator:
                 redacted_payload=redacted_payload,
                 output_model=output_model,
             )
+            started_at = time.perf_counter()
             try:
                 response = await provider.generate_json(request)
+                latency_ms = int(round((time.perf_counter() - started_at) * 1000))
                 candidate = extract_json_payload(response.content)
                 valid, error = validate_structured_output(output_model, candidate)
                 if not valid:
@@ -222,7 +230,16 @@ class AIOrchestrator:
                         success=True,
                     )
                 )
-                audit_logged = await self.audit_logger(
+                # The previous attempt (if any) is the fallback-from for
+                # outcome-log purposes — that's what the V3 phase 4
+                # training corpus exporter cares about.
+                fallback_from_provider = (
+                    str(attempts[-2].provider) if len(attempts) >= 2 else None
+                )
+                fallback_from_model = (
+                    attempts[-2].model if len(attempts) >= 2 else None
+                )
+                outcome_log_id = await self.audit_logger(
                     user=user,
                     task=task,
                     provider=route.provider,
@@ -235,6 +252,12 @@ class AIOrchestrator:
                     fallback_used=index > 0,
                     attempt_count=len(attempts),
                     ip=ip,
+                    latency_ms=latency_ms,
+                    prompt_tokens=getattr(response, "prompt_tokens", None),
+                    completion_tokens=getattr(response, "completion_tokens", None),
+                    confidence=getattr(response, "confidence", None),
+                    fallback_from_provider=fallback_from_provider,
+                    fallback_from_model=fallback_from_model,
                 )
                 return AIInvocationResult(
                     task=task,
@@ -243,9 +266,11 @@ class AIOrchestrator:
                     prompt_version=prompt.version,
                     redaction_mode=redaction_mode,
                     fallback_used=index > 0,
-                    audit_logged=audit_logged,
+                    audit_logged=outcome_log_id is not None,
                     attempts=attempts,
                     output=structured_output,
+                    outcome_log_id=outcome_log_id,
+                    latency_ms=latency_ms,
                 )
             except Exception as exc:
                 attempts.append(
