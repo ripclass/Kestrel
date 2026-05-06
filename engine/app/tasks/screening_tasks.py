@@ -178,11 +178,20 @@ async def _run_one(
         logger.info("watchlist.source.not_implemented", extra={"source": name})
         return {"source": name, "ingested": 0, "skipped_reason": str(exc)}
     except Exception as exc:  # noqa: BLE001 — defensive, we don't want one source to kill the batch
+        import traceback
+
+        tb_tail = "".join(traceback.format_exception(type(exc), exc, exc.__traceback__))[-1200:]
         logger.warning(
             "watchlist.source.failed",
             extra={"source": name, "error_type": type(exc).__name__, "error": str(exc)[:200]},
         )
-        return {"source": name, "ingested": 0, "error": type(exc).__name__}
+        return {
+            "source": name,
+            "ingested": 0,
+            "error": type(exc).__name__,
+            "error_message": str(exc)[:500],
+            "traceback_tail": tb_tail,
+        }
     return {"source": name, "ingested": ingested}
 
 
