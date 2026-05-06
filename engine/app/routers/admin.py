@@ -190,11 +190,12 @@ async def screening_outbound_probe(
 ) -> dict:
     """V2 P4 watchlist outbound verification.
 
-    HEAD-requests each upstream sanctions feed from the engine container so
-    operators can confirm Render network egress reaches OFAC / UN / UK
-    before flipping `KESTREL_WATCHLIST_INGESTION_ENABLED=true`. Pure HEAD
-    requests (no body) so the probe never spikes memory the way the full
-    ingestion task does."""
+    Streams a small GET against each upstream sanctions feed and reads
+    only the first 256 bytes — confirms Render network egress + the URL
+    is alive + the body looks like the expected format (XML/CSV) without
+    pulling the full multi-MB payload. Some endpoints (UN consolidated)
+    reject HEAD requests entirely, so HEAD is unreliable for this probe;
+    GET with an early close is the right shape."""
     import time
 
     import httpx
@@ -208,17 +209,23 @@ async def screening_outbound_probe(
         (uk_ofsi.LIST_SOURCE, uk_ofsi.FEED_URL),
     ]
     results: list[dict] = []
-    async with httpx.AsyncClient(timeout=8.0, follow_redirects=True) as client:
+    async with httpx.AsyncClient(timeout=15.0, follow_redirects=True) as client:
         for source, url in targets:
             t0 = time.perf_counter()
             entry: dict = {"source": source, "url": url}
             try:
-                resp = await client.head(url)
-                entry["status_code"] = resp.status_code
-                entry["content_length"] = resp.headers.get("content-length")
-                entry["content_type"] = resp.headers.get("content-type")
-                entry["latency_ms"] = int((time.perf_counter() - t0) * 1000)
-                entry["reachable"] = resp.status_code < 500
+                async with client.stream("GET", url) as resp:
+                    entry["status_code"] = resp.status_code
+                    entry["content_length"] = resp.headers.get("content-length")
+                    entry["content_type"] = resp.headers.get("content-type")
+                    sample = b""
+                    async for chunk in resp.aiter_bytes(chunk_size=256):
+                        sample = chunk
+                        break  # first chunk is enough; close stream early
+                    entry["body_preview"] = sample[:128].decode("utf-8", errors="replace")
+                    entry["latency_ms"] = int((time.perf_counter() - t0) * 1000)
+                    entry["reachable"] = resp.status_code < 500 and bool(sample)
+                    entry["body_looks_like_expected"] = _shape_check(source, sample)
             except httpx.RequestError as exc:
                 entry["reachable"] = False
                 entry["error_type"] = type(exc).__name__
@@ -229,6 +236,20 @@ async def screening_outbound_probe(
         "ingestion_enabled_env": settings_module_value("kestrel_watchlist_ingestion_enabled"),
         "results": results,
     }
+
+
+def _shape_check(source: str, sample: bytes) -> bool:
+    """Quick sanity that the first bytes match the expected format. Catches
+    the case where a feed URL serves an HTML wrapper page instead of XML/CSV."""
+    if not sample:
+        return False
+    text = sample.lstrip().lower()
+    if source in ("OFAC", "UN"):
+        return text.startswith(b"<?xml") or text.startswith(b"<sdnlist") or text.startswith(b"<consolidated")
+    if source == "UK_OFSI":
+        # Header row begins with "Last Updated," in the new unified format.
+        return b"," in sample[:200] and not text.startswith(b"<!doctype") and not text.startswith(b"<html")
+    return True
 
 
 def settings_module_value(_name: str) -> bool:

@@ -1,6 +1,10 @@
 """OFAC SDN List adapter (US Treasury).
 
-Feed: https://www.treasury.gov/ofac/downloads/sdn.xml — daily refresh.
+Feed: https://sanctionslistservice.ofac.treas.gov/api/PublicationPreview/exports/SDN.XML
+— daily refresh. The legacy ``www.treasury.gov/ofac/downloads/sdn.xml`` URL
+was retired when OFAC consolidated distribution under the Sanctions List
+Service. The new endpoint returns a 302 redirect to a presigned S3 URL,
+so the fetch must follow redirects.
 
 The XML root is ``sdnList``; each entry is ``sdnEntry`` with ``firstName`` /
 ``lastName`` (individuals) or ``sdnType="Entity"`` with ``firstName`` only.
@@ -20,12 +24,12 @@ from app.screening.sources.base import ParsedWatchlistEntry
 logger = logging.getLogger("kestrel.screening.ofac")
 
 LIST_SOURCE = "OFAC"
-FEED_URL = "https://www.treasury.gov/ofac/downloads/sdn.xml"
+FEED_URL = "https://sanctionslistservice.ofac.treas.gov/api/PublicationPreview/exports/SDN.XML"
 _NS = {"sdn": "http://tempuri.org/sdnList.xsd"}
 
 
 async def fetch() -> bytes:
-    async with httpx.AsyncClient(timeout=30.0) as client:
+    async with httpx.AsyncClient(timeout=60.0, follow_redirects=True) as client:
         response = await client.get(FEED_URL)
         response.raise_for_status()
         return response.content

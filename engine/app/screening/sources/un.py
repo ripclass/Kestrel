@@ -2,6 +2,10 @@
 
 Feed: https://scsanctions.un.org/resources/xml/en/consolidated.xml — daily.
 
+The endpoint returns a 302 redirect to an Azure Blob Storage URL with a
+presigned token; the fetch must follow redirects. HEAD requests against
+this URL return 404 (the proxy doesn't redirect HEADs); only GET works.
+
 Distinct individual / entity nodes; each has multiple aliases. The XML
 schema is unnamespaced.
 """
@@ -23,7 +27,7 @@ FEED_URL = "https://scsanctions.un.org/resources/xml/en/consolidated.xml"
 
 
 async def fetch() -> bytes:
-    async with httpx.AsyncClient(timeout=30.0) as client:
+    async with httpx.AsyncClient(timeout=60.0, follow_redirects=True) as client:
         response = await client.get(FEED_URL)
         response.raise_for_status()
         return response.content
