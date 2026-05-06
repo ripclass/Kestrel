@@ -112,12 +112,47 @@ async function sendBriefingNotification(payload: BriefingNotificationPayload): P
       console.error(
         `access_requests: Resend send failed status=${response.status} from=${from} to=${to} body=${body.slice(0, 300)}`,
       );
+      await persistResendDebug({
+        outcome: "failed",
+        status: response.status,
+        from,
+        to,
+        body: body.slice(0, 600),
+      });
       return;
     }
     const result = (await response.json().catch(() => null)) as { id?: string } | null;
     console.info(`access_requests: notification sent resend_id=${result?.id ?? "n/a"} from=${from} to=${to}`);
+    await persistResendDebug({
+      outcome: "sent",
+      status: response.status,
+      from,
+      to,
+      resend_id: result?.id ?? null,
+    });
   } catch (err) {
-    console.error(`access_requests: Resend network error message=${(err as Error).message}`);
+    const message = (err as Error).message;
+    console.error(`access_requests: Resend network error message=${message}`);
+    await persistResendDebug({ outcome: "network_error", from, to, error: message });
+  }
+}
+
+async function persistResendDebug(detail: Record<string, unknown>): Promise<void> {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL;
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!url || !key) {
+    console.info("access_requests: Resend debug persistence skipped — no Supabase service-role config.");
+    return;
+  }
+  try {
+    const { createClient } = await import("@supabase/supabase-js");
+    const supabase = createClient(url, key, { auth: { persistSession: false } });
+    await supabase.from("audit_log").insert({
+      action: "access_requests.resend_attempt",
+      details: { ...detail, recorded_at: new Date().toISOString() },
+    });
+  } catch (err) {
+    console.error(`access_requests: Resend debug persist failed message=${(err as Error).message}`);
   }
 }
 
