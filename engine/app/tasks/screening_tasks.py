@@ -61,14 +61,22 @@ def _max_body_bytes() -> int:
 @celery_app.task(name="app.tasks.screening_tasks.refresh_all")
 def refresh_all() -> dict[str, Any]:
     """Beat-driven entrypoint. Runs every configured source in turn."""
+    return asyncio.run(_orchestrate())
+
+
+async def _orchestrate() -> dict[str, Any]:
+    """Single-event-loop wrapper so SessionLocal connections from the
+    upsert phase remain valid for the audit-log persist phase. Splitting
+    these into two ``asyncio.run`` calls leaks asyncpg connections
+    across loops and the persist call fails silently."""
     if not _ingestion_enabled():
         logger.info("watchlist.ingestion.disabled")
-        summary = {"status": "disabled", "sources": []}
-        asyncio.run(_persist_run_summary(summary))
+        summary: dict[str, Any] = {"status": "disabled", "sources": []}
+        await _persist_run_summary(summary)
         return summary
 
     try:
-        results = asyncio.run(_run_all())
+        results = await _run_all()
         summary = {
             "status": "completed",
             "ran_at": datetime.now(UTC).isoformat(),
@@ -85,7 +93,7 @@ def refresh_all() -> dict[str, Any]:
             "ingested_total": 0,
         }
     logger.info("watchlist.ingestion.batch", extra={"summary": summary})
-    asyncio.run(_persist_run_summary(summary))
+    await _persist_run_summary(summary)
     return summary
 
 
