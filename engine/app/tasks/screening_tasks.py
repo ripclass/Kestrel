@@ -138,6 +138,7 @@ async def _run_one(source: Any) -> dict[str, Any]:
                 "skipped_reason": f"body {size_bytes} bytes exceeds cap {cap}; raise KESTREL_WATCHLIST_MAX_BODY_MB or bump worker plan",
             }
         parsed = source.parse(content)
+        ingested = await _upsert_batch(parsed)
     except NotImplementedError as exc:
         logger.info("watchlist.source.not_implemented", extra={"source": name})
         return {"source": name, "ingested": 0, "skipped_reason": str(exc)}
@@ -147,7 +148,6 @@ async def _run_one(source: Any) -> dict[str, Any]:
             extra={"source": name, "error_type": type(exc).__name__, "error": str(exc)[:200]},
         )
         return {"source": name, "ingested": 0, "error": type(exc).__name__}
-    ingested = await _upsert_batch(parsed)
     return {"source": name, "ingested": ingested}
 
 
@@ -157,8 +157,22 @@ def _row_id(row: ParsedWatchlistEntry) -> uuid.UUID:
     return uuid.uuid5(_NAMESPACE, raw)
 
 
+_UPSERT_COLS_PER_ROW = 12  # id, list_source, list_version, entry_type, primary_name,
+                            # aliases, date_of_birth, nationality, identifiers,
+                            # addresses, reason, raw_record
+_PG_BIND_LIMIT = 32_767  # PostgreSQL hard limit on bind parameters per query
+# Stay comfortably under the limit: 32767 / 12 ≈ 2730. Use 2000 to leave
+# headroom and to keep individual transaction times bounded.
+_UPSERT_CHUNK_SIZE = 2000
+
+
 async def _upsert_batch(rows: list[ParsedWatchlistEntry]) -> int:
-    """Idempotent upsert keyed off the deterministic PK from ``_row_id``."""
+    """Idempotent upsert keyed off the deterministic PK from ``_row_id``.
+
+    Chunks into ``_UPSERT_CHUNK_SIZE``-row sub-batches. The OFAC SDN list
+    has ~12-15k entries; a single multi-row INSERT would hit Postgres'
+    32767 bind-parameter limit (12 cols × 12k rows = 144k binds). Chunked
+    UPSERTs keep us under the limit and bound the per-statement work."""
     if not rows:
         return 0
     payload = [
@@ -178,12 +192,16 @@ async def _upsert_batch(rows: list[ParsedWatchlistEntry]) -> int:
         }
         for row in rows
     ]
+    total = 0
     async with SessionLocal() as session:
-        async with session.begin():
-            stmt = (
-                pg_insert(WatchlistEntry.__table__)
-                .values(payload)
-                .on_conflict_do_nothing(index_elements=["id"])
-            )
-            await session.execute(stmt)
-    return len(payload)
+        for offset in range(0, len(payload), _UPSERT_CHUNK_SIZE):
+            chunk = payload[offset : offset + _UPSERT_CHUNK_SIZE]
+            async with session.begin():
+                stmt = (
+                    pg_insert(WatchlistEntry.__table__)
+                    .values(chunk)
+                    .on_conflict_do_nothing(index_elements=["id"])
+                )
+                await session.execute(stmt)
+            total += len(chunk)
+    return total
