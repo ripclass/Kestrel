@@ -238,6 +238,53 @@ async def screening_outbound_probe(
     }
 
 
+@router.get("/screening/adverse-media-probe")
+async def screening_adverse_media_probe(
+    user: Annotated[AuthenticatedUser, Depends(require_roles("admin", "superadmin"))],
+) -> dict:
+    """Validate the ComplyAdvantage API key once it's set on Render.
+
+    Reports configuration state and (when configured) runs a single
+    benign search against the live API. Operators hit this immediately
+    after setting `COMPLYADVANTAGE_API_KEY` to confirm the key works
+    before user traffic depends on it. No business data sent — query
+    string is the literal `health-probe`."""
+    import time
+
+    from app.services import adverse_media
+
+    _require_regulator_admin(user)
+    if not adverse_media.is_provider_configured():
+        return {
+            "configured": False,
+            "provider": "stub",
+            "note": "Set COMPLYADVANTAGE_API_KEY on engine + worker + beat to enable.",
+        }
+
+    t0 = time.perf_counter()
+    try:
+        hits = await adverse_media.search_adverse_media(
+            adverse_media.AdverseMediaQuery(name="health-probe")
+        )
+        return {
+            "configured": True,
+            "provider": "complyadvantage",
+            "reachable": True,
+            "latency_ms": int((time.perf_counter() - t0) * 1000),
+            "hit_count": len(hits),
+            "note": "Key validated; hit_count is the count for the literal probe term and is expected to be small/zero.",
+        }
+    except Exception as exc:  # noqa: BLE001 — operator-facing surface
+        return {
+            "configured": True,
+            "provider": "complyadvantage",
+            "reachable": False,
+            "error_type": type(exc).__name__,
+            "error": str(exc)[:300],
+            "latency_ms": int((time.perf_counter() - t0) * 1000),
+        }
+
+
 @router.post("/screening/refresh-now")
 async def screening_refresh_now(
     user: Annotated[AuthenticatedUser, Depends(require_roles("admin", "superadmin"))],
