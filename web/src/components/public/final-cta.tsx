@@ -32,10 +32,10 @@ export function FinalCta() {
               Schedule a briefing →
             </Link>
             <Link
-              href="/press"
+              href="/docs"
               className="inline-flex items-center gap-3 border border-landing-rule-solid px-8 py-4 font-landing-body text-sm uppercase tracking-[0.22em] text-landing-foreground/85 transition hover:border-landing-foreground hover:text-landing-foreground"
             >
-              Download press kit →
+              Read the docs →
             </Link>
           </div>
         </div>

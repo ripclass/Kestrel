@@ -27,12 +27,12 @@ const cards: {
     href: "/contact?audience=bfiu",
   },
   {
-    tag: "For · Press and partners",
-    title: "Technical whitepaper and press kit.",
+    tag: "For · Integration teams and CTOs",
+    title: "Read the docs.",
     body:
-      "The architecture document, the cross-bank intelligence whitepaper, the press kit, and the founder background. Available without gating.",
-    cta: "Download kit →",
-    href: "/press",
+      "The integration spec your engineers ship from on a Friday, the security posture your CTO signs off on, and the goAML coverage answer your CAMLCO needs. Three short documents, no registration.",
+    cta: "Open the docs →",
+    href: "/docs",
   },
 ];
 

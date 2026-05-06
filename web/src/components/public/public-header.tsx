@@ -5,7 +5,7 @@ import { KestrelMark } from "@/components/common/kestrel-mark";
 const navLinks: { href: string; label: string; external?: boolean }[] = [
   { href: "#coverage", label: "Coverage" },
   { href: "/pricing", label: "Pricing" },
-  { href: "/press", label: "Press" },
+  { href: "/docs", label: "Docs" },
   { href: "/login", label: "Sign in" },
 ];
 

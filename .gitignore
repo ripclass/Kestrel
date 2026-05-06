@@ -26,7 +26,6 @@ web/.next/
 dist/
 build/
 coverage/
-!web/src/app/(public)/coverage/
 
 .idea/
 .vscode/

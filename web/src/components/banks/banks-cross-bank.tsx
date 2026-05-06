@@ -32,10 +32,10 @@ export function BanksCrossBank() {
             </p>
             <div className="flex flex-wrap gap-4 pt-2">
               <a
-                href="/cross-bank-intelligence"
+                href="/docs/security"
                 className="inline-flex items-center gap-2 border border-landing-alarm px-5 py-3 font-landing-body text-[11px] uppercase tracking-[0.22em] text-landing-alarm transition hover:bg-landing-alarm hover:text-landing-bg"
               >
-                <span>┼</span> Read the whitepaper →
+                <span>┼</span> Security posture →
               </a>
               <a
                 href="#access"

@@ -24,13 +24,8 @@ export function PublicFooter() {
                 </Link>
               </li>
               <li>
-                <Link href="/coverage" className="transition hover:text-landing-alarm">
-                  goAML map
-                </Link>
-              </li>
-              <li>
-                <Link href="/press" className="transition hover:text-landing-alarm">
-                  Press kit
+                <Link href="/docs" className="transition hover:text-landing-alarm">
+                  Docs
                 </Link>
               </li>
               <li>
