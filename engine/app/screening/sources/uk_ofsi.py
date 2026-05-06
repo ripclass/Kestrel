@@ -45,6 +45,7 @@ async def fetch() -> bytes:
 def parse(content: bytes) -> list[ParsedWatchlistEntry]:
     list_version = datetime.utcnow().strftime("%Y-%m-%d")
     text = content.decode("utf-8-sig", errors="replace")
+    text = _strip_preamble(text, list_version_out=list_version)
     reader = csv.DictReader(io.StringIO(text))
 
     grouped: dict[str, list[dict[str, Any]]] = defaultdict(list)
@@ -176,6 +177,24 @@ def _build_addresses(row: dict[str, Any]) -> list[dict[str, Any]]:
             "postal_code": postal or None,
         }
     ]
+
+
+def _strip_preamble(text: str, *, list_version_out: str) -> str:
+    """The new UK Sanctions List CSV begins with a single ``Report Date:``
+    line BEFORE the column header. Strip it so csv.DictReader picks up
+    the real header. Tolerant of leading blank lines."""
+    lines = text.splitlines(keepends=True)
+    skip = 0
+    for ln in lines:
+        stripped = ln.strip()
+        if not stripped:
+            skip += 1
+            continue
+        if stripped.lower().startswith("report date"):
+            skip += 1
+            continue
+        break
+    return "".join(lines[skip:])
 
 
 def _parse_date(value: str) -> date | None:

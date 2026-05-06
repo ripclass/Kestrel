@@ -46,6 +46,18 @@ def _ingestion_enabled() -> bool:
     return os.environ.get("KESTREL_WATCHLIST_INGESTION_ENABLED", "false").lower() == "true"
 
 
+def _max_body_bytes() -> int:
+    """Per-source body-size cap. Defaults to 35 MB so the OFAC SDN.XML
+    (~28 MB) still parses on a 512 MB worker but the unified UK list
+    (~48 MB CSV) gets skipped with a warning. Operators bumping the
+    worker plan to 1 GB+ can raise the cap via env."""
+    raw = os.environ.get("KESTREL_WATCHLIST_MAX_BODY_MB", "35")
+    try:
+        return max(1, int(raw)) * 1024 * 1024
+    except ValueError:
+        return 35 * 1024 * 1024
+
+
 @celery_app.task(name="app.tasks.screening_tasks.refresh_all")
 def refresh_all() -> dict[str, Any]:
     """Beat-driven entrypoint. Runs every configured source in turn."""
@@ -75,6 +87,18 @@ async def _run_one(source: Any) -> dict[str, Any]:
     name = getattr(source, "LIST_SOURCE", source.__name__)
     try:
         content = await source.fetch()
+        size_bytes = len(content)
+        cap = _max_body_bytes()
+        if size_bytes > cap:
+            logger.warning(
+                "watchlist.source.skipped_oversized",
+                extra={"source": name, "size_bytes": size_bytes, "cap_bytes": cap},
+            )
+            return {
+                "source": name,
+                "ingested": 0,
+                "skipped_reason": f"body {size_bytes} bytes exceeds cap {cap}; raise KESTREL_WATCHLIST_MAX_BODY_MB or bump worker plan",
+            }
         parsed = source.parse(content)
     except NotImplementedError as exc:
         logger.info("watchlist.source.not_implemented", extra={"source": name})
