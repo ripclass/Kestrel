@@ -63,17 +63,55 @@ def refresh_all() -> dict[str, Any]:
     """Beat-driven entrypoint. Runs every configured source in turn."""
     if not _ingestion_enabled():
         logger.info("watchlist.ingestion.disabled")
-        return {"status": "disabled", "sources": []}
+        summary = {"status": "disabled", "sources": []}
+        asyncio.run(_persist_run_summary(summary))
+        return summary
 
-    results = asyncio.run(_run_all())
-    summary = {
-        "status": "completed",
-        "ran_at": datetime.now(UTC).isoformat(),
-        "sources": results,
-        "ingested_total": sum(r.get("ingested", 0) for r in results),
-    }
+    try:
+        results = asyncio.run(_run_all())
+        summary = {
+            "status": "completed",
+            "ran_at": datetime.now(UTC).isoformat(),
+            "sources": results,
+            "ingested_total": sum(r.get("ingested", 0) for r in results),
+        }
+    except Exception as exc:  # noqa: BLE001 — surface raw failure so we can diagnose
+        summary = {
+            "status": "crashed",
+            "ran_at": datetime.now(UTC).isoformat(),
+            "error_type": type(exc).__name__,
+            "error": str(exc)[:500],
+            "sources": [],
+            "ingested_total": 0,
+        }
     logger.info("watchlist.ingestion.batch", extra={"summary": summary})
+    asyncio.run(_persist_run_summary(summary))
     return summary
+
+
+async def _persist_run_summary(summary: dict[str, Any]) -> None:
+    """Append a row to audit_log so the run outcome is queryable via SQL.
+
+    Lets operators (or this codebase's Supabase MCP probes) see the last
+    refresh result without scraping worker logs. Best-effort — a write
+    failure here is logged but not raised, so a DB hiccup never wedges
+    the task itself."""
+    from sqlalchemy import insert
+
+    from app.database import SessionLocal
+    from app.models.audit import AuditLog
+
+    try:
+        async with SessionLocal() as session:
+            async with session.begin():
+                await session.execute(
+                    insert(AuditLog).values(
+                        action="watchlist.refresh",
+                        details=summary,
+                    )
+                )
+    except Exception as exc:  # noqa: BLE001 — never let logging crash the task
+        logger.warning("watchlist.run_summary.persist_failed", extra={"error": str(exc)[:200]})
 
 
 async def _run_all() -> list[dict[str, Any]]:
