@@ -23,15 +23,20 @@ const stats: {
     label: "Laundered via mobile money in a single year, per published estimates.",
     source: "Centre for Policy Dialogue",
   },
+  {
+    value: "27,481",
+    label: "Sanctions records screened daily across OFAC, UN, UK FCDO.",
+    source: "Kestrel production · May 2026",
+  },
 ];
 
 export function StatsRow() {
   return (
     <section className="border-b border-landing-rule bg-landing-bg">
       <div className="mx-auto w-full max-w-7xl px-6 lg:px-10">
-        <div className="grid grid-cols-2 divide-x divide-y divide-landing-rule-solid border border-landing-rule-solid lg:grid-cols-4 lg:divide-y-0">
+        <div className="grid grid-cols-2 divide-x divide-y divide-landing-rule-solid border border-landing-rule-solid lg:grid-cols-5 lg:divide-y-0">
           {stats.map((stat, i) => (
-            <div key={stat.value} className="relative flex min-h-[240px] flex-col gap-4 p-8 lg:p-10">
+            <div key={stat.value} className="relative flex min-h-[240px] flex-col gap-4 p-8 lg:p-8">
               <span className="font-landing-body text-[10px] uppercase tracking-[0.28em] text-landing-muted">
                 {`Anchor 0${i + 1}`}
               </span>

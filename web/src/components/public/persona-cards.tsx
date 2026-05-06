@@ -7,7 +7,7 @@ const personas = [
   {
     tag: "Reporter",
     title: "Bank CAMLCOs",
-    body: "A pattern scanner on your own transactions. STR drafting assisted by AI-detected alerts. Peer-network intelligence without exposing your own book.",
+    body: "A pattern scanner on your own transactions. STR drafting assisted by AI-detected alerts. Peer-network intelligence without exposing your own book. Real-time decisioning API for your core banking system.",
   },
   {
     tag: "Command",
@@ -22,12 +22,12 @@ export function PersonaCards() {
       <div className="mx-auto w-full max-w-7xl px-6 py-24 lg:px-10">
         <div className="max-w-4xl space-y-6">
           <span className="flex items-center gap-3 font-landing-body text-[10px] uppercase tracking-[0.3em] text-landing-alarm">
-            <span className="leading-none">┼</span> Authorised Access
+            <span className="leading-none">┼</span> Roles and views
           </span>
           <h2 className="font-landing-display text-3xl leading-[1.08] text-landing-foreground lg:text-5xl">
             Three personas.
             <br />
-            <span className="text-landing-muted">One classified surface.</span>
+            <span className="text-landing-muted">One surface.</span>
           </h2>
         </div>
         <div className="mt-16 grid grid-cols-1 border border-landing-rule-solid divide-y divide-landing-rule-solid md:grid-cols-3 md:divide-x md:divide-y-0">

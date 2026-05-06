@@ -1,4 +1,16 @@
-const channelTags = ["NPSB", "BEFTN", "RTGS", "bKash", "Nagad", "Rocket", "BDT", "Bangla"];
+const channelTags = [
+  "NPSB",
+  "BEFTN",
+  "RTGS",
+  "bKash",
+  "Nagad",
+  "Rocket",
+  "BDT",
+  "Bangla",
+  "NID",
+  "CBC",
+  "BB Circular 26/2024",
+];
 
 export function BangladeshSection() {
   return (

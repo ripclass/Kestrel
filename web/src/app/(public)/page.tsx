@@ -5,16 +5,18 @@ import { CoverageSection } from "@/components/public/coverage-section";
 import { FinalCta } from "@/components/public/final-cta";
 import { LandingHero } from "@/components/public/landing-hero";
 import { PersonaCards } from "@/components/public/persona-cards";
+import { ProductionMetrics } from "@/components/public/production-metrics";
 import { PublicFooter } from "@/components/public/public-footer";
 import { PublicHeader } from "@/components/public/public-header";
+import { StartHereCards } from "@/components/public/start-here-cards";
 import { StatsRow } from "@/components/public/stats-row";
 import { demoPersonaOptions } from "@/lib/demo";
 import { isDemoModeConfigured } from "@/lib/runtime";
 
 export const metadata = {
-  title: "Kestrel — Financial crime intelligence for Bangladesh",
+  title: "Kestrel — Financial crime intelligence for Bangladesh's banks",
   description:
-    "Kestrel is a national financial intelligence platform. Cross-bank entity resolution, explainable alerts, network analysis, and full goAML coverage — in one live, browser-based interface.",
+    "Pattern detection, cross-bank entity intelligence, AI-drafted STRs, real-time transaction scoring, and goAML interoperability. Billable in BDT, deployable on local infrastructure.",
 };
 
 export default function LandingPage() {
@@ -23,11 +25,6 @@ export default function LandingPage() {
   return (
     <main className="flex min-h-screen flex-col bg-landing-bg">
       <PublicHeader />
-      
-      {/* 
-        Sovereign Ledger Hero contains the core Problem/Product value proposition
-        and the edge-to-edge network graph.
-      */}
       <LandingHero />
 
       {demoModeEnabled ? (
@@ -48,18 +45,12 @@ export default function LandingPage() {
         </section>
       ) : null}
 
+      <StartHereCards />
       <StatsRow />
-      
-      {/* 
-        Legacy blocks Removed: ProblemSection, ProductSection, HowItWorks.
-        Their narrative is now folded into the LandingHero and the brutalist context.
-      */}
-
       <CoverageSection />
+      <ProductionMetrics />
       <PersonaCards />
       <BangladeshSection />
-      
-      {/* Assuming FinalCta is styled brutally via its own CSS or defaults. Will be a 'Known Gap' to refactor completely matching the form */}
       <FinalCta />
       <PublicFooter />
     </main>

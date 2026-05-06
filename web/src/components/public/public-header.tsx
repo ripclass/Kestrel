@@ -9,6 +9,7 @@ const navLinks = [
     label: "goAML Map",
     external: true,
   },
+  { href: "/pricing", label: "Pricing" },
   { href: "/login", label: "Sign in" },
 ];
 
@@ -42,10 +43,10 @@ export function PublicHeader() {
           )}
         </nav>
         <Link
-          href="#access"
+          href="/signup/bank"
           className="inline-flex items-center gap-2 border border-landing-alarm px-4 py-2 font-landing-body text-[11px] uppercase tracking-[0.22em] text-landing-alarm transition hover:bg-landing-alarm hover:text-landing-bg"
         >
-          Request clearance
+          Run a pilot
         </Link>
       </div>
     </header>

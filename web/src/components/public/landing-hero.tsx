@@ -1,29 +1,42 @@
-import { IntakeForm } from "./intake-form";
-
 export function LandingHero() {
   return (
     <section
-      id="access"
+      id="hero"
       className="relative flex w-full flex-col overflow-hidden border-b border-landing-rule bg-landing-bg pt-24 pb-24 lg:pt-32"
     >
       <div className="relative z-10 mx-auto grid w-full max-w-7xl grid-cols-1 gap-16 px-6 lg:grid-cols-12 lg:gap-8 lg:px-10">
-        <div className="col-span-1 flex flex-col space-y-16 lg:col-span-5">
+        <div className="col-span-1 flex flex-col space-y-10 lg:col-span-5">
           <div className="flex flex-col space-y-6">
             <span className="flex items-center gap-4 font-landing-body text-xs uppercase tracking-[0.3em] text-landing-alarm">
-              <span className="text-lg leading-none">┼</span> Kestrel Intelligence
+              <span className="text-lg leading-none">┼</span> Kestrel — Financial Crime Intelligence
             </span>
             <h1 className="font-landing-display text-4xl leading-[1.05] text-landing-foreground md:text-5xl lg:text-5xl">
-              Scam money moves across six banks in twelve minutes.
+              Financial crime
               <br />
-              <span className="text-landing-muted">Your analyst finds out six weeks later.</span>
+              intelligence
+              <br />
+              for Bangladesh&apos;s
+              <br />
+              <span className="text-landing-muted">banks.</span>
             </h1>
             <p className="max-w-md font-landing-body text-base leading-relaxed text-landing-foreground/80">
-              Kestrel connects every suspicious transaction report, every flagged account, and every
-              money trail across every bank into one real-time intelligence picture.
+              Pattern detection, cross-bank entity intelligence, AI-drafted STRs, real-time
+              transaction scoring, and goAML interoperability. Billable in BDT, deployable on local
+              infrastructure, ready to demonstrate today.
             </p>
           </div>
 
-          <IntakeForm />
+          <div className="space-y-4 border-t border-landing-rule-solid pt-8">
+            <span className="font-landing-body text-[10px] uppercase tracking-[0.3em] text-landing-muted">
+              Field note
+            </span>
+            <p className="max-w-md font-landing-body text-base leading-relaxed text-landing-foreground/85">
+              Scam money moves across six banks in twelve minutes. Your CAMLCO sees only what passed
+              through your bank. Kestrel adds the intelligence layer above, with anonymised
+              cross-bank signal, AI-assisted investigation, and BFIU-ready reporting that
+              complements every system you already run.
+            </p>
+          </div>
         </div>
 
         <div className="relative col-span-1 min-h-[600px] lg:col-span-7 lg:min-h-full">

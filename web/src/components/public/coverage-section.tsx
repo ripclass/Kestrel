@@ -1,10 +1,12 @@
 const uniqueCapabilities = [
   "AI alert explanations that translate rule hits into analyst-ready narratives",
   "Automatic cross-bank entity resolution across accounts, phones, wallets, NIDs, devices",
+  "Real-time transaction scoring with sub-500ms decisioning and per-rule explainability",
+  "Watchlist screening against 27,481 OFAC, UN, and UK FCDO records, refreshed daily",
+  "KYC onboarding with inline screening of primary and beneficial owners",
   "Two-hop network graphs on every subject, rendered without manual drawing",
   "Explainable risk scoring with per-rule weights, hit traces, and contribution breakdowns",
   "Compliance benchmarking and executive dashboards across every reporting institution",
-  "Modern web interface accessible from any browser — no legacy desktop client",
 ];
 
 export function CoverageSection() {

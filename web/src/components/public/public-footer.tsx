@@ -9,8 +9,8 @@ export function PublicFooter() {
         <div className="grid grid-cols-2 gap-y-12 gap-x-8 md:grid-cols-4">
           <div className="col-span-2 space-y-4 md:col-span-1 text-landing-foreground">
             <KestrelMark variant="lockup" size="md" />
-            <p className="max-w-[220px] font-landing-body text-[11px] uppercase leading-relaxed tracking-[0.18em] text-landing-muted">
-              Financial crime intelligence infrastructure. Built in Bangladesh.
+            <p className="max-w-[240px] font-landing-body text-[11px] uppercase leading-relaxed tracking-[0.18em] text-landing-muted">
+              Financial crime intelligence for Bangladesh&apos;s banks. Built in Dhaka.
             </p>
           </div>
           <div className="space-y-4">
@@ -34,6 +34,16 @@ export function PublicFooter() {
                 </a>
               </li>
               <li>
+                <Link href="/pricing" className="transition hover:text-landing-alarm">
+                  Pricing
+                </Link>
+              </li>
+              <li>
+                <Link href="/signup/bank" className="transition hover:text-landing-alarm">
+                  Run a pilot
+                </Link>
+              </li>
+              <li>
                 <Link href="/login" className="transition hover:text-landing-alarm">
                   Sign in
                 </Link>
@@ -47,6 +57,7 @@ export function PublicFooter() {
             <ul className="space-y-2 font-landing-body text-xs uppercase tracking-[0.22em] text-landing-foreground/80">
               <li>Money Laundering Prevention Act, 2012</li>
               <li>Egmont Group intelligence exchange</li>
+              <li>BB Circular 26/2024 · AI AML compliance</li>
             </ul>
           </div>
           <div className="space-y-4">
@@ -57,6 +68,8 @@ export function PublicFooter() {
               © {new Date().getFullYear()}
               <br />
               Dhaka, Bangladesh
+              <br />
+              Enso Intelligence Inc.
             </p>
           </div>
         </div>
