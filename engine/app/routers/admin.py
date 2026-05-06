@@ -182,3 +182,59 @@ async def scheduled_processes(
 ) -> ScheduleListResponse:
     _require_regulator_admin(user)
     return build_schedule_list()
+
+
+@router.get("/screening/outbound-probe")
+async def screening_outbound_probe(
+    user: Annotated[AuthenticatedUser, Depends(require_roles("admin", "superadmin"))],
+) -> dict:
+    """V2 P4 watchlist outbound verification.
+
+    HEAD-requests each upstream sanctions feed from the engine container so
+    operators can confirm Render network egress reaches OFAC / UN / UK
+    before flipping `KESTREL_WATCHLIST_INGESTION_ENABLED=true`. Pure HEAD
+    requests (no body) so the probe never spikes memory the way the full
+    ingestion task does."""
+    import time
+
+    import httpx
+
+    from app.screening.sources import ofac, uk_ofsi, un
+
+    _require_regulator_admin(user)
+    targets = [
+        (ofac.LIST_SOURCE, ofac.FEED_URL),
+        (un.LIST_SOURCE, un.FEED_URL),
+        (uk_ofsi.LIST_SOURCE, uk_ofsi.FEED_URL),
+    ]
+    results: list[dict] = []
+    async with httpx.AsyncClient(timeout=8.0, follow_redirects=True) as client:
+        for source, url in targets:
+            t0 = time.perf_counter()
+            entry: dict = {"source": source, "url": url}
+            try:
+                resp = await client.head(url)
+                entry["status_code"] = resp.status_code
+                entry["content_length"] = resp.headers.get("content-length")
+                entry["content_type"] = resp.headers.get("content-type")
+                entry["latency_ms"] = int((time.perf_counter() - t0) * 1000)
+                entry["reachable"] = resp.status_code < 500
+            except httpx.RequestError as exc:
+                entry["reachable"] = False
+                entry["error_type"] = type(exc).__name__
+                entry["error"] = str(exc)[:200]
+                entry["latency_ms"] = int((time.perf_counter() - t0) * 1000)
+            results.append(entry)
+    return {
+        "ingestion_enabled_env": settings_module_value("kestrel_watchlist_ingestion_enabled"),
+        "results": results,
+    }
+
+
+def settings_module_value(_name: str) -> bool:
+    """Read the env-flag the way the Beat task does, without importing
+    Settings (Settings ignores extras so `kestrel_watchlist_ingestion_enabled`
+    isn't on the model — the Beat task reads `os.environ` directly)."""
+    import os
+
+    return os.environ.get("KESTREL_WATCHLIST_INGESTION_ENABLED", "false").lower() == "true"
