@@ -25,8 +25,36 @@ const plexMono = IBM_Plex_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Kestrel",
-  description: "Financial crime intelligence platform for Bangladesh",
+  metadataBase: new URL(
+    process.env.NEXT_PUBLIC_SITE_URL ?? "https://kestrelfin.com",
+  ),
+  title: {
+    default: "Kestrel — Financial crime intelligence for Bangladesh's banks",
+    template: "%s · Kestrel",
+  },
+  description:
+    "Pattern detection, cross-bank entity intelligence, AI-drafted STRs, real-time transaction scoring, and goAML interoperability. Billable in BDT, deployable on local infrastructure.",
+  applicationName: "Kestrel",
+  authors: [{ name: "Enso Intelligence Inc." }],
+  openGraph: {
+    type: "website",
+    siteName: "Kestrel",
+    title: "Kestrel — Financial crime intelligence for Bangladesh's banks",
+    description:
+      "Pattern detection, cross-bank entity intelligence, AI-drafted STRs, real-time transaction scoring, and goAML interoperability. Billable in BDT.",
+    url: "/",
+    locale: "en_GB",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Kestrel — Financial crime intelligence for Bangladesh's banks",
+    description:
+      "Pattern detection, cross-bank entity intelligence, AI-drafted STRs, real-time transaction scoring, and goAML interoperability.",
+  },
+  robots: {
+    index: true,
+    follow: true,
+  },
 };
 
 export default function RootLayout({
