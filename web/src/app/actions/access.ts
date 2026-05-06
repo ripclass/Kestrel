@@ -109,16 +109,15 @@ async function sendBriefingNotification(payload: BriefingNotificationPayload): P
 
     if (!response.ok) {
       const body = await response.text().catch(() => "<unreadable body>");
-      console.error("access_requests: Resend send failed", {
-        status: response.status,
-        body: body.slice(0, 400),
-      });
+      console.error(
+        `access_requests: Resend send failed status=${response.status} from=${from} to=${to} body=${body.slice(0, 300)}`,
+      );
       return;
     }
     const result = (await response.json().catch(() => null)) as { id?: string } | null;
-    console.info("access_requests: notification sent", { resend_id: result?.id });
+    console.info(`access_requests: notification sent resend_id=${result?.id ?? "n/a"} from=${from} to=${to}`);
   } catch (err) {
-    console.error("access_requests: Resend network error", { message: (err as Error).message });
+    console.error(`access_requests: Resend network error message=${(err as Error).message}`);
   }
 }
 
