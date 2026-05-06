@@ -238,6 +238,45 @@ async def screening_outbound_probe(
     }
 
 
+@router.post("/screening/refresh-now")
+async def screening_refresh_now(
+    user: Annotated[AuthenticatedUser, Depends(require_roles("admin", "superadmin"))],
+) -> dict:
+    """Trigger the daily watchlist refresh task immediately on the worker.
+
+    Returns the Celery task_id so the operator can correlate with worker
+    logs. The actual ingestion runs async on the worker; query
+    watchlist_entries 60-90s later to confirm rows landed."""
+    _require_regulator_admin(user)
+    from app.tasks.screening_tasks import refresh_all
+
+    async_result = refresh_all.delay()
+    return {
+        "task_id": async_result.id,
+        "task": "app.tasks.screening_tasks.refresh_all",
+        "note": "Async dispatch. Watch worker logs for `watchlist.ingestion.batch` or `watchlist.source.*`. Query watchlist_entries in 60-90s to confirm.",
+    }
+
+
+@router.get("/screening/refresh-status/{task_id}")
+async def screening_refresh_status(
+    task_id: str,
+    user: Annotated[AuthenticatedUser, Depends(require_roles("admin", "superadmin"))],
+) -> dict:
+    """Read the AsyncResult for a previously dispatched refresh task."""
+    _require_regulator_admin(user)
+    from app.tasks.celery_app import celery_app
+
+    result = celery_app.AsyncResult(task_id)
+    payload: dict = {"task_id": task_id, "state": result.state, "ready": result.ready()}
+    if result.ready():
+        try:
+            payload["result"] = result.result
+        except Exception as exc:  # noqa: BLE001 — surface raw error to operator
+            payload["error"] = str(exc)[:300]
+    return payload
+
+
 def _shape_check(source: str, sample: bytes) -> bool:
     """Quick sanity that the first bytes match the expected format. Catches
     the case where a feed URL serves an HTML wrapper page instead of XML/CSV."""
