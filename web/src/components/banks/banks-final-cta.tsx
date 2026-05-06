@@ -32,12 +32,10 @@ export function BanksFinalCta() {
               File a briefing request
             </a>
             <a
-              href="https://github.com/ripclass/Kestrel/blob/main/docs/cross-bank-intelligence.md"
-              target="_blank"
-              rel="noreferrer noopener"
+              href="/cross-bank-intelligence"
               className="inline-flex items-center gap-3 border border-landing-rule-solid px-8 py-4 font-landing-body text-sm uppercase tracking-[0.22em] text-landing-foreground/85 transition hover:border-landing-foreground hover:text-landing-foreground"
             >
-              Read the cross-bank whitepaper ↗
+              Read the cross-bank whitepaper →
             </a>
           </div>
         </div>

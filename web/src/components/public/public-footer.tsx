@@ -24,14 +24,14 @@ export function PublicFooter() {
                 </Link>
               </li>
               <li>
-                <a
-                  href="https://github.com/ripclass/Kestrel/blob/main/docs/goaml-coverage.md"
-                  target="_blank"
-                  rel="noreferrer noopener"
-                  className="transition hover:text-landing-alarm"
-                >
+                <Link href="/coverage" className="transition hover:text-landing-alarm">
                   goAML map
-                </a>
+                </Link>
+              </li>
+              <li>
+                <Link href="/press" className="transition hover:text-landing-alarm">
+                  Press kit
+                </Link>
               </li>
               <li>
                 <Link href="/pricing" className="transition hover:text-landing-alarm">

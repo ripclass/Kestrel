@@ -6,7 +6,7 @@ import { PublicHeader } from "@/components/public/public-header";
 export const metadata = {
   title: "Kestrel — Press kit and technical documents",
   description:
-    "Architecture document, cross-bank intelligence whitepaper, goAML coverage map, founder background, and KestrelMark assets. No registration required.",
+    "Cross-bank intelligence whitepaper, goAML coverage map, world-class capability matrix, and multi-tenant isolation proof. No registration required.",
 };
 
 const documents: {
@@ -21,32 +21,28 @@ const documents: {
     title: "Cross-bank intelligence — design and persona isolation.",
     body:
       "How Kestrel resolves entities across institutions, anonymises peer signal for the bank persona, and exposes the full picture to BFIU. Persona invariants backed by unit tests and Postgres RLS.",
-    href: "https://github.com/ripclass/Kestrel/blob/main/docs/cross-bank-intelligence.md",
-    external: true,
+    href: "/cross-bank-intelligence",
   },
   {
     tag: "Doc 02 · Coverage map",
     title: "goAML coverage matrix.",
     body:
       "Side-by-side mapping of every goAML screen and workflow against the corresponding Kestrel surface. STR / SAR / CTR / TBML / IER / Catalogue / Disseminations / Match Definitions / Reference Tables / Statistics.",
-    href: "https://github.com/ripclass/Kestrel/blob/main/docs/goaml-coverage.md",
-    external: true,
+    href: "/coverage",
   },
   {
-    tag: "Doc 03 · Architecture",
-    title: "Engineering ground-truth audit.",
-    body:
-      "Production audit of the platform — services, routes, migrations, AI provider routing, RLS policies, deployment topology. Updated with each phase of the V2 / V3 build-outs.",
-    href: "https://github.com/ripclass/Kestrel/blob/main/docs/production-audit-2026-04.md",
-    external: true,
-  },
-  {
-    tag: "Doc 04 · Capability matrix",
+    tag: "Doc 03 · Capability matrix",
     title: "World-class capability matrix.",
     body:
-      "18 capabilities scored against world-class AML platforms. 15 at Excellent, 2 at Partial-with-plan, 1 reserved for the first signed Tier-3 customer engagement.",
-    href: "https://github.com/ripclass/Kestrel/blob/main/docs/world-class-capability-matrix.md",
-    external: true,
+      "18 capabilities scored against NICE Actimize, Verafin, Tookitaki, and ComplyAdvantage. 15 at Excellent post-V3, 2 at Partial-with-plan tied to data-soak and first on-prem customer rollout.",
+    href: "/capability-matrix",
+  },
+  {
+    tag: "Doc 04 · Isolation proof",
+    title: "Multi-tenant isolation, verified.",
+    body:
+      "Four-layer isolation architecture, verbatim Postgres RLS policy citations, file-level service-guard references, and a live production simulation as a bank CAMLCO showing what they can and cannot see.",
+    href: "/multi-tenant-isolation",
   },
 ];
 
@@ -66,8 +62,10 @@ export default function PressPage() {
               <span className="text-landing-muted">without registration.</span>
             </h1>
             <p className="font-landing-body text-base leading-relaxed text-landing-foreground/80">
-              The architecture document, the cross-bank intelligence whitepaper, the goAML coverage
-              map, and the founder background. Direct email below for press inquiries.
+              The cross-bank intelligence whitepaper, the goAML coverage map, the world-class
+              capability matrix, and the multi-tenant isolation proof. Each opens directly on the
+              Kestrel surface — no registration, no GitHub bounce. Direct email below for press
+              inquiries.
             </p>
           </div>
 

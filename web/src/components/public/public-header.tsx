@@ -2,14 +2,10 @@ import Link from "next/link";
 
 import { KestrelMark } from "@/components/common/kestrel-mark";
 
-const navLinks = [
+const navLinks: { href: string; label: string; external?: boolean }[] = [
   { href: "#coverage", label: "Coverage" },
-  {
-    href: "https://github.com/ripclass/Kestrel/blob/main/docs/goaml-coverage.md",
-    label: "goAML Map",
-    external: true,
-  },
   { href: "/pricing", label: "Pricing" },
+  { href: "/press", label: "Press" },
   { href: "/login", label: "Sign in" },
 ];
 

@@ -40,12 +40,10 @@ export function CoverageSection() {
               intelligence surface that works while the money is still in motion.
             </p>
             <a
-              href="https://github.com/ripclass/Kestrel/blob/main/docs/goaml-coverage.md"
-              target="_blank"
-              rel="noreferrer noopener"
+              href="/coverage"
               className="inline-flex items-center gap-2 border-b border-landing-alarm pb-0.5 font-landing-body text-xs uppercase tracking-[0.22em] text-landing-alarm transition hover:border-landing-foreground hover:text-landing-foreground"
             >
-              View full coverage map ↗
+              View full coverage map →
             </a>
           </div>
           <div className="p-8 lg:p-12">
