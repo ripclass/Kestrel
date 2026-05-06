@@ -25,8 +25,14 @@ from datetime import UTC, datetime
 from typing import Any
 
 from sqlalchemy.dialects.postgresql import insert as pg_insert
+from sqlalchemy.ext.asyncio import (
+    AsyncSession,
+    async_sessionmaker,
+    create_async_engine,
+)
+from sqlalchemy.pool import NullPool
 
-from app.database import SessionLocal
+from app.config import get_settings
 from app.models.watchlist import WatchlistEntry
 from app.screening.sources import ofac, un, uk_ofsi
 from app.screening.sources.base import ParsedWatchlistEntry
@@ -65,39 +71,59 @@ def refresh_all() -> dict[str, Any]:
 
 
 async def _orchestrate() -> dict[str, Any]:
-    """Single-event-loop wrapper so SessionLocal connections from the
-    upsert phase remain valid for the audit-log persist phase. Splitting
-    these into two ``asyncio.run`` calls leaks asyncpg connections
-    across loops and the persist call fails silently."""
-    if not _ingestion_enabled():
-        logger.info("watchlist.ingestion.disabled")
-        summary: dict[str, Any] = {"status": "disabled", "sources": []}
-        await _persist_run_summary(summary)
-        return summary
+    """Run the full watchlist refresh in a single event loop using a
+    per-task NullPool engine.
 
+    The Celery worker is a long-lived process; the global ``SessionLocal``
+    engine in ``app.database`` retains asyncpg connections in its pool
+    across task invocations. Each ``asyncio.run`` call closes its event
+    loop, leaving those pooled connections bound to a dead transport.
+    The next task invocation pulls a stale connection and asyncpg
+    surfaces it as InterfaceError. Creating a fresh NullPool engine per
+    task and disposing it on exit keeps every invocation self-contained.
+    See ``app/tasks/_runtime.py`` for the same pattern."""
+    settings = get_settings()
+    engine = create_async_engine(
+        settings.database_url,
+        poolclass=NullPool,
+        future=True,
+        echo=False,
+    )
+    factory = async_sessionmaker(engine, expire_on_commit=False, class_=AsyncSession)
     try:
-        results = await _run_all()
-        summary = {
-            "status": "completed",
-            "ran_at": datetime.now(UTC).isoformat(),
-            "sources": results,
-            "ingested_total": sum(r.get("ingested", 0) for r in results),
-        }
-    except Exception as exc:  # noqa: BLE001 — surface raw failure so we can diagnose
-        summary = {
-            "status": "crashed",
-            "ran_at": datetime.now(UTC).isoformat(),
-            "error_type": type(exc).__name__,
-            "error": str(exc)[:500],
-            "sources": [],
-            "ingested_total": 0,
-        }
-    logger.info("watchlist.ingestion.batch", extra={"summary": summary})
-    await _persist_run_summary(summary)
-    return summary
+        if not _ingestion_enabled():
+            logger.info("watchlist.ingestion.disabled")
+            summary: dict[str, Any] = {"status": "disabled", "sources": []}
+            await _persist_run_summary(factory, summary)
+            return summary
+
+        try:
+            results = await _run_all(factory)
+            summary = {
+                "status": "completed",
+                "ran_at": datetime.now(UTC).isoformat(),
+                "sources": results,
+                "ingested_total": sum(r.get("ingested", 0) for r in results),
+            }
+        except Exception as exc:  # noqa: BLE001 — surface raw failure so we can diagnose
+            summary = {
+                "status": "crashed",
+                "ran_at": datetime.now(UTC).isoformat(),
+                "error_type": type(exc).__name__,
+                "error": str(exc)[:500],
+                "sources": [],
+                "ingested_total": 0,
+            }
+        logger.info("watchlist.ingestion.batch", extra={"summary": summary})
+        await _persist_run_summary(factory, summary)
+        return summary
+    finally:
+        await engine.dispose()
 
 
-async def _persist_run_summary(summary: dict[str, Any]) -> None:
+async def _persist_run_summary(
+    factory: async_sessionmaker[AsyncSession], summary: dict[str, Any]
+) -> None:
     """Append a row to audit_log so the run outcome is queryable via SQL.
 
     Lets operators (or this codebase's Supabase MCP probes) see the last
@@ -106,11 +132,10 @@ async def _persist_run_summary(summary: dict[str, Any]) -> None:
     the task itself."""
     from sqlalchemy import insert
 
-    from app.database import SessionLocal
     from app.models.audit import AuditLog
 
     try:
-        async with SessionLocal() as session:
+        async with factory() as session:
             async with session.begin():
                 await session.execute(
                     insert(AuditLog).values(
@@ -122,14 +147,16 @@ async def _persist_run_summary(summary: dict[str, Any]) -> None:
         logger.warning("watchlist.run_summary.persist_failed", extra={"error": str(exc)[:200]})
 
 
-async def _run_all() -> list[dict[str, Any]]:
+async def _run_all(factory: async_sessionmaker[AsyncSession]) -> list[dict[str, Any]]:
     rows: list[dict[str, Any]] = []
     for source in _SOURCES:
-        rows.append(await _run_one(source))
+        rows.append(await _run_one(factory, source))
     return rows
 
 
-async def _run_one(source: Any) -> dict[str, Any]:
+async def _run_one(
+    factory: async_sessionmaker[AsyncSession], source: Any
+) -> dict[str, Any]:
     name = getattr(source, "LIST_SOURCE", source.__name__)
     try:
         content = await source.fetch()
@@ -146,7 +173,7 @@ async def _run_one(source: Any) -> dict[str, Any]:
                 "skipped_reason": f"body {size_bytes} bytes exceeds cap {cap}; raise KESTREL_WATCHLIST_MAX_BODY_MB or bump worker plan",
             }
         parsed = source.parse(content)
-        ingested = await _upsert_batch(parsed)
+        ingested = await _upsert_batch(factory, parsed)
     except NotImplementedError as exc:
         logger.info("watchlist.source.not_implemented", extra={"source": name})
         return {"source": name, "ingested": 0, "skipped_reason": str(exc)}
@@ -174,7 +201,9 @@ _PG_BIND_LIMIT = 32_767  # PostgreSQL hard limit on bind parameters per query
 _UPSERT_CHUNK_SIZE = 2000
 
 
-async def _upsert_batch(rows: list[ParsedWatchlistEntry]) -> int:
+async def _upsert_batch(
+    factory: async_sessionmaker[AsyncSession], rows: list[ParsedWatchlistEntry]
+) -> int:
     """Idempotent upsert keyed off the deterministic PK from ``_row_id``.
 
     Chunks into ``_UPSERT_CHUNK_SIZE``-row sub-batches. The OFAC SDN list
@@ -201,7 +230,7 @@ async def _upsert_batch(rows: list[ParsedWatchlistEntry]) -> int:
         for row in rows
     ]
     total = 0
-    async with SessionLocal() as session:
+    async with factory() as session:
         for offset in range(0, len(payload), _UPSERT_CHUNK_SIZE):
             chunk = payload[offset : offset + _UPSERT_CHUNK_SIZE]
             async with session.begin():
