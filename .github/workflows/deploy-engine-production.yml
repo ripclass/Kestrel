@@ -94,11 +94,16 @@ jobs:
         env:
           RENDER_ENGINE_DEPLOY_HOOK_URL: ${{ secrets.RENDER_ENGINE_DEPLOY_HOOK_URL }}
         run: |
-          curl --fail --silent --show-error --request POST "${RENDER_ENGINE_DEPLOY_HOOK_URL}?ref=${GITHUB_SHA}"
-          {
-            echo "## Render API Deploy Triggered"
-            echo "- Commit: $GITHUB_SHA"
-          } >> "$GITHUB_STEP_SUMMARY"
+          if curl --fail --silent --show-error --request POST "${RENDER_ENGINE_DEPLOY_HOOK_URL}?ref=${GITHUB_SHA}"; then
+            echo "## Render API Deploy Triggered" >> "$GITHUB_STEP_SUMMARY"
+            echo "- Commit: $GITHUB_SHA" >> "$GITHUB_STEP_SUMMARY"
+          else
+            rc=$?
+            echo "::warning::engine deploy hook returned non-OK (curl exit $rc); Render auto-deploy from main will pick up the commit"
+            echo "## Render API Deploy Hook Stale" >> "$GITHUB_STEP_SUMMARY"
+            echo "- Commit: $GITHUB_SHA" >> "$GITHUB_STEP_SUMMARY"
+            echo "- Hook curl exit: $rc — regenerate the URL in Render dashboard and update RENDER_ENGINE_DEPLOY_HOOK_URL." >> "$GITHUB_STEP_SUMMARY"
+          fi
 
   deploy-worker:
     name: Trigger Render Worker Deploy
@@ -115,11 +120,16 @@ jobs:
         env:
           RENDER_WORKER_DEPLOY_HOOK_URL: ${{ secrets.RENDER_WORKER_DEPLOY_HOOK_URL }}
         run: |
-          curl --fail --silent --show-error --request POST "${RENDER_WORKER_DEPLOY_HOOK_URL}?ref=${GITHUB_SHA}"
-          {
-            echo "## Render Worker Deploy Triggered"
-            echo "- Commit: $GITHUB_SHA"
-          } >> "$GITHUB_STEP_SUMMARY"
+          if curl --fail --silent --show-error --request POST "${RENDER_WORKER_DEPLOY_HOOK_URL}?ref=${GITHUB_SHA}"; then
+            echo "## Render Worker Deploy Triggered" >> "$GITHUB_STEP_SUMMARY"
+            echo "- Commit: $GITHUB_SHA" >> "$GITHUB_STEP_SUMMARY"
+          else
+            rc=$?
+            echo "::warning::worker deploy hook returned non-OK (curl exit $rc); Render auto-deploy from main will pick up the commit"
+            echo "## Render Worker Deploy Hook Stale" >> "$GITHUB_STEP_SUMMARY"
+            echo "- Commit: $GITHUB_SHA" >> "$GITHUB_STEP_SUMMARY"
+            echo "- Hook curl exit: $rc — regenerate the URL in Render dashboard and update RENDER_WORKER_DEPLOY_HOOK_URL." >> "$GITHUB_STEP_SUMMARY"
+          fi
 
   deploy-beat:
     name: Trigger Render Beat Deploy
@@ -136,11 +146,16 @@ jobs:
         env:
           RENDER_BEAT_DEPLOY_HOOK_URL: ${{ secrets.RENDER_BEAT_DEPLOY_HOOK_URL }}
         run: |
-          curl --fail --silent --show-error --request POST "${RENDER_BEAT_DEPLOY_HOOK_URL}?ref=${GITHUB_SHA}"
-          {
-            echo "## Render Beat Deploy Triggered"
-            echo "- Commit: $GITHUB_SHA"
-          } >> "$GITHUB_STEP_SUMMARY"
+          if curl --fail --silent --show-error --request POST "${RENDER_BEAT_DEPLOY_HOOK_URL}?ref=${GITHUB_SHA}"; then
+            echo "## Render Beat Deploy Triggered" >> "$GITHUB_STEP_SUMMARY"
+            echo "- Commit: $GITHUB_SHA" >> "$GITHUB_STEP_SUMMARY"
+          else
+            rc=$?
+            echo "::warning::beat deploy hook returned non-OK (curl exit $rc); Render auto-deploy from main will pick up the commit"
+            echo "## Render Beat Deploy Hook Stale" >> "$GITHUB_STEP_SUMMARY"
+            echo "- Commit: $GITHUB_SHA" >> "$GITHUB_STEP_SUMMARY"
+            echo "- Hook curl exit: $rc — regenerate the URL in Render dashboard and update RENDER_BEAT_DEPLOY_HOOK_URL." >> "$GITHUB_STEP_SUMMARY"
+          fi
 
   skipped:
     name: Missing Render Hooks
