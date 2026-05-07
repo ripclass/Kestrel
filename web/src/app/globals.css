@@ -160,13 +160,15 @@ html.dark {
   font-family: var(--font-sans);
 }
 
-* {
-  border-color: var(--border);
-}
+@layer base {
+  * {
+    border-color: var(--border);
+  }
 
-a {
-  color: inherit;
-  text-decoration: none;
+  a {
+    color: inherit;
+    text-decoration: none;
+  }
 }
 
 .grid-surface {
