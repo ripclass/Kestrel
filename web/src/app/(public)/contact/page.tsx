@@ -56,7 +56,7 @@ export default async function ContactPage({
               {copy.body}
             </p>
             <div className="space-y-2 border-t border-landing-rule-solid pt-6 font-landing-body text-xs uppercase tracking-[0.22em] text-landing-muted">
-              <p>Direct · ripon.chowdhury@kestrelfin.com</p>
+              <p>Direct · intake@kestrelfin.com</p>
               <p>Issued from · Dhaka, Bangladesh</p>
             </div>
           </div>
