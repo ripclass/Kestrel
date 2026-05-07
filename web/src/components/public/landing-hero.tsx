@@ -39,7 +39,10 @@ export function LandingHero() {
           </div>
         </div>
 
-        <div className="relative col-span-1 min-h-[600px] lg:col-span-7 lg:min-h-full">
+        <div
+          aria-hidden
+          className="relative col-span-1 hidden lg:block lg:col-span-7 lg:min-h-full"
+        >
           <div className="absolute -top-2 left-2 z-10 flex items-center gap-3 font-landing-body text-[10px] uppercase tracking-[0.3em] text-landing-muted">
             <span className="text-landing-alarm">┼</span>
             <span>Schematic · Cross-bank cluster</span>
