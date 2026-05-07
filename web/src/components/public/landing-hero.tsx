@@ -53,26 +53,31 @@ export function LandingHero() {
               viewBox="0 0 1000 800"
               fill="none"
               xmlns="http://www.w3.org/2000/svg"
-              aria-label="Schematic of a cross-bank entity cluster — flagged nodes pulse in alarm vermillion, the suspicious flow path animates along the dashed edge."
+              aria-label="Schematic of a cross-bank entity cluster — institution nodes ping outward in sequence as if the network were polling, with a vermillion suspicious-flow path animating along its dashed edge."
               role="img"
             >
               <style>{`
-                .kx-flag-halo-a { transform-origin: 300px 600px; transform-box: fill-box; animation: kxPulseA 3.2s ease-in-out infinite; }
-                .kx-flag-halo-b { transform-origin: 500px 400px; transform-box: fill-box; animation: kxPulseB 3.2s ease-in-out infinite; animation-delay: 1.6s; }
-                .kx-flow-path { stroke-dasharray: 6 6; animation: kxFlow 1.6s linear infinite; }
-                @keyframes kxPulseA {
-                  0%, 100% { transform: scale(1); opacity: 0.20; }
-                  50%      { transform: scale(1.45); opacity: 0.08; }
+                .kx-node-ping {
+                  fill: var(--landing-foreground);
+                  animation: kxPing 5s ease-out infinite;
+                  transform-box: fill-box;
+                  transform-origin: center;
                 }
-                @keyframes kxPulseB {
-                  0%, 100% { transform: scale(1); opacity: 0.10; }
-                  50%      { transform: scale(1.40); opacity: 0.04; }
+                .kx-node-ping-1 { animation-delay: 0s; }
+                .kx-node-ping-2 { animation-delay: 1.25s; }
+                .kx-node-ping-3 { animation-delay: 2.5s; }
+                .kx-node-ping-4 { animation-delay: 3.75s; }
+                .kx-flow-path { stroke-dasharray: 6 6; animation: kxFlow 1.6s linear infinite; }
+                @keyframes kxPing {
+                  0%   { transform: scale(1);   opacity: 0.55; }
+                  70%  { transform: scale(3.5); opacity: 0; }
+                  100% { transform: scale(3.5); opacity: 0; }
                 }
                 @keyframes kxFlow {
                   to { stroke-dashoffset: -24; }
                 }
                 @media (prefers-reduced-motion: reduce) {
-                  .kx-flag-halo-a, .kx-flag-halo-b, .kx-flow-path { animation: none !important; }
+                  .kx-node-ping, .kx-flow-path { animation: none !important; opacity: 0; }
                 }
               `}</style>
 
@@ -81,15 +86,17 @@ export function LandingHero() {
               <path d="M100 400 L300 200 L500 400 L800 600" stroke="var(--landing-rule)" strokeWidth="1" />
               <path d="M500 400 L500 700" stroke="var(--landing-rule)" strokeWidth="1" />
 
+              <circle className="kx-node-ping kx-node-ping-1" cx="100" cy="400" r="4" />
+              <circle className="kx-node-ping kx-node-ping-2" cx="300" cy="200" r="4" />
+              <circle className="kx-node-ping kx-node-ping-3" cx="500" cy="700" r="4" />
+              <circle className="kx-node-ping kx-node-ping-4" cx="800" cy="600" r="4" />
+
               <circle cx="100" cy="400" r="4" fill="var(--landing-foreground)" />
               <circle cx="300" cy="200" r="4" fill="var(--landing-foreground)" />
               <circle cx="500" cy="700" r="4" fill="var(--landing-foreground)" />
               <circle cx="800" cy="600" r="4" fill="var(--landing-foreground)" />
 
-              <circle className="kx-flag-halo-a" cx="300" cy="600" r="12" fill="var(--landing-alarm)" />
               <circle cx="300" cy="600" r="6" fill="var(--landing-alarm)" />
-
-              <circle className="kx-flag-halo-b" cx="500" cy="400" r="16" fill="var(--landing-alarm)" />
               <circle cx="500" cy="400" r="4" fill="var(--landing-alarm)" />
 
               <circle cx="800" cy="400" r="4" fill="var(--landing-alarm)" />
