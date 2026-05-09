@@ -34,15 +34,23 @@ logger = logging.getLogger("kestrel.billing")
 
 @dataclass(frozen=True, slots=True)
 class Plan:
-    """Plan definition. Unlimited caps are represented as ``None``."""
+    """Plan definition. Unlimited caps are represented as ``None``.
+
+    ``display_only`` plans (e.g. the regulator tier) are never auto-assigned
+    by signup and never carry a public price; they exist in code purely so
+    the public ``/pricing`` page can render the matching card with the
+    right metadata. A tenant only ever lands on a display-only plan via
+    superadmin assignment after a contract is signed.
+    """
 
     plan_id: str
     display_name: str
-    price_bdt_yearly: int
+    price_bdt_yearly: int | None
     seat_cap: int | None
     monthly_transaction_cap: int | None
     features: tuple[str, ...] = field(default_factory=tuple)
     on_prem_eligible: bool = False
+    display_only: bool = False
 
 
 PLANS: dict[str, Plan] = {
@@ -70,6 +78,16 @@ PLANS: dict[str, Plan] = {
         monthly_transaction_cap=None,
         features=("core", "cross_bank", "realtime", "sanctions", "kyc", "agentic", "priority_support"),
         on_prem_eligible=True,
+    ),
+    "regulator": Plan(
+        plan_id="regulator",
+        display_name="Regulator",
+        price_bdt_yearly=None,  # quoted bespoke; never published
+        seat_cap=None,
+        monthly_transaction_cap=None,
+        features=("core", "cross_bank", "realtime", "sanctions", "kyc", "agentic", "priority_support"),
+        on_prem_eligible=True,
+        display_only=True,
     ),
 }
 

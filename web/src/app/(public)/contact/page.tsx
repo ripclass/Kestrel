@@ -9,8 +9,15 @@ export const metadata = {
 };
 
 type SearchParams = { audience?: string };
+type AudienceKey = "regulator" | "bfiu" | "press" | "default";
 
-const audienceCopy: Record<string, { eyebrow: string; title: string; body: string }> = {
+const audienceCopy: Record<AudienceKey, { eyebrow: string; title: string; body: string }> = {
+  regulator: {
+    eyebrow: "For · Regulators and FIUs",
+    title: "Request a national-deployment proposal.",
+    body:
+      "For BFIU, peer FIUs, central banks, and supervisory authorities deploying Kestrel as shared infrastructure. Briefings cover scope, on-premise deployment, sovereign LLM hosting, the contract framework, and the procurement vehicle. Multi-year contract priced bespoke.",
+  },
   bfiu: {
     eyebrow: "For · BFIU and peer FIUs",
     title: "Schedule a regulator briefing.",
@@ -31,14 +38,21 @@ const audienceCopy: Record<string, { eyebrow: string; title: string; body: strin
   },
 };
 
+function resolveAudience(raw: string | undefined): AudienceKey {
+  if (raw && raw in audienceCopy) {
+    return raw as AudienceKey;
+  }
+  return "default";
+}
+
 export default async function ContactPage({
   searchParams,
 }: {
   searchParams: Promise<SearchParams>;
 }) {
   const params = await searchParams;
-  const key = params?.audience && audienceCopy[params.audience] ? params.audience : "default";
-  const copy = audienceCopy[key];
+  const audience = resolveAudience(params?.audience);
+  const copy = audienceCopy[audience];
 
   return (
     <main className="flex min-h-screen flex-col bg-landing-bg">
@@ -61,7 +75,7 @@ export default async function ContactPage({
             </div>
           </div>
           <div className="col-span-1 lg:col-span-7">
-            <IntakeForm />
+            <IntakeForm audience={audience} />
           </div>
         </div>
       </section>
