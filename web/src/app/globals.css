@@ -171,6 +171,21 @@ html.dark {
   }
 }
 
+/* Subtle fade-in for cascade-revealed list items
+   (e.g. AI-recommended-actions). Used via Tailwind's
+   arbitrary-name animation utility:
+     animate-[fadeIn_300ms_ease-out]                          */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(2px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
 .grid-surface {
   background-image:
     linear-gradient(to right, rgba(88, 166, 166, 0.09) 1px, transparent 1px),

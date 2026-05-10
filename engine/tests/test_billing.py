@@ -12,8 +12,12 @@ from app.services.billing import (
 )
 
 
-def test_three_plans_are_defined() -> None:
-    assert set(PLANS) == {"starter", "professional", "enterprise"}
+def test_four_plans_are_defined() -> None:
+    # Three commercial tiers (starter/professional/enterprise) auto-assigned
+    # via signup, plus a display-only `regulator` tier shipped as Tier 04 on
+    # /pricing — never auto-assigned, only ever set via superadmin after a
+    # national-deployment contract is signed.
+    assert set(PLANS) == {"starter", "professional", "enterprise", "regulator"}
 
 
 def test_starter_plan_excludes_paid_features() -> None:
@@ -103,11 +107,11 @@ def test_plan_summary_round_trips_features_to_list() -> None:
     assert summary["on_prem_eligible"] is True
 
 
-def test_all_plans_returns_three_entries() -> None:
+def test_all_plans_returns_four_entries() -> None:
     plans = all_plans()
-    assert len(plans) == 3
+    assert len(plans) == 4
     plan_ids = {p["plan_id"] for p in plans}
-    assert plan_ids == {"starter", "professional", "enterprise"}
+    assert plan_ids == {"starter", "professional", "enterprise", "regulator"}
 
 
 # ALL_FEATURES is the universe of feature flags surfaced in the admin UI.

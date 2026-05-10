@@ -48,6 +48,12 @@ class Settings(BaseSettings):
     ai_provider_timeout_seconds: float = 5.0
     ai_redaction_mode: str = "redact"
     ai_fallback_enabled: bool = True
+    # Prompt caching: when true, adapters mark stable prompt prefixes
+    # (system_prompt + TASK + GUIDANCE + OUTPUT_SCHEMA) with provider
+    # cache_control hints so the upstream API can re-use the cached
+    # prefix at ~90% discount. Volatile per-call INPUT stays uncached.
+    # Disable via env var if a provider misbehaves.
+    ai_prompt_cache_enabled: bool = True
     openai_api_key: str | None = None
     openai_base_url: str = "https://api.openai.com/v1"
     openai_organization: str | None = None

@@ -2,6 +2,7 @@ import json
 
 import httpx
 
+from app.ai.providers.openai_adapter import _split_user_prompt
 from app.ai.types import CheckStatus, ProviderHealth, ProviderName, ProviderRequest, ProviderResponse
 from app.config import Settings
 
@@ -84,14 +85,43 @@ class AnthropicProvider:
         )
 
     async def generate_json(self, request: ProviderRequest) -> ProviderResponse:
+        cache_enabled = self.settings.ai_prompt_cache_enabled
+
+        if cache_enabled:
+            # Anthropic prompt caching: system prompt becomes a typed
+            # block array with cache_control: ephemeral on the static
+            # part. User message splits into a cached static prefix
+            # block + an uncached volatile INPUT block. The upstream
+            # API serves the cached prefix at ~90% discount on cache
+            # hit. Cache TTL is 5 minutes by default.
+            system_blocks: list[dict[str, object]] = [
+                {
+                    "type": "text",
+                    "text": request.system_prompt,
+                    "cache_control": {"type": "ephemeral"},
+                }
+            ]
+            static_prefix, dynamic_input = _split_user_prompt(request.user_prompt)
+            user_blocks: list[dict[str, object]] = [
+                {
+                    "type": "text",
+                    "text": static_prefix,
+                    "cache_control": {"type": "ephemeral"},
+                }
+            ]
+            if dynamic_input:
+                user_blocks.append({"type": "text", "text": dynamic_input})
+            messages = [{"role": "user", "content": user_blocks}]
+        else:
+            system_blocks = request.system_prompt
+            messages = [{"role": "user", "content": request.user_prompt}]
+
         payload = {
             "model": request.model,
-            "system": request.system_prompt,
+            "system": system_blocks,
             "max_tokens": request.max_output_tokens,
             "temperature": request.temperature,
-            "messages": [
-                {"role": "user", "content": request.user_prompt},
-            ],
+            "messages": messages,
             "tools": [
                 {
                     "name": "output_schema",

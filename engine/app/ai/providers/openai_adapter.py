@@ -4,6 +4,24 @@ from app.ai.types import CheckStatus, ProviderHealth, ProviderName, ProviderRequ
 from app.config import Settings
 
 
+# build_provider_request always assembles user_prompt as
+# "TASK:\n…\n\nGUIDANCE:\n…\n\nOUTPUT_SCHEMA:\n…\n\nINPUT:\n…".
+# Caching the prefix up to and including OUTPUT_SCHEMA is the win;
+# the per-call payload sits in INPUT after the last "\n\nINPUT:\n".
+_INPUT_DELIMITER = "\n\nINPUT:\n"
+
+
+def _split_user_prompt(user_prompt: str) -> tuple[str, str]:
+    idx = user_prompt.rfind(_INPUT_DELIMITER)
+    if idx == -1:
+        # Defensive: if the prefix shape ever changes, fall back to
+        # caching the whole prompt rather than failing the request.
+        return user_prompt, ""
+    static_prefix = user_prompt[: idx + len(_INPUT_DELIMITER)]
+    dynamic_input = user_prompt[idx + len(_INPUT_DELIMITER) :]
+    return static_prefix, dynamic_input
+
+
 class OpenAIProvider:
     name = ProviderName.OPENAI
 
@@ -20,6 +38,51 @@ class OpenAIProvider:
                 else {}
             ),
         }
+
+    def _build_messages(self, request: ProviderRequest) -> list[dict[str, object]]:
+        """Build the chat messages array.
+
+        When prompt caching is enabled, the system_prompt and the static
+        prefix of the user_prompt (everything before INPUT) are wrapped
+        in typed content blocks with cache_control: ephemeral. Anthropic
+        (via OpenRouter) and supporting OpenAI models honour the marker
+        and serve the cached prefix at ~90% discount; providers that
+        ignore it just see plain text content blocks. The volatile
+        INPUT block stays uncached.
+
+        When caching is disabled the legacy plain-string content shape
+        is used so the request looks identical to pre-caching traffic.
+        """
+        if not self.settings.ai_prompt_cache_enabled:
+            return [
+                {"role": "system", "content": request.system_prompt},
+                {"role": "user", "content": request.user_prompt},
+            ]
+
+        static_prefix, dynamic_input = _split_user_prompt(request.user_prompt)
+        user_blocks: list[dict[str, object]] = [
+            {
+                "type": "text",
+                "text": static_prefix,
+                "cache_control": {"type": "ephemeral"},
+            }
+        ]
+        if dynamic_input:
+            user_blocks.append({"type": "text", "text": dynamic_input})
+
+        return [
+            {
+                "role": "system",
+                "content": [
+                    {
+                        "type": "text",
+                        "text": request.system_prompt,
+                        "cache_control": {"type": "ephemeral"},
+                    }
+                ],
+            },
+            {"role": "user", "content": user_blocks},
+        ]
 
     def _missing_config_detail(self) -> str | None:
         missing = []
@@ -86,12 +149,10 @@ class OpenAIProvider:
         )
 
     async def generate_json(self, request: ProviderRequest) -> ProviderResponse:
+        messages = self._build_messages(request)
         payload = {
             "model": request.model,
-            "messages": [
-                {"role": "system", "content": request.system_prompt},
-                {"role": "user", "content": request.user_prompt},
-            ],
+            "messages": messages,
             "temperature": request.temperature,
             "max_completion_tokens": request.max_output_tokens,
             "tools": [

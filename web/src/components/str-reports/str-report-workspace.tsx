@@ -4,9 +4,11 @@ import { useEffect, useMemo, useRef, useState } from "react";
 
 import type { STRDraftPayload, STRMutationResponse, STRReviewPayload } from "@/types/api";
 import type { STRReportDetail, Viewer } from "@/types/domain";
+import { AiShimmer } from "@/components/common/ai-shimmer";
 import { Currency } from "@/components/common/currency";
 import { DisseminateAction } from "@/components/disseminations/disseminate-action";
 import { StatusBadge } from "@/components/common/status-badge";
+import { TypedReveal } from "@/components/common/typed-reveal";
 import { ExportDropdown } from "@/components/str-reports/export-dropdown";
 import { SupplementAction } from "@/components/str-reports/supplement-action";
 import { SupplementList } from "@/components/str-reports/supplement-list";
@@ -112,6 +114,11 @@ export function STRReportWorkspace({
   viewer: Viewer;
 }) {
   const [report, setReport] = useState<STRReportDetail | null>(null);
+  // Increments on every successful AI enrichment run. Used as the key
+  // prop on TypedReveal so a re-run remounts the reveal animation; on
+  // initial page load the seq stays 0 and the narrative renders without
+  // animation.
+  const [enrichmentSeq, setEnrichmentSeq] = useState(0);
   const [draft, setDraft] = useState<STRDraftPayload | null>(null);
   const [reviewNote, setReviewNote] = useState("");
   const [assignee, setAssignee] = useState("");
@@ -235,6 +242,9 @@ export function STRReportWorkspace({
           narrative: current.narrative || payload.report.enrichment.draftNarrative,
         };
       });
+      if (payload.report.enrichment) {
+        setEnrichmentSeq((seq) => seq + 1);
+      }
       setNotice(
         payload.report.enrichment
           ? "AI enrichment is ready. Review the draft narrative below, then apply or edit it."
@@ -682,6 +692,15 @@ export function STRReportWorkspace({
         </Section>
       ) : null}
 
+      {pendingAction === "enrichment" && !report.enrichment ? (
+        <Section
+          label="AI enrichment in flight"
+          description="Generating draft narrative + classification. Usually under 4 seconds."
+        >
+          <AiShimmer lines={4} />
+        </Section>
+      ) : null}
+
       {report.enrichment ? (
         <Section
           label="AI enrichment snapshot"
@@ -692,7 +711,15 @@ export function STRReportWorkspace({
               Draft narrative
             </p>
             <p className="text-sm leading-relaxed text-foreground">
-              {report.enrichment.draftNarrative}
+              {enrichmentSeq > 0 ? (
+                <TypedReveal
+                  key={enrichmentSeq}
+                  text={report.enrichment.draftNarrative}
+                  speed={90}
+                />
+              ) : (
+                report.enrichment.draftNarrative
+              )}
             </p>
           </div>
           <div className="grid gap-5 md:grid-cols-2">
