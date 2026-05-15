@@ -573,7 +573,13 @@ async def _upsert_matches_and_alerts(
             a.risk_score = entity.risk_score
             a.severity = entity.severity
             a.status = "open"
-            a.reasons = [{"rule": "cross_bank_match", "score": entity.risk_score, "reason_text": f"Reported by {len(entity.bank_slugs)} institutions"}]
+            a.reasons = [{
+                "rule": "cross_bank_match",
+                "score": entity.risk_score,
+                "weight": 1.0,
+                "explanation": f"Reported by {len(entity.bank_slugs)} institutions",
+                "evidence": {"bank_count": len(entity.bank_slugs)},
+            }]
             alerts_created += 1
 
     await session.flush()

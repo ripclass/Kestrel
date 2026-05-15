@@ -108,3 +108,29 @@ def test_normalize_reasons_backfills_legacy_seed_shape() -> None:
     assert payload[0]["rule"] == "rapid_cashout"
     assert payload[0]["weight"] == 1.0
     assert payload[0]["evidence"] == {}
+
+
+def test_normalize_reasons_coalesces_reason_text_to_explanation() -> None:
+    # Legacy seed shape from cross-bank match emitters: rule + score + reason_text,
+    # no explanation, no weight, no evidence. _normalize_reasons must produce a
+    # validated AlertReason without raising, with reason_text promoted to explanation.
+    payload = _normalize_reasons(
+        [
+            {
+                "rule": "cross_bank_match",
+                "score": 66,
+                "reason_text": "Reported by 2 institutions",
+            }
+        ]
+    )
+
+    assert len(payload) == 1
+    assert payload[0]["explanation"] == "Reported by 2 institutions"
+    assert payload[0]["weight"] == 1.0
+    assert payload[0]["evidence"] == {}
+
+
+def test_normalize_reasons_tolerates_missing_explanation_and_reason_text() -> None:
+    payload = _normalize_reasons([{"rule": "fan_out_burst", "score": 12}])
+    assert payload[0]["explanation"] == ""
+    assert payload[0]["rule"] == "fan_out_burst"

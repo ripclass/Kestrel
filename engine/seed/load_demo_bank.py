@@ -568,7 +568,13 @@ async def _upsert_alerts(
         existing.severity = severity
         existing.status = "open"
         existing.reasons = [
-            {"rule": rule_pool[hash(subject_key) % len(rule_pool)], "score": risk, "reason_text": f"Demo seed reason for {subject_key}"},
+            {
+                "rule": rule_pool[hash(subject_key) % len(rule_pool)],
+                "score": risk,
+                "weight": 1.0,
+                "explanation": f"Demo seed reason for {subject_key}",
+                "evidence": {"subject_key": subject_key},
+            },
         ]
         existing.assigned_to = None
         existing.case_id = None

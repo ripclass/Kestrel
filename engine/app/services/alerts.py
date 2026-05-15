@@ -58,8 +58,15 @@ def _normalize_reasons(value: object) -> list[dict[str, object]]:
         if not isinstance(item, dict):
             continue
         normalized = dict(item)
+        normalized["rule"] = str(normalized.get("rule") or "")
         normalized["score"] = int(normalized.get("score") or 0)
         normalized["weight"] = float(normalized.get("weight") or 1.0)
+        # Older emitters (cross-bank match seeds, load_demo_bank) ship `reason_text`
+        # instead of `explanation`. Coalesce so AlertReason validation never trips.
+        explanation = normalized.get("explanation")
+        if not isinstance(explanation, str) or not explanation:
+            fallback = normalized.get("reason_text")
+            normalized["explanation"] = fallback if isinstance(fallback, str) else ""
         normalized["evidence"] = normalized.get("evidence") if isinstance(normalized.get("evidence"), dict) else {}
         normalized["recommended_action"] = normalized.get("recommended_action")
         reasons.append(AlertReason.model_validate(normalized).model_dump())

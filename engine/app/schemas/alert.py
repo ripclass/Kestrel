@@ -10,9 +10,9 @@ from app.schemas.network import NetworkGraph
 class AlertReason(BaseModel):
     rule: str
     score: int
-    weight: float
-    explanation: str
-    evidence: dict[str, str | int | float | bool]
+    weight: float = 1.0
+    explanation: str = ""
+    evidence: dict[str, str | int | float | bool] = {}
     recommended_action: str | None = None
 
 

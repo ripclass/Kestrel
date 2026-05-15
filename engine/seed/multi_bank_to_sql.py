@@ -295,7 +295,13 @@ def emit_sql() -> str:
                 "risk_score": e.risk_score,
                 "severity": e.severity,
                 "status": "open",
-                "reasons": [{"rule": "cross_bank_match", "score": e.risk_score, "reason_text": f"Reported by {len(e.bank_slugs)} institutions"}],
+                "reasons": [{
+                    "rule": "cross_bank_match",
+                    "score": e.risk_score,
+                    "weight": 1.0,
+                    "explanation": f"Reported by {len(e.bank_slugs)} institutions",
+                    "evidence": {"bank_count": len(e.bank_slugs)},
+                }],
             }))
 
     statements.append("COMMIT;")
