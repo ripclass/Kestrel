@@ -69,6 +69,35 @@ _DECISION_HOLD_MAX = 80
 _SANCTIONS_HIT_THRESHOLD = 0.7
 _SANCTIONS_HIT_POINTS = 50
 
+# ---- TBML modifiers (Phase B) --------------------------------------------
+# Read from the transaction metadata's `trade` block. Keep in sync with the
+# trade_evaluator high-risk list (DEFAULT_HIGH_RISK_JURISDICTIONS) so the
+# batch scan and the realtime path classify the same jurisdictions.
+_TBML_HIGH_RISK_JURISDICTIONS = frozenset({"IR", "KP", "SY", "VE", "MM", "CU"})
+
+# LC variants per migration 027 — when transaction-level metadata names one
+# of these, we know we're scoring an LC-backed leg.
+_TBML_LC_PAYMENT_MODES = frozenset({
+    "lc_sight",
+    "lc_usance",
+    "lc_btb",
+    "lc_transferable",
+    "lc_standby",
+    "lc_red_clause",
+})
+
+# Non-LC modes that we treat as elevated TBML risk on trade-shaped transactions.
+_TBML_NON_LC_RISKY_MODES = frozenset({"open_account", "cash_in_advance"})
+
+# Trigger TBML modifiers only when the transaction looks trade-shaped:
+# channel is LC/WIRE/CARD, OR the metadata contains explicit trade keys.
+_TBML_TRADE_CHANNELS = frozenset({"LC", "WIRE", "CARD"})
+
+# HS-code anomaly thresholds — same shape as the batch rule but tuned for
+# inline single-transaction scoring (more conservative).
+_TBML_OVER_INVOICE_RATIO = 2.0     # invoice / market_ref >= 2x
+_TBML_UNDER_INVOICE_RATIO = 0.5    # invoice / market_ref <= 0.5x
+
 
 @dataclass
 class RealtimeScoringRequest:
@@ -358,6 +387,186 @@ def _score_cross_bank(
     )
 
 
+def _trade_block(metadata: dict[str, Any] | None) -> dict[str, Any]:
+    """Pluck the optional `trade` sub-dict out of party metadata.
+
+    Bank integrations carry the trade context — HS code, country, payment
+    mode, invoice + market reference values — under a stable `trade` key
+    inside the per-side metadata. We accept either side and merge; the
+    most-recent non-None wins for each key.
+    """
+    if not isinstance(metadata, dict):
+        return {}
+    raw = metadata.get("trade")
+    if not isinstance(raw, dict):
+        return {}
+    return raw
+
+
+def _merge_trade_context(
+    from_meta: dict[str, Any] | None,
+    to_meta: dict[str, Any] | None,
+) -> dict[str, Any]:
+    merged: dict[str, Any] = {}
+    for side_meta in (_trade_block(from_meta), _trade_block(to_meta)):
+        for key, value in side_meta.items():
+            if value is None or value == "":
+                continue
+            merged.setdefault(key, value)
+    return merged
+
+
+def _score_tbml_payment_mode(
+    *,
+    channel: str,
+    trade: dict[str, Any],
+    amount: float,
+    reasons: list[dict[str, Any]],
+    evidence: dict[str, Any],
+) -> int:
+    """LC-vs-open-account modifier.
+
+    Open-account or cash-in-advance settlement on trade-shaped transactions
+    above 5 lakh BDT picks up 15 points — settlement without bank-to-bank
+    documentary verification is the highest TBML-risk payment mode per the
+    BFIU TBML Guidelines.
+    """
+    payment_mode = (trade.get("payment_mode") or "").lower()
+    upper_channel = (channel or "").upper()
+    is_trade = upper_channel in _TBML_TRADE_CHANNELS or bool(trade)
+    if not is_trade:
+        return 0
+    if payment_mode in _TBML_NON_LC_RISKY_MODES and amount >= 500_000:
+        evidence["tbml_payment_mode"] = payment_mode
+        return _add_reason(
+            reasons,
+            rule="tbml_payment_mode_open_account",
+            points=15,
+            reason_text=(
+                f"Trade payment via {payment_mode} above 5 lakh BDT — no bank-to-bank "
+                f"documentary verification, elevated TBML risk per BFIU TBML Guidelines."
+            ),
+            detail={
+                "payment_mode": payment_mode,
+                "channel": upper_channel,
+                "amount": amount,
+            },
+        )
+    return 0
+
+
+def _score_tbml_hs_code_anomaly(
+    *,
+    trade: dict[str, Any],
+    reasons: list[dict[str, Any]],
+    evidence: dict[str, Any],
+) -> int:
+    """HS-code anomaly modifier.
+
+    When the trade context carries both invoice and market-reference values
+    on a known HS code, flag invoice/market ratios outside [0.5, 2.0] as
+    over- or under-invoicing. Mirror of the batch ``over_invoicing`` and
+    ``under_invoicing`` detection rules — same predicate offences apply.
+    """
+    invoice = trade.get("invoice_value")
+    market_ref = trade.get("market_reference_value")
+    hs_code = trade.get("hs_code")
+    try:
+        inv = float(invoice) if invoice is not None else 0.0
+        ref = float(market_ref) if market_ref is not None else 0.0
+    except (TypeError, ValueError):
+        return 0
+    if inv <= 0 or ref <= 0:
+        return 0
+    ratio = inv / ref
+    if ratio >= _TBML_OVER_INVOICE_RATIO:
+        evidence["tbml_invoice_to_market_ratio"] = round(ratio, 2)
+        return _add_reason(
+            reasons,
+            rule="tbml_hs_code_over_invoicing",
+            points=25,
+            reason_text=(
+                f"Invoice value {inv:,.0f} is {ratio:.1f}x the HS-{hs_code} market "
+                f"reference {ref:,.0f} — over-invoicing red flag (BFIU §2.4.1.iv)."
+            ),
+            detail={"invoice_value": inv, "market_reference_value": ref, "hs_code": hs_code, "ratio": round(ratio, 2)},
+        )
+    if ratio <= _TBML_UNDER_INVOICE_RATIO:
+        evidence["tbml_invoice_to_market_ratio"] = round(ratio, 2)
+        return _add_reason(
+            reasons,
+            rule="tbml_hs_code_under_invoicing",
+            points=25,
+            reason_text=(
+                f"Invoice value {inv:,.0f} is {ratio:.1f}x the HS-{hs_code} market "
+                f"reference {ref:,.0f} — under-invoicing / duty evasion red flag (BFIU §2.4.1.iv)."
+            ),
+            detail={"invoice_value": inv, "market_reference_value": ref, "hs_code": hs_code, "ratio": round(ratio, 2)},
+        )
+    return 0
+
+
+def _score_tbml_country_pair(
+    *,
+    trade: dict[str, Any],
+    reasons: list[dict[str, Any]],
+    evidence: dict[str, Any],
+) -> int:
+    """Country-pair plausibility modifier.
+
+    A counterparty country in the global high-risk list (Iran, North Korea,
+    Syria, Venezuela, Myanmar, Cuba per BFIU + UN sanctions overlay) adds 20
+    points. Same list as the batch transshipment_routing rule for
+    consistency across the two paths.
+    """
+    counterparty_country = (trade.get("counterparty_country") or "").upper()
+    if not counterparty_country:
+        return 0
+    if counterparty_country in _TBML_HIGH_RISK_JURISDICTIONS:
+        evidence["tbml_counterparty_country"] = counterparty_country
+        return _add_reason(
+            reasons,
+            rule="tbml_country_pair_high_risk",
+            points=20,
+            reason_text=(
+                f"Counterparty in high-risk jurisdiction {counterparty_country} — "
+                f"FATF / BFIU listed for AML or sanctions concern."
+            ),
+            detail={"counterparty_country": counterparty_country},
+        )
+    return 0
+
+
+def _score_trade_context(
+    *,
+    request: "RealtimeScoringRequest",
+    reasons: list[dict[str, Any]],
+    evidence: dict[str, Any],
+) -> int:
+    """Compose the three TBML modifiers for one transaction.
+
+    Returns total points contributed. No side effects beyond appending
+    to ``reasons`` and writing trade-context keys onto ``evidence``.
+    """
+    trade = _merge_trade_context(
+        request.from_account_metadata, request.to_account_metadata
+    )
+    if not trade:
+        return 0
+    evidence["tbml_trade_context"] = True
+    score = 0
+    score += _score_tbml_payment_mode(
+        channel=request.channel,
+        trade=trade,
+        amount=request.amount,
+        reasons=reasons,
+        evidence=evidence,
+    )
+    score += _score_tbml_hs_code_anomaly(trade=trade, reasons=reasons, evidence=evidence)
+    score += _score_tbml_country_pair(trade=trade, reasons=reasons, evidence=evidence)
+    return score
+
+
 async def _screen_party(
     session: AsyncSession,
     *,
@@ -485,6 +694,11 @@ async def score_transaction(
     sanctions_flag = bool(from_sanctions) or bool(to_sanctions)
     if sanctions_flag:
         evidence["sanctions_flag"] = True
+
+    # TBML trade-context modifiers — fires only when the per-side metadata
+    # carries a `trade` sub-dict (HS code, country, payment_mode, etc.).
+    # Pure function — no DB lookup, no extra latency.
+    score += _score_trade_context(request=request, reasons=reasons, evidence=evidence)
 
     score = max(0, min(100, score))
     decision = _decide(score)
