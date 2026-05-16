@@ -61,3 +61,9 @@ class STRReport(TimestampMixin, Base):
     tbml_hs_code: Mapped[str | None] = mapped_column(String)
     tbml_commodity: Mapped[str | None] = mapped_column(String)
     tbml_counterparty_country: Mapped[str | None] = mapped_column(String)
+
+    # MLPA 2012 §2(cc) predicate offence categories. Array so an STR can cite
+    # multiple (e.g. customs §2(cc)(18) + tax §2(cc)(19) on a TBML report).
+    predicate_offences: Mapped[list[str]] = mapped_column(
+        ARRAY(String), default=list, server_default="{}"
+    )

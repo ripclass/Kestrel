@@ -126,6 +126,7 @@ def _serialize_case_summary(case: Case, profile_name_map: dict[str, str]) -> dic
         "proposal_decision": case.proposal_decision,
         "requested_by": profile_name_map.get(requested_by, requested_by),
         "requested_from": profile_name_map.get(requested_from, requested_from),
+        "predicate_offences": list(case.predicate_offences or []),
     }
 
 
@@ -427,6 +428,7 @@ async def propose_case(
         total_exposure=request.total_exposure,
         linked_alert_ids=_parse_uuid_list(request.linked_alert_ids),
         linked_entity_ids=_parse_uuid_list(request.linked_entity_ids),
+        predicate_offences=list(request.predicate_offences or []),
         timeline=[
             _timeline_entry(
                 entry_type="proposed",

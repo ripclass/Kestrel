@@ -26,6 +26,10 @@ class Dissemination(Base):
     # Marks a Circular-22 bank-to-bank exchange (distinct from BFIU outbound
     # dissemination). Drives separate audit + reporting cadence.
     circular_22_exchange: Mapped[bool] = mapped_column(Boolean, default=False, server_default="false")
+    # MLPA 2012 §2(cc) predicate offence categories — see migration 025.
+    predicate_offences: Mapped[list[str]] = mapped_column(
+        ARRAY(String), default=list, server_default="{}"
+    )
     subject_summary: Mapped[str] = mapped_column(String)
     linked_report_ids: Mapped[list[uuid.UUID]] = mapped_column(ARRAY(UUID(as_uuid=True)), default=list)
     linked_entity_ids: Mapped[list[uuid.UUID]] = mapped_column(ARRAY(UUID(as_uuid=True)), default=list)

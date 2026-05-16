@@ -4,6 +4,7 @@ from typing import Literal
 from pydantic import BaseModel, Field, model_validator
 
 from app.schemas.ai import AIInvocationMeta, ExtractedEntity
+from app.schemas.predicate_offence import PredicateOffence
 
 ReportType = Literal[
     "str",
@@ -75,6 +76,8 @@ class STRReportSummary(BaseModel):
     ier_direction: IERDirection | None = None
     ier_counterparty_fiu: str | None = None
     media_source: str | None = None
+    # MLPA 2012 §2(cc) predicate offence(s) cited on this report.
+    predicate_offences: list[PredicateOffence] = Field(default_factory=list)
 
 
 class STRReportDetail(STRReportSummary):
@@ -148,6 +151,9 @@ class STRDraftUpsert(BaseModel):
     tbml_hs_code: str | None = None
     tbml_commodity: str | None = None
     tbml_counterparty_country: str | None = None
+
+    # MLPA 2012 §2(cc) predicate offence(s) cited on this draft / submission.
+    predicate_offences: list[PredicateOffence] = Field(default_factory=list)
 
     @model_validator(mode="after")
     def _enforce_type_requirements(self) -> "STRDraftUpsert":

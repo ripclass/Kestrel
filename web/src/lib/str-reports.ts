@@ -1,4 +1,4 @@
-import type { STRReportDetail, STRReportSummary } from "@/types/domain";
+import type { PredicateOffence, STRReportDetail, STRReportSummary } from "@/types/domain";
 
 type RawLifecycleEvent = {
   action: string;
@@ -60,6 +60,7 @@ type RawSummary = {
   ier_direction?: "inbound" | "outbound" | null;
   ier_counterparty_fiu?: string | null;
   media_source?: string | null;
+  predicate_offences?: PredicateOffence[];
 };
 
 type RawDetail = RawSummary & {
@@ -116,6 +117,7 @@ function normalizeSummary(report: RawSummary): STRReportSummary {
     ierDirection: report.ier_direction,
     ierCounterpartyFiu: report.ier_counterparty_fiu,
     mediaSource: report.media_source,
+    predicateOffences: (report.predicate_offences ?? []) as PredicateOffence[],
   };
 }
 

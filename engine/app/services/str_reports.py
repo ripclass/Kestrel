@@ -102,6 +102,7 @@ def _serialize_report(report: STRReport, org_name: str) -> STRReportSummary:
         ier_direction=report.ier_direction,
         ier_counterparty_fiu=report.ier_counterparty_fiu,
         media_source=report.media_source,
+        predicate_offences=list(report.predicate_offences or []),
     )
 
 
@@ -277,6 +278,7 @@ _NEW_REPORT_FIELDS: tuple[str, ...] = (
     "tbml_hs_code",
     "tbml_commodity",
     "tbml_counterparty_country",
+    "predicate_offences",
 )
 
 

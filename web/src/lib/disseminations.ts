@@ -3,6 +3,7 @@ import type {
   DisseminationDetail,
   DisseminationSummary,
   MlpaSection,
+  PredicateOffence,
   RecipientAuthority,
   RecipientType,
 } from "@/types/domain";
@@ -17,6 +18,7 @@ type RawSummary = {
   recipient_authority?: RecipientAuthority | null;
   mlpa_section?: MlpaSection | null;
   circular_22_exchange?: boolean;
+  predicate_offences?: PredicateOffence[];
   subject_summary: string;
   classification: Classification;
   disseminated_by?: string | null;
@@ -45,6 +47,7 @@ function normalizeSummary(row: RawSummary): DisseminationSummary {
     recipientAuthority: row.recipient_authority ?? null,
     mlpaSection: row.mlpa_section ?? null,
     circular22Exchange: Boolean(row.circular_22_exchange),
+    predicateOffences: (row.predicate_offences ?? []) as PredicateOffence[],
     subjectSummary: row.subject_summary,
     classification: row.classification,
     disseminatedBy: row.disseminated_by,

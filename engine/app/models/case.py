@@ -26,6 +26,10 @@ class Case(TimestampMixin, Base):
     recovered: Mapped[float] = mapped_column(Numeric(18, 2), default=0)
     timeline: Mapped[dict] = mapped_column(JSONB, default=list)
     tags: Mapped[list[str]] = mapped_column(ARRAY(String), default=list)
+    # MLPA 2012 §2(cc) predicate offence categories — see migration 025.
+    predicate_offences: Mapped[list[str]] = mapped_column(
+        ARRAY(String), default=list, server_default="{}"
+    )
     due_date: Mapped[datetime | None] = mapped_column(Date())
     closed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
