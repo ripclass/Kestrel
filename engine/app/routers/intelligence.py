@@ -169,3 +169,19 @@ async def typologies(
         )
         for row in rows
     ]
+
+
+@router.get("/tbml/summary")
+async def tbml_summary(
+    user: Annotated[AuthenticatedUser, Depends(get_current_user)],
+    session: Annotated[AsyncSession, Depends(get_current_session)],
+    window_days: int = Query(30, ge=1, le=365),
+) -> dict:
+    """Compose the /intelligence/tbml dashboard payload.
+
+    Persona-aware: bank persona sees own-org rows + anonymised peer counts;
+    regulator persona sees all bank names + full match keys. Mirrors the
+    same anonymisation rules the cross-bank dashboard already enforces.
+    """
+    from app.services.tbml import build_tbml_summary
+    return await build_tbml_summary(session, user=user, window_days=window_days)
