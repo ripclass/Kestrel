@@ -54,6 +54,21 @@ class Plan:
 
 
 PLANS: dict[str, Plan] = {
+    "filing_only": Plan(
+        # The "goAML replacement" tier. Banks under BFIU procurement get this
+        # at no cost — they file STR / CTR / IER in goAML XML, see their own
+        # submission history and inbound RFIs, and nothing else. Cross-bank
+        # intelligence, AI, scoring, KYC, sanctions, agentic surfaces all
+        # gate via require_feature() and return 402 PAYMENT REQUIRED. Banks
+        # who want those features open a separate commercial relationship
+        # on starter / professional / enterprise tier.
+        plan_id="filing_only",
+        display_name="Filing only",
+        price_bdt_yearly=0,
+        seat_cap=5,
+        monthly_transaction_cap=None,
+        features=("core",),
+    ),
     "starter": Plan(
         plan_id="starter",
         display_name="Starter",

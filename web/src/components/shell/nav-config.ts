@@ -44,8 +44,22 @@ const navItems: NavItem[] = [
   { section: "Admin", label: "API Keys", href: "/admin/api-keys", roles: ["admin", "manager", "superadmin"], aka: "Integration Credentials" },
 ];
 
+// Bank-filer surface: STR / CTR / IER submission + own-org export. Everything
+// else — cross-bank intelligence, AI explanations, real-time scoring, KYC,
+// sanctions, case management, admin — is hidden. Filers exist under the BFIU
+// procurement model where banks file for free and pay separately for the
+// commercial platform.
+const FILER_ALLOWED_HREFS = new Set<string>([
+  "/strs",
+  "/iers",
+  "/reports/export",
+]);
+
 export function getNavigation(viewer: Viewer) {
   return navItems.filter((item) => {
+    if (viewer.persona === "bank_filer" && !FILER_ALLOWED_HREFS.has(item.href)) {
+      return false;
+    }
     if (item.personas && !item.personas.includes(viewer.persona)) {
       return false;
     }
