@@ -1,0 +1,46 @@
+code: phantom_shipment
+title: Phantom shipment — payment with no shipment trail
+category: tbml
+weight: 8.5
+description: >
+  Trade payment was authorised but no shipment evidence is captured — no Bill
+  of Lading, no port of loading, no vessel name. Strong TBML signal for
+  "phantom shipment" pattern where the LC settles but no goods move. Maps to
+  BFIU Alert #26 + #38 + BFIU TBML Guidelines §2.4.1.viii.
+bfiu_avenue_ref: "2.4.1.viii"
+predicate_offences:
+  - smuggling_customs_excise
+  - fraud
+  - forgery
+
+conditions:
+  trigger: payment_without_shipment_evidence
+  params:
+    # Fires when settlement has occurred (settlement_amount > 0) or status
+    # is "settled" but no B/L + no port + no vessel.
+    require_settlement: true
+
+scoring:
+  base: 75
+  modifiers:
+    - when: settlement_amount > 5000000
+      add: 15
+      reason: "Settlement above 50 lakh BDT equivalent with no shipment evidence"
+    - when: payment_mode in (lc_sight, lc_red_clause)
+      add: 10
+      reason: "Sight or red-clause LC settled without shipment evidence"
+    - when: counterparty_country in high_risk_jurisdictions
+      add: 10
+      reason: "Counterparty in a high-risk jurisdiction"
+    - when: counterparty_is_related_party == true
+      add: 10
+      reason: "Counterparty is a related party (intra-group transaction)"
+
+severity:
+  critical: 95
+  high: 80
+  medium: 70
+
+alert_template:
+  title: "Phantom shipment: {trade_ref} — settlement without shipment"
+  description: "Trade {trade_ref} settled {settlement_amount} {currency} to {counterparty_country} with no B/L, port, or vessel recorded."

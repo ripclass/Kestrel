@@ -1,0 +1,50 @@
+code: declaration_value_mismatch
+title: Customs declaration value vs LC invoice mismatch
+category: tbml
+weight: 6.5
+description: >
+  The Bill of Entry (BE) declared value or LCAF declared value diverges
+  materially from the LC invoice value. Customs sees one number, the bank
+  pays another. Common TBML pattern: declared value is filed low to dodge
+  duty while the LC settles at the true (higher) commercial value, or vice
+  versa. Maps to BFIU Alerts #28 + #31 (description/quantity mismatch) +
+  BFIU TBML Guidelines §2.4.1.ii.
+bfiu_avenue_ref: "2.4.1.ii"
+predicate_offences:
+  - smuggling_customs_excise
+  - tax_related_offences
+
+conditions:
+  trigger: declared_vs_invoice_mismatch
+  params:
+    # Ratio of (declared_value / invoice_value) must be below this to fire.
+    # 0.7 means declared is at most 70% of invoiced.
+    max_declared_to_invoice_ratio: 0.7
+    # Or above this — declared substantially higher than invoiced (over-
+    # declaration to draw more drawback / DEDO).
+    min_declared_to_invoice_ratio: 1.3
+
+scoring:
+  base: 50
+  modifiers:
+    - when: declared_to_invoice_ratio <= 0.5
+      add: 25
+      reason: "Customs declaration is half or less of LC invoice"
+    - when: declared_to_invoice_ratio >= 1.5
+      add: 20
+      reason: "Customs declaration is 1.5x or more of LC invoice"
+    - when: be_number == null
+      add: 15
+      reason: "No Bill of Entry recorded against settled trade"
+    - when: payment_mode in (lc_btb, lc_transferable)
+      add: 10
+      reason: "Back-to-back or transferable LC — abuse-prone structures"
+
+severity:
+  critical: 85
+  high: 70
+  medium: 55
+
+alert_template:
+  title: "Declared / invoice mismatch: {trade_ref}"
+  description: "Trade {trade_ref}: declared {declared_value} {currency} vs invoice {invoice_value} {currency} ({ratio_pct}% ratio). Consistent with duty evasion + commercial-vs-customs value gaming."

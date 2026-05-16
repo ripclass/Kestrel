@@ -1,0 +1,50 @@
+code: under_invoicing
+title: Under-invoicing against market reference
+category: tbml
+weight: 7.0
+description: >
+  Flags trade transactions where the invoice value is materially below the
+  HS-code market reference value. Classic TBML channel: importer pays lower
+  duty + settles the differential via hundi/hawala. Maps to BFIU Alert #15
+  + BFIU TBML Guidelines §2.4.1.iv (mirrors over_invoicing).
+bfiu_avenue_ref: "2.4.1.iv"
+predicate_offences:
+  - smuggling_customs_excise
+  - tax_related_offences
+  - black_marketing
+
+conditions:
+  trigger: invoice_to_market_ratio
+  params:
+    # invoice_value / market_reference_value must fall below this to fire.
+    # 0.5 means invoice declared is half the market benchmark.
+    max_ratio_to_flag: 0.5
+    min_market_reference: 1000
+
+scoring:
+  base: 55
+  modifiers:
+    - when: invoice_to_market_ratio <= 0.3
+      add: 25
+      reason: "Invoice value 30% or less of market reference"
+    - when: invoice_to_market_ratio <= 0.4
+      add: 15
+      reason: "Invoice value 40% or less of market reference"
+    - when: payment_mode in (lc_btb, lc_red_clause)
+      add: 15
+      reason: "Back-to-back or red-clause LC structure (high abuse pattern)"
+    - when: counterparty_country in high_risk_jurisdictions
+      add: 10
+      reason: "Counterparty in a high-risk jurisdiction"
+    - when: hs_code_high_duty == true
+      add: 10
+      reason: "HS code is high-duty category — under-invoicing evades customs"
+
+severity:
+  critical: 90
+  high: 70
+  medium: 55
+
+alert_template:
+  title: "Under-invoicing: {trade_ref} — {hs_code}"
+  description: "Invoice {invoice_value} {currency} is {ratio}x market reference {market_reference_value} {currency} on HS {hs_code}; consistent with duty evasion + hundi settlement of the differential."

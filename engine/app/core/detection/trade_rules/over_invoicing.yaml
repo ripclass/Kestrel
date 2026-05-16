@@ -1,0 +1,50 @@
+code: over_invoicing
+title: Over-invoicing against market reference
+category: tbml
+weight: 7.0
+description: >
+  Flags trade transactions where the invoice value is materially above the
+  HS-code market reference value. Classic TBML channel for moving value out
+  via a legitimate-looking trade payment. Maps to BFIU Alert #16 +
+  BFIU TBML Guidelines §2.4.1.iv.
+bfiu_avenue_ref: "2.4.1.iv"
+predicate_offences:
+  - smuggling_customs_excise
+  - tax_related_offences
+
+conditions:
+  trigger: invoice_to_market_ratio
+  params:
+    # invoice_value / market_reference_value must exceed this to fire.
+    min_ratio_to_flag: 1.5
+    # Below this we don't even consider it — most trade is within reasonable
+    # bands and the rule is meant to surface egregious cases.
+    min_market_reference: 1000
+
+scoring:
+  base: 60
+  modifiers:
+    - when: invoice_to_market_ratio >= 3.0
+      add: 25
+      reason: "Invoice value 3x or more above market reference"
+    - when: invoice_to_market_ratio >= 2.0
+      add: 15
+      reason: "Invoice value 2x or more above market reference"
+    - when: payment_mode in (open_account, cash_in_advance)
+      add: 15
+      reason: "Open-account / cash-in-advance settlement with inflated invoice"
+    - when: counterparty_country in high_risk_jurisdictions
+      add: 10
+      reason: "Counterparty in a high-risk jurisdiction"
+    - when: lc_advising_bank != counterparty_bank
+      add: 5
+      reason: "LC advising bank differs from counterparty's stated bank"
+
+severity:
+  critical: 90
+  high: 75
+  medium: 60
+
+alert_template:
+  title: "Over-invoicing: {trade_ref} — {hs_code}"
+  description: "Invoice {invoice_value} {currency} is {ratio}x market reference {market_reference_value} {currency} on HS {hs_code}; counterparty {counterparty_country}."
