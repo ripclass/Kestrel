@@ -2,7 +2,7 @@ import uuid
 from datetime import datetime
 
 from sqlalchemy import DateTime, ForeignKey, Integer, String
-from sqlalchemy.dialects.postgresql import JSONB, UUID
+from sqlalchemy.dialects.postgresql import ARRAY, JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.models.base import Base, TimestampMixin
@@ -27,3 +27,12 @@ class Alert(TimestampMixin, Base):
     case_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True))
     resolved_by: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True))
     resolved_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    # Migration 028 — TBML pipeline integration. Populated by TBML detection
+    # rules (from rule YAML predicate_offences + bfiu_avenue_ref) so every
+    # TBML alert auto-cites its regulatory mapping and links back to the
+    # source trade row.
+    predicate_offences: Mapped[list[str]] = mapped_column(
+        ARRAY(String), default=list, server_default="{}"
+    )
+    linked_trade_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), default=None, nullable=True)
+    bfiu_avenue_ref: Mapped[str | None] = mapped_column(String(32), default=None, nullable=True)
