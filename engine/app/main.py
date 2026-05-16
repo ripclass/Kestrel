@@ -35,6 +35,7 @@ from app.routers import (
     str_reports,
     stripe_webhooks,
     system,
+    trade,
 )
 
 settings = get_settings()
@@ -109,6 +110,7 @@ app.include_router(disseminations.router, prefix="/disseminations", tags=["disse
 app.include_router(ier.router, prefix="/iers", tags=["iers"])
 app.include_router(intelligence.router, prefix="/intelligence", tags=["intelligence"])
 app.include_router(saved_queries.router, prefix="/saved-queries", tags=["saved-queries"])
+app.include_router(trade.router, prefix="/trade", tags=["trade"])
 app.include_router(diagrams.router, prefix="/diagrams", tags=["diagrams"])
 app.include_router(match_definitions.router, prefix="/match-definitions", tags=["match-definitions"])
 app.include_router(reference_tables.router, prefix="/reference-tables", tags=["reference-tables"])

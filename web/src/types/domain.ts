@@ -240,6 +240,90 @@ export interface CrossBankEntityRow {
   totalExposure: number;
 }
 
+// Trade transaction types — migration 027 + Phase B. Keep in sync with the
+// engine TradeSide / PaymentMode / TradeStatus literals.
+export type TradeSide = "import" | "export" | "royalty";
+
+export type PaymentMode =
+  | "lc_sight"
+  | "lc_usance"
+  | "lc_btb"
+  | "lc_transferable"
+  | "lc_standby"
+  | "lc_red_clause"
+  | "open_account"
+  | "cash_in_advance"
+  | "documentary_collection_da"
+  | "documentary_collection_dp"
+  | "royalty_fee"
+  | "other";
+
+export type TradeStatus =
+  | "open"
+  | "in_progress"
+  | "settled"
+  | "overdue"
+  | "cancelled"
+  | "flagged";
+
+export interface TradeTransactionSummary {
+  id: string;
+  orgId: string;
+  tradeRef: string;
+  tradeSide: TradeSide;
+  paymentMode: PaymentMode;
+  subjectName: string;
+  subjectAccount: string;
+  counterpartyName: string;
+  counterpartyCountry: string;
+  hsCode?: string | null;
+  invoiceValue: number;
+  declaredValue?: number | null;
+  settlementAmount?: number | null;
+  currency: string;
+  status: TradeStatus;
+  shipmentDate?: string | null;
+  settlementDate?: string | null;
+  lcReference?: string | null;
+  blNumber?: string | null;
+  createdAt: string;
+}
+
+export interface TradeTransactionDetail extends TradeTransactionSummary {
+  lcIssuingBank?: string | null;
+  lcAdvisingBank?: string | null;
+  lcConfirmingBank?: string | null;
+  lcIssueDate?: string | null;
+  lcExpiryDate?: string | null;
+  lcafReference?: string | null;
+  ircOrErc?: string | null;
+  subjectBank?: string | null;
+  subjectCountry: string;
+  counterpartyBank?: string | null;
+  counterpartyAccount?: string | null;
+  notifyParty?: string | null;
+  consignee?: string | null;
+  goodsDescription?: string | null;
+  quantity?: number | null;
+  unit?: string | null;
+  unitPrice?: number | null;
+  marketReferenceValue?: number | null;
+  bdtEquivalent?: number | null;
+  vessel?: string | null;
+  containerNumbers: string[];
+  portOfLoading?: string | null;
+  portOfDischarge?: string | null;
+  transshipmentPorts: string[];
+  beNumber?: string | null;
+  beDate?: string | null;
+  insuranceValue?: number | null;
+  discrepancies: string[];
+  linkedStrId?: string | null;
+  linkedCaseId?: string | null;
+  metadata: Record<string, unknown>;
+  updatedAt: string;
+}
+
 export interface TypologySummary {
   id: string;
   title: string;
