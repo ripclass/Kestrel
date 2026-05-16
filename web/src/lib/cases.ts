@@ -1,4 +1,4 @@
-import type { CaseNote, CaseSummary, CaseWorkspace } from "@/types/domain";
+import type { CaseNote, CaseSummary, CaseWorkspace, PredicateOffence } from "@/types/domain";
 import { normalizeEntitySummary, normalizeNetworkGraph } from "@/lib/investigation";
 
 type RawActivityEvent = {
@@ -50,6 +50,7 @@ type RawCaseSummary = {
   proposal_decision?: CaseSummary["proposalDecision"];
   requested_by?: string | null;
   requested_from?: string | null;
+  predicate_offences?: PredicateOffence[];
 };
 
 type RawCaseWorkspace = RawCaseSummary & {
@@ -78,6 +79,7 @@ export function normalizeCaseSummary(item: RawCaseSummary): CaseSummary {
     proposalDecision: item.proposal_decision ?? null,
     requestedBy: item.requested_by ?? null,
     requestedFrom: item.requested_from ?? null,
+    predicateOffences: (item.predicate_offences ?? []) as PredicateOffence[],
   };
 }
 

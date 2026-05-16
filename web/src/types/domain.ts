@@ -310,6 +310,7 @@ export interface CaseSummary {
   proposalDecision?: ProposalDecision | null;
   requestedBy?: string | null;
   requestedFrom?: string | null;
+  predicateOffences: PredicateOffence[];
 }
 
 export interface CaseNote {
@@ -515,6 +516,7 @@ export interface STRReportSummary {
   ierDirection?: IERDirection | null;
   ierCounterpartyFiu?: string | null;
   mediaSource?: string | null;
+  predicateOffences: PredicateOffence[];
 }
 
 export interface STRReportDetail extends STRReportSummary {
@@ -571,6 +573,72 @@ export type RecipientAuthority =
   | "bb_internal_dept"
   | "peer_reporting_org_circular_22";
 
+// MLPA 2012 §2(cc) predicate offence codes. Each STR / Case / Dissemination
+// can cite multiple. Keep in sync with the engine PredicateOffence Literal and
+// the CHECK constraint in migration 025.
+export type PredicateOffence =
+  | "corruption_and_bribery"
+  | "counterfeiting_currency"
+  | "counterfeiting_deeds_and_documents"
+  | "extortion"
+  | "fraud"
+  | "forgery"
+  | "illegal_trade_firearms"
+  | "illegal_trade_narcotics"
+  | "illegal_trade_stolen_goods"
+  | "kidnapping_restraint_hostage"
+  | "murder_grievous_injury"
+  | "trafficking_women_children"
+  | "black_marketing"
+  | "smuggling_currency"
+  | "theft_robbery_dacoity_piracy_hijacking"
+  | "human_trafficking"
+  | "dowry"
+  | "smuggling_customs_excise"
+  | "tax_related_offences"
+  | "infringement_intellectual_property"
+  | "terrorism_or_terrorist_financing"
+  | "adulteration_title_infringement"
+  | "environmental_offences"
+  | "sexual_exploitation"
+  | "insider_trading_market_manipulation"
+  | "organized_crime"
+  | "racketeering"
+  | "other_bb_gazetted";
+
+// Display labels for the 28 predicate-offence codes — surfaced by UI
+// dropdowns and detail panels. Comments cite MLPA 2012 §2(cc) clause number.
+export const PREDICATE_OFFENCE_LABELS: Record<PredicateOffence, string> = {
+  corruption_and_bribery: "(1) Corruption and bribery",
+  counterfeiting_currency: "(2) Counterfeiting currency",
+  counterfeiting_deeds_and_documents: "(3) Counterfeiting deeds + documents",
+  extortion: "(4) Extortion",
+  fraud: "(5) Fraud",
+  forgery: "(6) Forgery",
+  illegal_trade_firearms: "(7) Illegal trade in firearms",
+  illegal_trade_narcotics: "(8) Illegal trade in narcotic drugs / psychotropics",
+  illegal_trade_stolen_goods: "(9) Illegal trade in stolen and other goods",
+  kidnapping_restraint_hostage: "(10) Kidnapping / illegal restraint / hostage-taking",
+  murder_grievous_injury: "(11) Murder / grievous physical injury",
+  trafficking_women_children: "(12) Trafficking of women and children",
+  black_marketing: "(13) Black marketing",
+  smuggling_currency: "(14) Smuggling of domestic and foreign currency",
+  theft_robbery_dacoity_piracy_hijacking: "(15) Theft / robbery / dacoity / piracy / hijacking",
+  human_trafficking: "(16) Human trafficking",
+  dowry: "(17) Dowry",
+  smuggling_customs_excise: "(18) Smuggling / customs + excise offences (TBML)",
+  tax_related_offences: "(19) Tax-related offences",
+  infringement_intellectual_property: "(20) Infringement of intellectual property rights",
+  terrorism_or_terrorist_financing: "(21) Terrorism / terrorist financing",
+  adulteration_title_infringement: "(22) Adulteration / title infringement in manufacture",
+  environmental_offences: "(23) Environmental offences",
+  sexual_exploitation: "(24) Sexual exploitation",
+  insider_trading_market_manipulation: "(25) Insider trading / market manipulation",
+  organized_crime: "(26) Organized crime",
+  racketeering: "(27) Racketeering",
+  other_bb_gazetted: "(28) Other — declared predicate by BB gazette",
+};
+
 // MLPA / ATA enabling clause cited on each dissemination.
 export type MlpaSection =
   | "mlpa_23_1_a"
@@ -607,6 +675,7 @@ export interface DisseminationSummary {
   recipientAuthority?: RecipientAuthority | null;
   mlpaSection?: MlpaSection | null;
   circular22Exchange: boolean;
+  predicateOffences: PredicateOffence[];
   subjectSummary: string;
   classification: Classification;
   disseminatedBy?: string | null;

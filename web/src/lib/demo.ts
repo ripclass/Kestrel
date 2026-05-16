@@ -279,6 +279,7 @@ export const cases: CaseSummary[] = [
     linkedEntityIds: ["ent-rizwana-account", "ent-rizwana-phone", "ent-bikash-wallet"],
     linkedAlertIds: ["alert-rapid-cashout", "alert-cross-bank"],
     variant: "standard",
+    predicateOffences: [],
   },
 ];
 

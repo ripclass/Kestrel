@@ -16,6 +16,7 @@ import type {
   DisseminationDetail,
   DisseminationSummary,
   MlpaSection,
+  PredicateOffence,
   RecipientAuthority,
   RecipientType,
   FlaggedAccount,
@@ -260,6 +261,7 @@ export interface DisseminationCreatePayload {
   recipientAuthority?: RecipientAuthority | null;
   mlpaSection?: MlpaSection | null;
   circular22Exchange?: boolean;
+  predicateOffences?: PredicateOffence[];
   subjectSummary: string;
   linkedReportIds?: string[];
   linkedEntityIds?: string[];

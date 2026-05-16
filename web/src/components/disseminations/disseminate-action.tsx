@@ -14,9 +14,11 @@ import type {
 import type {
   Classification,
   MlpaSection,
+  PredicateOffence,
   RecipientAuthority,
   RecipientType,
 } from "@/types/domain";
+import { PREDICATE_OFFENCE_LABELS } from "@/types/domain";
 
 type DisseminateActionProps = {
   linkedReportId?: string;
@@ -103,10 +105,17 @@ export function DisseminateAction({
   const [recipientAuthority, setRecipientAuthority] = useState<RecipientAuthority | "">("");
   const [mlpaSection, setMlpaSection] = useState<MlpaSection | "">("");
   const [circular22Exchange, setCircular22Exchange] = useState(false);
+  const [predicateOffences, setPredicateOffences] = useState<PredicateOffence[]>([]);
   const [subjectSummary, setSubjectSummary] = useState(defaultSubject ?? "");
   const [classification, setClassification] = useState<Classification>("confidential");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  function togglePredicate(value: PredicateOffence) {
+    setPredicateOffences((prev) =>
+      prev.includes(value) ? prev.filter((row) => row !== value) : [...prev, value],
+    );
+  }
 
   // When the user picks a typed authority, auto-populate the related fields to
   // sensible defaults. They can still override before submitting. This is the
@@ -148,6 +157,7 @@ export function DisseminateAction({
         recipientAuthority: recipientAuthority || null,
         mlpaSection: mlpaSection || null,
         circular22Exchange,
+        predicateOffences,
         subjectSummary: subjectSummary.trim(),
         classification,
         linkedReportIds: linkedReportId ? [linkedReportId] : [],
@@ -172,6 +182,7 @@ export function DisseminateAction({
       setRecipientAuthority("");
       setMlpaSection("");
       setCircular22Exchange(false);
+      setPredicateOffences([]);
       setSubjectSummary(defaultSubject ?? "");
       onCompleted?.(dissemination.id);
       router.refresh();
@@ -282,6 +293,26 @@ export function DisseminateAction({
                   </span>
                 </label>
               </Field>
+              <div className="md:col-span-2">
+                <Field label={`Predicate offence(s) · MLPA 2012 §2(cc)  ·  ${predicateOffences.length} selected`}>
+                  <div className="grid max-h-56 grid-cols-1 gap-1 overflow-y-auto border border-input bg-card p-3 md:grid-cols-2">
+                    {(Object.keys(PREDICATE_OFFENCE_LABELS) as PredicateOffence[]).map((code) => (
+                      <label
+                        key={code}
+                        className="flex cursor-pointer items-start gap-2 px-1 py-1 text-xs hover:bg-foreground/5"
+                      >
+                        <input
+                          type="checkbox"
+                          className="mt-0.5"
+                          checked={predicateOffences.includes(code)}
+                          onChange={() => togglePredicate(code)}
+                        />
+                        <span className="leading-tight">{PREDICATE_OFFENCE_LABELS[code]}</span>
+                      </label>
+                    ))}
+                  </div>
+                </Field>
+              </div>
               <div className="md:col-span-2">
                 <Field label="Subject summary">
                   <Textarea

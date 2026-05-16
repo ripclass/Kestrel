@@ -4,6 +4,7 @@ from pydantic import BaseModel, Field
 
 from app.schemas.investigate import ActivityEvent, EntitySearchResult
 from app.schemas.network import NetworkGraph
+from app.schemas.predicate_offence import PredicateOffence
 
 CaseVariant = Literal[
     "standard",
@@ -35,6 +36,8 @@ class CaseSummary(BaseModel):
     proposal_decision: ProposalDecision | None = None
     requested_by: str | None = None
     requested_from: str | None = None
+    # MLPA 2012 §2(cc) predicate offence(s) cited on this case.
+    predicate_offences: list[PredicateOffence] = Field(default_factory=list)
 
 
 class CaseNote(BaseModel):
@@ -78,6 +81,7 @@ class CaseProposeRequest(BaseModel):
     linked_alert_ids: list[str] = Field(default_factory=list)
     linked_entity_ids: list[str] = Field(default_factory=list)
     total_exposure: float = 0.0
+    predicate_offences: list[PredicateOffence] = Field(default_factory=list)
 
 
 class CaseDecideRequest(BaseModel):

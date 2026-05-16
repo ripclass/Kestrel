@@ -3,6 +3,8 @@ from typing import Literal
 
 from pydantic import BaseModel, Field
 
+from app.schemas.predicate_offence import PredicateOffence
+
 RecipientType = Literal[
     "law_enforcement",
     "regulator",
@@ -69,6 +71,9 @@ class DisseminationCreate(BaseModel):
     recipient_authority: RecipientAuthority | None = None
     mlpa_section: MlpaSection | None = None
     circular_22_exchange: bool = False
+    # MLPA 2012 §2(cc) predicate offence(s) cited on this dissemination. Empty
+    # array is allowed for back-compat / legacy rows that haven't been tagged.
+    predicate_offences: list[PredicateOffence] = Field(default_factory=list)
     subject_summary: str
     linked_report_ids: list[str] = Field(default_factory=list)
     linked_entity_ids: list[str] = Field(default_factory=list)
@@ -87,6 +92,7 @@ class DisseminationSummary(BaseModel):
     recipient_authority: RecipientAuthority | None = None
     mlpa_section: MlpaSection | None = None
     circular_22_exchange: bool = False
+    predicate_offences: list[PredicateOffence] = Field(default_factory=list)
     subject_summary: str
     classification: Classification
     disseminated_by: str | None = None
