@@ -1,0 +1,53 @@
+code: transshipment_routing
+title: Transshipment routing — opaque port chain
+category: tbml
+weight: 5.5
+description: >
+  Goods declared to transit through one or more intermediary ports without an
+  obvious economic justification. Maps to BFIU Alert #34 + BFIU TBML
+  Guidelines §2.4.2.vii. Lower base weight than the invoice rules — many
+  legitimate trades transship through Singapore/Dubai/HK; this rule surfaces
+  patterns that warrant a look rather than auto-flagging.
+bfiu_avenue_ref: "2.4.2.vii"
+predicate_offences:
+  - smuggling_customs_excise
+  - smuggling_currency
+
+conditions:
+  trigger: transshipment_via_jurisdiction
+  params:
+    # Fires when at least this many transshipment ports are recorded.
+    min_transshipment_ports: 2
+    # Or any single transshipment via a high-risk jurisdiction.
+    high_risk_jurisdictions:
+      - IR  # Iran
+      - KP  # North Korea
+      - SY  # Syria
+      - VE  # Venezuela
+      - MM  # Myanmar
+      - CU  # Cuba
+
+scoring:
+  base: 40
+  modifiers:
+    - when: transshipment_port_count >= 3
+      add: 25
+      reason: "Three or more transshipment ports"
+    - when: transshipment_via_high_risk == true
+      add: 30
+      reason: "Transshipment via high-risk jurisdiction"
+    - when: lc_route_undeclared == true
+      add: 15
+      reason: "Transshipment not declared in LC at issuance"
+    - when: payment_mode == open_account
+      add: 10
+      reason: "Open-account settlement on opaque routing"
+
+severity:
+  critical: 85
+  high: 65
+  medium: 45
+
+alert_template:
+  title: "Transshipment routing: {trade_ref} via {transshipment_chain}"
+  description: "Trade {trade_ref} transships via {transshipment_chain} — {transshipment_port_count} ports between {port_of_loading} and {port_of_discharge}."
