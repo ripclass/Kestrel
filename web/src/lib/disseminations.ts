@@ -2,6 +2,8 @@ import type {
   Classification,
   DisseminationDetail,
   DisseminationSummary,
+  MlpaSection,
+  RecipientAuthority,
   RecipientType,
 } from "@/types/domain";
 
@@ -12,6 +14,9 @@ type RawSummary = {
   dissemination_ref: string;
   recipient_agency: string;
   recipient_type: RecipientType;
+  recipient_authority?: RecipientAuthority | null;
+  mlpa_section?: MlpaSection | null;
+  circular_22_exchange?: boolean;
   subject_summary: string;
   classification: Classification;
   disseminated_by?: string | null;
@@ -37,6 +42,9 @@ function normalizeSummary(row: RawSummary): DisseminationSummary {
     disseminationRef: row.dissemination_ref,
     recipientAgency: row.recipient_agency,
     recipientType: row.recipient_type,
+    recipientAuthority: row.recipient_authority ?? null,
+    mlpaSection: row.mlpa_section ?? null,
+    circular22Exchange: Boolean(row.circular_22_exchange),
     subjectSummary: row.subject_summary,
     classification: row.classification,
     disseminatedBy: row.disseminated_by,

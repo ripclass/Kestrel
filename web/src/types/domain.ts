@@ -553,6 +553,43 @@ export type RecipientType =
   | "prosecutor"
   | "other";
 
+// Named Bangladesh recipient authority under MLPA 2012 §23 + §24 + BFIU
+// Circular 22. Keep in sync with the migration 024 CHECK constraint and the
+// engine-side RecipientAuthority Literal.
+export type RecipientAuthority =
+  | "bangladesh_police_cid"
+  | "anti_corruption_commission"
+  | "national_board_of_revenue"
+  | "dept_narcotics_control"
+  | "bangladesh_securities_exchange_commission"
+  | "insurance_dev_regulatory_authority"
+  | "microcredit_regulatory_authority"
+  | "dgfi"
+  | "nsi"
+  | "court_or_investigating_officer"
+  | "foreign_fiu_egmont"
+  | "bb_internal_dept"
+  | "peer_reporting_org_circular_22";
+
+// MLPA / ATA enabling clause cited on each dissemination.
+export type MlpaSection =
+  | "mlpa_23_1_a"
+  | "mlpa_23_1_b"
+  | "mlpa_23_1_c"
+  | "mlpa_23_1_d"
+  | "mlpa_23_1_e"
+  | "mlpa_23_1_f"
+  | "mlpa_23_1_g"
+  | "mlpa_24_3"
+  | "mlpa_24_4"
+  | "ata_15_1_a"
+  | "ata_15_1_b"
+  | "ata_15_1_c"
+  | "ata_15_1_d"
+  | "ata_15_1_e"
+  | "ata_15_1_f"
+  | "ata_15_1_g";
+
 export type Classification =
   | "public"
   | "internal"
@@ -567,6 +604,9 @@ export interface DisseminationSummary {
   disseminationRef: string;
   recipientAgency: string;
   recipientType: RecipientType;
+  recipientAuthority?: RecipientAuthority | null;
+  mlpaSection?: MlpaSection | null;
+  circular22Exchange: boolean;
   subjectSummary: string;
   classification: Classification;
   disseminatedBy?: string | null;

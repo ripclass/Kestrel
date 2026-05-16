@@ -1,7 +1,7 @@
 import uuid
 from datetime import datetime
 
-from sqlalchemy import DateTime, ForeignKey, String, func
+from sqlalchemy import Boolean, DateTime, ForeignKey, String, func
 from sqlalchemy.dialects.postgresql import ARRAY, JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -16,6 +16,16 @@ class Dissemination(Base):
     dissemination_ref: Mapped[str] = mapped_column(String(64))
     recipient_agency: Mapped[str] = mapped_column(String)
     recipient_type: Mapped[str] = mapped_column(String(32))
+    # Typed Bangladesh-named authority for procurement-grade reporting (V3 BFIU
+    # alignment). Nullable for back-compat — old rows still resolve via the
+    # legacy recipient_type field. New flow always populates this.
+    recipient_authority: Mapped[str | None] = mapped_column(String(64), default=None, nullable=True)
+    # MLPA / ATA enabling clause cited on the dissemination (e.g. mlpa_24_3 for
+    # spontaneous LEA dissemination, mlpa_24_4 for foreign-FIU exchange).
+    mlpa_section: Mapped[str | None] = mapped_column(String(32), default=None, nullable=True)
+    # Marks a Circular-22 bank-to-bank exchange (distinct from BFIU outbound
+    # dissemination). Drives separate audit + reporting cadence.
+    circular_22_exchange: Mapped[bool] = mapped_column(Boolean, default=False, server_default="false")
     subject_summary: Mapped[str] = mapped_column(String)
     linked_report_ids: Mapped[list[uuid.UUID]] = mapped_column(ARRAY(UUID(as_uuid=True)), default=list)
     linked_entity_ids: Mapped[list[uuid.UUID]] = mapped_column(ARRAY(UUID(as_uuid=True)), default=list)

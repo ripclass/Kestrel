@@ -15,6 +15,8 @@ import type {
   DetectionRunSummary,
   DisseminationDetail,
   DisseminationSummary,
+  MlpaSection,
+  RecipientAuthority,
   RecipientType,
   FlaggedAccount,
   KpiStat,
@@ -255,6 +257,9 @@ export interface STRListResponse {
 export interface DisseminationCreatePayload {
   recipientAgency: string;
   recipientType: RecipientType;
+  recipientAuthority?: RecipientAuthority | null;
+  mlpaSection?: MlpaSection | null;
+  circular22Exchange?: boolean;
   subjectSummary: string;
   linkedReportIds?: string[];
   linkedEntityIds?: string[];
