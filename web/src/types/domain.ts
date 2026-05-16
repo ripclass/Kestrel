@@ -247,6 +247,10 @@ export interface TypologySummary {
   channels: string[];
   indicators: string[];
   narrative: string;
+  // Migration 026 — BD-specific TBML avenues carry these BFIU-aligned fields.
+  predicateOffences?: PredicateOffence[];
+  mlpaSection?: MlpaSection | null;
+  bfiuAvenueRef?: string | null;
 }
 
 export interface DetectionRunSummary {

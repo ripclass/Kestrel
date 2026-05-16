@@ -163,6 +163,9 @@ async def typologies(
             channels=list(row.channels or []),
             indicators=list(row.indicators or []),
             narrative=row.narrative,
+            predicate_offences=list(row.predicate_offences or []),
+            mlpa_section=row.mlpa_section,
+            bfiu_avenue_ref=row.bfiu_avenue_ref,
         )
         for row in rows
     ]

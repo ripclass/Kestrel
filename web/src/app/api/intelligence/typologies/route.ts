@@ -2,7 +2,11 @@ import { NextResponse } from "next/server";
 
 import { proxyEngineRequest } from "@/lib/engine-server";
 import { detailFromPayload, readResponsePayload } from "@/lib/http";
-import type { TypologySummary } from "@/types/domain";
+import type {
+  MlpaSection,
+  PredicateOffence,
+  TypologySummary,
+} from "@/types/domain";
 
 type RawTypology = {
   id: string;
@@ -11,6 +15,9 @@ type RawTypology = {
   channels: string[];
   indicators: string[];
   narrative: string;
+  predicate_offences?: PredicateOffence[];
+  mlpa_section?: MlpaSection | null;
+  bfiu_avenue_ref?: string | null;
 };
 
 function normalize(row: RawTypology): TypologySummary {
@@ -21,6 +28,9 @@ function normalize(row: RawTypology): TypologySummary {
     channels: row.channels ?? [],
     indicators: row.indicators ?? [],
     narrative: row.narrative,
+    predicateOffences: (row.predicate_offences ?? []) as PredicateOffence[],
+    mlpaSection: row.mlpa_section ?? null,
+    bfiuAvenueRef: row.bfiu_avenue_ref ?? null,
   };
 }
 

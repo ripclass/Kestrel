@@ -22,6 +22,10 @@ class TypologySummary(BaseModel):
     channels: list[str]
     indicators: list[str]
     narrative: str
+    # Migration 026 — additive, default empty so existing callers/tests pass.
+    predicate_offences: list[str] = []
+    mlpa_section: str | None = None
+    bfiu_avenue_ref: str | None = None
 
 
 class CrossBankSummary(BaseModel):
