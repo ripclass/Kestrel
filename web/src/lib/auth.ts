@@ -13,7 +13,8 @@ export function isPersona(rawPersona: unknown): rawPersona is Persona {
   if (
     rawPersona === "bfiu_analyst" ||
     rawPersona === "bank_camlco" ||
-    rawPersona === "bfiu_director"
+    rawPersona === "bfiu_director" ||
+    rawPersona === "bank_filer"
   ) {
     return true;
   }
@@ -84,6 +85,34 @@ export async function requireRole(...roles: Role[]) {
 
   if (!roles.includes(viewer.role)) {
     redirect("/overview");
+  }
+
+  return viewer;
+}
+
+/**
+ * Bank filer surface allowlist (path prefixes). Anything outside these prefixes
+ * redirects a filer back to /strs. The full feature set — cross-bank,
+ * AI, KYC, screening, real-time, cases, admin — stays hidden by route as
+ * defense-in-depth on top of the nav-config gating.
+ */
+const FILER_ALLOWED_PREFIXES: ReadonlyArray<string> = [
+  "/strs",
+  "/iers",
+  "/reports/export",
+];
+
+export function isFilerAllowedPath(pathname: string): boolean {
+  return FILER_ALLOWED_PREFIXES.some(
+    (prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`),
+  );
+}
+
+export async function requireViewerForPath(pathname: string) {
+  const viewer = await requireViewer();
+
+  if (viewer.persona === "bank_filer" && !isFilerAllowedPath(pathname)) {
+    redirect("/strs");
   }
 
   return viewer;

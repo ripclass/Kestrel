@@ -1,6 +1,6 @@
 export type OrgType = "regulator" | "bank" | "mfs" | "nbfi";
 export type Role = "superadmin" | "admin" | "manager" | "analyst" | "viewer";
-export type Persona = "bfiu_analyst" | "bank_camlco" | "bfiu_director";
+export type Persona = "bfiu_analyst" | "bank_camlco" | "bfiu_director" | "bank_filer";
 export type Severity = "critical" | "high" | "medium" | "low";
 export type AlertStatus =
   | "open"

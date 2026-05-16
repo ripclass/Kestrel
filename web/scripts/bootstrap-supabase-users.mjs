@@ -77,6 +77,28 @@ const users = [
       org_type: "bank",
     },
   },
+  {
+    // Bank filer demo persona — the "goAML replacement" tier seat. Provisioned
+    // against BRAC Bank (the marquee multi-bank-seed prospect distinct from
+    // Sonali) so it doesn't collide with the camlco demo workspace.
+    email: process.env.BANK_FILER_EMAIL ?? "filer@kestrel-brac.test",
+    password: process.env.BANK_FILER_PASSWORD ?? "Kestrel!Filer!2026",
+    email_confirm: true,
+    user_metadata: {
+      org_id: "9c333333-3333-4333-8333-333333333333",
+      full_name: "Tahmid Khan",
+      role: "analyst",
+      persona: "bank_filer",
+      designation: "BFIU Reporting Officer, BRAC Bank",
+      org_type: "bank",
+    },
+    app_metadata: {
+      org_id: "9c333333-3333-4333-8333-333333333333",
+      role: "analyst",
+      persona: "bank_filer",
+      org_type: "bank",
+    },
+  },
 ];
 
 async function findUserByEmail(email) {

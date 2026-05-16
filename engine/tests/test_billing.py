@@ -12,12 +12,26 @@ from app.services.billing import (
 )
 
 
-def test_four_plans_are_defined() -> None:
+def test_five_plans_are_defined() -> None:
     # Three commercial tiers (starter/professional/enterprise) auto-assigned
     # via signup, plus a display-only `regulator` tier shipped as Tier 04 on
     # /pricing — never auto-assigned, only ever set via superadmin after a
-    # national-deployment contract is signed.
-    assert set(PLANS) == {"starter", "professional", "enterprise", "regulator"}
+    # national-deployment contract is signed. The fifth `filing_only` plan is
+    # the "goAML replacement" tier that BFIU procurement provisions for every
+    # bank in Bangladesh at no cost.
+    assert set(PLANS) == {"filing_only", "starter", "professional", "enterprise", "regulator"}
+
+
+def test_filing_only_plan_grants_only_core() -> None:
+    plan = get_plan("filing_only")
+    assert plan.plan_id == "filing_only"
+    assert plan.features == ("core",)
+    # Every paid feature must be excluded so require_feature() 402s a filer
+    # tenant that tries to call cross-bank / realtime / sanctions / kyc / agentic.
+    for feature in ("cross_bank", "realtime", "sanctions", "kyc", "agentic", "priority_support"):
+        assert feature not in plan.features
+    assert plan.price_bdt_yearly == 0
+    assert plan.seat_cap == 5
 
 
 def test_starter_plan_excludes_paid_features() -> None:
@@ -107,11 +121,11 @@ def test_plan_summary_round_trips_features_to_list() -> None:
     assert summary["on_prem_eligible"] is True
 
 
-def test_all_plans_returns_four_entries() -> None:
+def test_all_plans_returns_five_entries() -> None:
     plans = all_plans()
-    assert len(plans) == 4
+    assert len(plans) == 5
     plan_ids = {p["plan_id"] for p in plans}
-    assert plan_ids == {"starter", "professional", "enterprise", "regulator"}
+    assert plan_ids == {"filing_only", "starter", "professional", "enterprise", "regulator"}
 
 
 # ALL_FEATURES is the universe of feature flags surfaced in the admin UI.

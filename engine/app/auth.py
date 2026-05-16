@@ -58,6 +58,15 @@ DEMO_USERS = {
         persona="bfiu_director",
         designation="Director, BFIU",
     ),
+    "bank_filer": AuthenticatedUser(
+        user_id="viewer-filer",
+        email="filer@brac.example",
+        org_id="org-brac",
+        org_type="bank",
+        role="analyst",
+        persona="bank_filer",
+        designation="BFIU Reporting Officer",
+    ),
 }
 
 
