@@ -35,75 +35,81 @@ try:
 except (ImportError, OSError):
     _WEASYPRINT_AVAILABLE = False
 
+try:
+    from playwright.sync_api import sync_playwright  # type: ignore
+    _PLAYWRIGHT_AVAILABLE = True
+except ImportError:
+    _PLAYWRIGHT_AVAILABLE = False
 
-CSS_STYLES = """
-@page {
+
+_CSS_TEMPLATE = """
+@page {{
     size: A4;
     margin: 22mm 20mm 22mm 20mm;
-    @bottom-right {
+    @bottom-right {{
         content: counter(page) " / " counter(pages);
         font-family: 'IBM Plex Mono', 'Courier New', monospace;
         font-size: 9pt;
         color: #666;
-    }
-    @bottom-left {
-        content: "KESTREL · CROSS-BANK INTELLIGENCE";
+    }}
+    @bottom-left {{
+        content: "{footer}";
         font-family: 'IBM Plex Mono', 'Courier New', monospace;
         font-size: 8pt;
         color: #666;
         letter-spacing: 0.18em;
-    }
-}
+    }}
+}}
 
-* { box-sizing: border-box; }
+* {{ box-sizing: border-box; }}
 
-body {
+body {{
     font-family: 'IBM Plex Sans', 'Helvetica Neue', sans-serif;
     font-size: 10.5pt;
     line-height: 1.55;
     color: #15171c;
-}
+}}
 
-h1 {
+h1 {{
     font-size: 22pt;
     font-weight: 600;
     letter-spacing: -0.01em;
     margin: 0 0 4pt 0;
     border-bottom: 1.5pt solid #ff3823;
     padding-bottom: 8pt;
-}
+}}
 
-h2 {
+h2 {{
     font-size: 13pt;
     font-weight: 600;
     margin: 18pt 0 6pt 0;
     page-break-after: avoid;
-}
+}}
 
-h3 {
+h3 {{
     font-size: 11pt;
     font-weight: 600;
     margin: 12pt 0 4pt 0;
     page-break-after: avoid;
-}
+}}
 
-p, ul, ol { margin: 0 0 8pt 0; }
+p, ul, ol {{ margin: 0 0 8pt 0; }}
 
-ul, ol { padding-left: 18pt; }
+ul, ol {{ padding-left: 18pt; }}
 
-li { margin-bottom: 3pt; }
+li {{ margin-bottom: 3pt; }}
 
-strong { font-weight: 600; }
+strong {{ font-weight: 600; }}
 
-code {
+code {{
     font-family: 'IBM Plex Mono', 'Courier New', monospace;
     font-size: 9pt;
     background: #f3f3f3;
     padding: 1pt 3pt;
     border-radius: 0;
-}
+}}
 
-pre {
+pre {{
     font-family: 'IBM Plex Mono', 'Courier New', monospace;
     font-size: 9pt;
     background: #f3f3f3;
@@ -112,26 +118,26 @@ pre {
     overflow-x: auto;
     line-height: 1.45;
     margin: 8pt 0;
-}
+}}
 
-pre code { background: none; padding: 0; }
+pre code {{ background: none; padding: 0; }}
 
-blockquote {
+blockquote {{
     margin: 0 0 12pt 0;
     padding: 8pt 14pt;
     border-left: 2pt solid #ff3823;
     color: #444;
     font-style: italic;
-}
+}}
 
-table {
+table {{
     width: 100%;
     border-collapse: collapse;
     margin: 8pt 0 12pt 0;
     font-size: 9.5pt;
-}
+}}
 
-th {
+th {{
     text-align: left;
     font-weight: 600;
     padding: 6pt 8pt;
@@ -141,25 +147,37 @@ th {
     font-size: 8.5pt;
     text-transform: uppercase;
     letter-spacing: 0.08em;
-}
+}}
 
-td {
+td {{
     padding: 5pt 8pt;
     border-bottom: 0.5pt solid #ddd;
     vertical-align: top;
-}
+}}
 
-hr {
+hr {{
     border: none;
     border-top: 0.5pt solid #ccc;
     margin: 16pt 0;
-}
+}}
 
-a {
+a {{
     color: #ff3823;
     text-decoration: none;
-}
+}}
 """
+
+
+def _derive_footer(markdown_path: Path, md_text: str) -> str:
+    """Pull the first H1 from the document; fall back to the file stem."""
+    for line in md_text.splitlines():
+        stripped = line.strip()
+        if stripped.startswith("# "):
+            title = stripped.lstrip("# ").strip()
+            return f"KESTREL · {title.upper()}"
+        if stripped:
+            break
+    return f"KESTREL · {markdown_path.stem.upper().replace('-', ' ').replace('_', ' ')}"
 
 
 def render(markdown_path: Path) -> tuple[Path, Path | None]:
@@ -168,13 +186,14 @@ def render(markdown_path: Path) -> tuple[Path, Path | None]:
 
     md_text = markdown_path.read_text(encoding="utf-8")
     html_body = markdown.markdown(md_text, extensions=["tables", "fenced_code"])
+    css_styles = _CSS_TEMPLATE.format(footer=_derive_footer(markdown_path, md_text))
 
     # Standalone HTML — embeds the print-stylesheet so browser Print -> PDF
     # uses the same styling as WeasyPrint would.
     full_html = (
         "<!DOCTYPE html><html><head><meta charset='utf-8'>"
         f"<title>{markdown_path.stem}</title>"
-        f"<style>{CSS_STYLES}</style></head>"
+        f"<style>{css_styles}</style></head>"
         f"<body>{html_body}</body></html>"
     )
 
@@ -185,8 +204,22 @@ def render(markdown_path: Path) -> tuple[Path, Path | None]:
     if _WEASYPRINT_AVAILABLE:
         pdf_path = markdown_path.with_suffix(".pdf")
         HTML(string=full_html).write_pdf(
-            target=str(pdf_path), stylesheets=[CSS(string=CSS_STYLES)]
+            target=str(pdf_path), stylesheets=[CSS(string=css_styles)]
         )
+    elif _PLAYWRIGHT_AVAILABLE:
+        # Chromium-headless fallback — works on Windows without GDK/Pango.
+        pdf_path = markdown_path.with_suffix(".pdf")
+        with sync_playwright() as p:
+            browser = p.chromium.launch()
+            page = browser.new_page()
+            page.goto(html_path.resolve().as_uri(), wait_until="networkidle")
+            page.pdf(
+                path=str(pdf_path),
+                format="A4",
+                margin={"top": "22mm", "bottom": "22mm", "left": "20mm", "right": "20mm"},
+                print_background=True,
+            )
+            browser.close()
 
     return html_path, pdf_path
 
@@ -199,10 +232,12 @@ def main() -> None:
     html_out, pdf_out = render(md_path)
     print(f"Rendered HTML: {html_out}")
     if pdf_out:
-        print(f"Rendered PDF:  {pdf_out}")
+        engine = "WeasyPrint" if _WEASYPRINT_AVAILABLE else "Playwright/Chromium"
+        print(f"Rendered PDF:  {pdf_out}  (engine: {engine})")
     else:
-        print("PDF skipped: WeasyPrint native deps not available locally.")
-        print("Open the HTML in a browser and File -> Print -> Save as PDF.")
+        print("PDF skipped: neither WeasyPrint nor Playwright is available.")
+        print("Install Playwright with: pip install playwright && playwright install chromium")
+        print("Or open the HTML in a browser and File -> Print -> Save as PDF.")
 
 
 if __name__ == "__main__":

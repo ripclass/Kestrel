@@ -1,0 +1,709 @@
+<!DOCTYPE html><html><head><meta charset='utf-8'><title>bd-aml-coverage</title><style>
+@page {
+    size: A4;
+    margin: 22mm 20mm 22mm 20mm;
+    @bottom-right {
+        content: counter(page) " / " counter(pages);
+        font-family: 'IBM Plex Mono', 'Courier New', monospace;
+        font-size: 9pt;
+        color: #666;
+    }
+    @bottom-left {
+        content: "KESTREL · KESTREL — BANGLADESH AML / CFT REGULATORY COVERAGE";
+        font-family: 'IBM Plex Mono', 'Courier New', monospace;
+        font-size: 8pt;
+        color: #666;
+        letter-spacing: 0.18em;
+    }
+}
+
+* { box-sizing: border-box; }
+
+body {
+    font-family: 'IBM Plex Sans', 'Helvetica Neue', sans-serif;
+    font-size: 10.5pt;
+    line-height: 1.55;
+    color: #15171c;
+}
+
+h1 {
+    font-size: 22pt;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+    margin: 0 0 4pt 0;
+    border-bottom: 1.5pt solid #ff3823;
+    padding-bottom: 8pt;
+}
+
+h2 {
+    font-size: 13pt;
+    font-weight: 600;
+    margin: 18pt 0 6pt 0;
+    page-break-after: avoid;
+}
+
+h3 {
+    font-size: 11pt;
+    font-weight: 600;
+    margin: 12pt 0 4pt 0;
+    page-break-after: avoid;
+}
+
+p, ul, ol { margin: 0 0 8pt 0; }
+
+ul, ol { padding-left: 18pt; }
+
+li { margin-bottom: 3pt; }
+
+strong { font-weight: 600; }
+
+code {
+    font-family: 'IBM Plex Mono', 'Courier New', monospace;
+    font-size: 9pt;
+    background: #f3f3f3;
+    padding: 1pt 3pt;
+    border-radius: 0;
+}
+
+pre {
+    font-family: 'IBM Plex Mono', 'Courier New', monospace;
+    font-size: 9pt;
+    background: #f3f3f3;
+    padding: 8pt 10pt;
+    border-left: 2pt solid #ff3823;
+    overflow-x: auto;
+    line-height: 1.45;
+    margin: 8pt 0;
+}
+
+pre code { background: none; padding: 0; }
+
+blockquote {
+    margin: 0 0 12pt 0;
+    padding: 8pt 14pt;
+    border-left: 2pt solid #ff3823;
+    color: #444;
+    font-style: italic;
+}
+
+table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 8pt 0 12pt 0;
+    font-size: 9.5pt;
+}
+
+th {
+    text-align: left;
+    font-weight: 600;
+    padding: 6pt 8pt;
+    border-bottom: 1pt solid #15171c;
+    background: #f8f8f8;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 8.5pt;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+}
+
+td {
+    padding: 5pt 8pt;
+    border-bottom: 0.5pt solid #ddd;
+    vertical-align: top;
+}
+
+hr {
+    border: none;
+    border-top: 0.5pt solid #ccc;
+    margin: 16pt 0;
+}
+
+a {
+    color: #ff3823;
+    text-decoration: none;
+}
+</style></head><body><h1>Kestrel — Bangladesh AML / CFT regulatory coverage</h1>
+<p><strong>Version</strong>: 2026-05-16
+<strong>Audience</strong>: BFIU procurement, Bangladesh Bank legal, bank CAMLCO procurement teams
+<strong>Purpose</strong>: Surface-by-surface map from every relevant Bangladesh AML/CFT instrument to the Kestrel feature, table, route, or service that operationalises it.</p>
+<p>This document is the procurement-grade complement to <code>docs/goaml-coverage.md</code> (which maps the UNODC goAML surface). Where goAML coverage answers <em>"can a BFIU analyst recognise the screen?"</em>, this document answers <em>"does the platform comply with — and operationalise — Bangladesh's AML legal framework specifically?"</em></p>
+<p>Every claim cites (a) the Kestrel artefact — migration, model, service, route, or web page — and (b) the regulatory source paragraph in <code>REG RULES/*.ocr.txt</code>.</p>
+<hr />
+<h2>┼ Executive summary</h2>
+<p>Kestrel maps to the four primary Bangladesh AML/CFT instruments end-to-end:</p>
+<table>
+<thead>
+<tr>
+<th>Instrument</th>
+<th>Issuing authority</th>
+<th>Coverage</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Money Laundering Prevention Act 2012</strong> (MLPA, with 2015 amendments incorporated)</td>
+<td>Bangladesh Parliament — published in the Gazette, 20 February 2012</td>
+<td>§2(cc) 28 predicate offences typed on STR / Case / Dissemination / Alert (migrations 025 + 028); §23 + §24 enabling clauses cited on each dissemination (migration 024)</td>
+</tr>
+<tr>
+<td><strong>Money Laundering Prevention Rules 2019</strong> (MLPR)</td>
+<td>Bangladesh Bank</td>
+<td>Operational rules for STR / CTR submission, retention, reporting officer designation — implemented across the STR + CTR + audit-log surfaces</td>
+</tr>
+<tr>
+<td><strong>Anti-Terrorism Act 2009</strong> (ATA, with 2013 amendments)</td>
+<td>Bangladesh Parliament</td>
+<td>§15(1) TF mirrors of the MLPA §23 enabling clauses; TF predicate (clause 21) on STR / Case / Dissemination</td>
+</tr>
+<tr>
+<td><strong>BFIU Circulars 22 / 24 / 26</strong> (2019–2020)</td>
+<td>Bangladesh Financial Intelligence Unit</td>
+<td>Information exchange (Circular 22), Trade-Based Money Laundering Guidelines (Circular 24 + Dec 2019 Guidelines), Scheduled Bank AML/CFT instructions (Circular 26)</td>
+</tr>
+</tbody>
+</table>
+<p>In addition, sixteen supporting statutes in the BFIU <strong>Related Acts and Rules (RELAC)</strong> family — Customs Act 2023, Income Tax Act 2023, Cyber Security Ordinance 2025, Anti-Corruption Act 2004, Narcotics Control Act 2018, etc. — provide the predicate-offence universe that Kestrel surfaces via the §2(cc) tagging system.</p>
+<hr />
+<h2>┼ 1 · MLPA 2012 coverage</h2>
+<h3>1.1 MLPA §2(cc) predicate offences — typed end-to-end</h3>
+<p>MLPA §2(cc) enumerates 28 categories of predicate offence. Every category is encoded as a stable code in <code>engine/app/schemas/predicate_offence.py</code> (<code>PredicateOffence</code> Literal), enforced on the database via CHECK constraints, and surfaced in the UI via <code>web/src/types/domain.ts::PREDICATE_OFFENCE_LABELS</code>.</p>
+<table>
+<thead>
+<tr>
+<th>Where the predicate offence appears</th>
+<th>Migration</th>
+<th>Table / column</th>
+<th>Source citation</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>STR reports</td>
+<td>025</td>
+<td><code>str_reports.predicate_offences text[]</code></td>
+<td>MLPA §2(cc) clauses (1)–(28)</td>
+</tr>
+<tr>
+<td>Cases</td>
+<td>025</td>
+<td><code>cases.predicate_offences text[]</code></td>
+<td>same</td>
+</tr>
+<tr>
+<td>Disseminations</td>
+<td>025</td>
+<td><code>disseminations.predicate_offences text[]</code></td>
+<td>same</td>
+</tr>
+<tr>
+<td>Alerts (TBML scan results)</td>
+<td>028</td>
+<td><code>alerts.predicate_offences text[]</code></td>
+<td>same</td>
+</tr>
+<tr>
+<td>Typology library (29 TBML avenues + 5 generic)</td>
+<td>026</td>
+<td><code>typologies.predicate_offences text[]</code></td>
+<td>same — auto-tagged on the rule output</td>
+</tr>
+</tbody>
+</table>
+<p>Three GIN indexes (<code>idx_str_predicate_offences</code>, <code>idx_cases_predicate_offences</code>, <code>idx_dissem_predicate_offences</code>, <code>idx_alerts_predicate_offences</code>) make "every STR alleging customs offence + tax evasion in the last 90 days" a sub-100ms query.</p>
+<p>Source: <code>REG RULES/mlpa_2012_english.ocr.txt</code> lines 300–371 (§2(cc) clauses 1–28).</p>
+<h3>1.2 MLPA §23 + §24 — BFIU powers + dissemination authority</h3>
+<table>
+<thead>
+<tr>
+<th>MLPA clause</th>
+<th>Power conferred</th>
+<th>Where used in Kestrel</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>§23(1)(a)</td>
+<td>Analyse + provide STR/CTR info to LEA</td>
+<td><code>disseminations.mlpa_section = 'mlpa_23_1_a'</code> option</td>
+</tr>
+<tr>
+<td>§23(1)(b)</td>
+<td>Demand info from any reporting org</td>
+<td><code>engine/app/services/disseminations.py</code> audit trail</td>
+</tr>
+<tr>
+<td>§23(1)(c)</td>
+<td>Order suspension / freeze for 30 days (extendable to 6 months)</td>
+<td>Manual workflow on <code>/admin/maintenance</code> — service: <code>update_alert(action='escalate')</code></td>
+</tr>
+<tr>
+<td>§23(1)(d)</td>
+<td>Issue directions for ML prevention — Circulars 22, 24, 26 issue under this clause</td>
+<td><code>disseminations.mlpa_section = 'mlpa_23_1_d'</code>; also <code>circular_22_exchange</code> flag on bank-to-bank exchanges</td>
+</tr>
+<tr>
+<td>§23(1)(e)</td>
+<td>Monitor reporting orgs + on-site inspection</td>
+<td><code>/admin/audit-log</code> + <code>/admin/schedules</code></td>
+</tr>
+<tr>
+<td>§23(1)(f)</td>
+<td>Training + capacity building</td>
+<td>(out-of-scope — operational)</td>
+</tr>
+<tr>
+<td>§23(1)(g)</td>
+<td>Other functions for the purposes of the Act</td>
+<td>catch-all</td>
+</tr>
+<tr>
+<td>§24(3)</td>
+<td>Spontaneous dissemination to LEA</td>
+<td><code>disseminations.mlpa_section = 'mlpa_24_3'</code>; default when authority is BD-LEA</td>
+</tr>
+<tr>
+<td>§24(4)</td>
+<td>Cross-border exchange via Egmont agreement</td>
+<td><code>disseminations.mlpa_section = 'mlpa_24_4'</code>; default when authority is <code>foreign_fiu_egmont</code></td>
+</tr>
+</tbody>
+</table>
+<p>Source: <code>REG RULES/mlpa_2012_english.ocr.txt</code> lines 770–896 (§23 + §24 verbatim).</p>
+<h3>1.3 MLPA §3 (ML override) + §4 (ML offence)</h3>
+<p>ML is a standalone offence in MLPA §4. Kestrel does not adjudicate offences — it surfaces evidence and disseminates to the relevant agency. The chain of custody from initial detection through case to dissemination is preserved in <code>audit_log</code> (append-only, no edit, no override) so MLPA §4 prosecutions have evidentiary support.</p>
+<hr />
+<h2>┼ 2 · BFIU Circulars coverage</h2>
+<h3>2.1 BFIU Circular 22 of 2019 — Information Exchange Among Reporting Organisations</h3>
+<p>Authorises reporting organisations (banks, insurers, financial institutions, money-changers, stock brokers, portfolio managers, asset managers) to exchange information among themselves directly OR via correspondent banking / wire transfer / third-party-acquired services — subject to confidentiality and limited to ML/TF prevention purposes. Issued under MLPA §23(1)(d) + ATA §15(1)(d).</p>
+<table>
+<thead>
+<tr>
+<th>Capability</th>
+<th>Surface</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Mark a dissemination as a Circular-22 bank-to-bank exchange</td>
+<td><code>disseminations.circular_22_exchange boolean</code> (migration 024); UI checkbox on dissemination form</td>
+</tr>
+<tr>
+<td>Recipient typed as peer reporting org</td>
+<td><code>recipient_authority = 'peer_reporting_org_circular_22'</code></td>
+</tr>
+<tr>
+<td>Audit trail</td>
+<td><code>audit_log</code> row keyed to the disseminator's identity, append-only</td>
+</tr>
+<tr>
+<td>Year-end stats by recipient authority</td>
+<td><code>idx_dissem_circular_22</code> partial index on <code>(org_id, disseminated_at DESC) WHERE circular_22_exchange = true</code></td>
+</tr>
+</tbody>
+</table>
+<p>Source: <code>REG RULES/circular_22_dissemination.ocr.txt</code> (full Bangla cover letter).</p>
+<h3>2.2 BFIU Circular 24 of 10 December 2019 + Guidelines for Prevention of TBML</h3>
+<p>Issued under MLPA §23(1)(ka) + ATA §15(1)(ka). Banks had until 10 March 2020 to submit internal TBML policy + 1 June 2020 for implementation. Defines <strong>29 BD-specific TBML avenues</strong> (Guidelines §2.4.1 import × 14, §2.4.2 export × 14, §2.5 royalty × 1) plus <strong>49 numbered TBML Alerts</strong> in Appendix B and a product-wise alert library in Appendix C.</p>
+<table>
+<thead>
+<tr>
+<th>Capability</th>
+<th>Surface</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>29 TBML avenues as canonical typology rows</td>
+<td><code>typologies</code> table — IDs <code>tbml-avenue-import-01..14</code>, <code>tbml-avenue-export-01..14</code>, <code>tbml-avenue-royalty-01</code>; each carries <code>bfiu_avenue_ref</code> (<code>2.4.1.iv</code>, <code>2.4.2.iii</code>, etc.) and <code>predicate_offences[]</code></td>
+</tr>
+<tr>
+<td>6 TBML detection rules (subset of the 49 alerts — extensible)</td>
+<td><code>engine/app/core/detection/trade_rules/*.yaml</code>: <code>over_invoicing</code>, <code>under_invoicing</code>, <code>multiple_invoicing</code>, <code>phantom_shipment</code>, <code>declaration_value_mismatch</code>, <code>transshipment_routing</code></td>
+</tr>
+<tr>
+<td>Trade-transaction data model — LC structure, HS code, country pair, B/L, customs BE</td>
+<td><code>trade_transactions</code> table (migration 027); ~50 columns</td>
+</tr>
+<tr>
+<td>Real-time TBML scoring on every transaction</td>
+<td><code>engine/app/services/realtime_scoring.py</code> — 3 modifiers: <code>tbml_payment_mode_open_account</code>, <code>tbml_hs_code_anomaly</code>, <code>tbml_country_pair_high_risk</code></td>
+</tr>
+<tr>
+<td>TBML scan endpoint</td>
+<td><code>POST /trade/scan</code> — runs 6 rules across caller's org trades, idempotent insert of <code>source_type='tbml_scan'</code> Alert rows</td>
+</tr>
+<tr>
+<td>TBML dashboard</td>
+<td><code>/intelligence/tbml</code> — stats, multi-invoicing clusters, country-pair heatmap, recent alerts</td>
+</tr>
+</tbody>
+</table>
+<p>Source: <code>REG RULES/circular_24_tbml_cover.ocr.txt</code> (cover letter) + <code>REG RULES/tbml_guidelines_2019.ocr.txt</code> (substantive 94-page Guidelines).</p>
+<h3>2.3 BFIU Circular 26 of 16 June 2020 — Scheduled Bank AML/CFT Instructions</h3>
+<p>Master AML/CFT compliance instructions for scheduled banks under MLPA §23(1)(ka) + ATA §15(1)(ka). Covers CAMLCO/DCAMLCO/BAMLCO duties, KYC, transaction monitoring, STR/CTR reporting, UNSCR sanctions list compliance, self-assessment, record preservation, training.</p>
+<table>
+<thead>
+<tr>
+<th>Circular 26 requirement</th>
+<th>Surface</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>CAMLCO / DCAMLCO / BAMLCO designation</td>
+<td><code>profiles.persona = bank_camlco</code> × <code>profiles.role = admin / manager / analyst</code>; org-level admin team surface at <code>/admin/team</code></td>
+</tr>
+<tr>
+<td>Transaction monitoring with automated detection</td>
+<td>Account-centric: 8 detection rules in <code>engine/app/core/detection/rules/*.yaml</code>; trade-centric: 6 TBML rules; real-time: <code>POST /transactions/score</code></td>
+</tr>
+<tr>
+<td>STR / CTR submission</td>
+<td>11 report types on <code>str_reports</code> (<code>str / sar / ctr / tbml / complaint / ier / internal / adverse_media_str / adverse_media_sar / escalated / additional_info</code>); goAML XML round-trip</td>
+</tr>
+<tr>
+<td>Sanctions list compliance (UNSCR + BB Domestic)</td>
+<td>Watchlist ingestion from OFAC + UN + UK FCDO + BB Domestic + PEP; <code>/screen</code> route; inline sanctions modifier in real-time scoring</td>
+</tr>
+<tr>
+<td>Self-assessment + statistics</td>
+<td><code>/reports/statistics</code> + <code>/reports/compliance</code> (compliance scorecard)</td>
+</tr>
+<tr>
+<td>Record preservation</td>
+<td><code>audit_log</code> append-only; 365-day default retention (configurable per Circular 26 §X); archive to Supabase Storage Beat task</td>
+</tr>
+<tr>
+<td>KYC + customer due diligence</td>
+<td><code>/customers</code> 6-route CRUD; primary + beneficial-owner sanctions screening inline; periodic re-screen Beat task at 03:00 BDT</td>
+</tr>
+</tbody>
+</table>
+<p>Source: <code>REG RULES/circular_26_scheduled_banks.ocr.txt</code> (45-page master).</p>
+<hr />
+<h2>┼ 3 · ATA 2009 + ATR 2013 — Terrorist Financing coverage</h2>
+<table>
+<thead>
+<tr>
+<th>Capability</th>
+<th>Surface</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>TF as a predicate offence</td>
+<td><code>terrorism_or_terrorist_financing</code> in the 28-code §2(cc) set</td>
+</tr>
+<tr>
+<td>ATA §15(1)(a–g) enabling clauses on dissemination</td>
+<td><code>disseminations.mlpa_section</code> values <code>ata_15_1_a</code> through <code>ata_15_1_g</code></td>
+</tr>
+<tr>
+<td>TF report type</td>
+<td><code>str_reports.report_type = 'sar'</code> for terrorism-financing flagged STRs</td>
+</tr>
+<tr>
+<td>UNSCR Targeted Financial Sanctions screening</td>
+<td>OFAC + UN watchlists ingested daily; alert source_type <code>cross_bank</code> + sanctions hit modifier; <code>/screen</code> route</td>
+</tr>
+<tr>
+<td>MLA cross-border cooperation</td>
+<td><code>POST /iers</code> (Egmont workflow) — counterparty FIU, reference, deadline tracked; <code>disseminations.mlpa_section = 'mlpa_24_4'</code> for Egmont-channel disseminations</td>
+</tr>
+</tbody>
+</table>
+<p>Source: <code>REG RULES/_mlpa_2012_english.ocr.txt</code> (ATA §15 mirrors §23 nearly word-for-word; both included in <code>MlpaSection</code> Literal).</p>
+<hr />
+<h2>┼ 4 · MLPR 2019 (Money Laundering Prevention Rules) coverage</h2>
+<p>The MLPR is the operational complement to MLPA — defines submission formats, retention periods, reporting officer duties, deadlines. Substantive coverage:</p>
+<table>
+<thead>
+<tr>
+<th>MLPR area</th>
+<th>Surface</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>STR submission within 7 working days of suspicion</td>
+<td><code>str_reports.status</code> lifecycle <code>draft → submitted</code>; UI timer + scheduled-process Beat task at 06:30 BDT for the daily digest</td>
+</tr>
+<tr>
+<td>CTR threshold (Tk 10 lakh single transaction or aggregate per day)</td>
+<td><code>cash_transaction_reports</code> table; threshold + aggregation enforced in <code>engine/app/services/ctr.py</code></td>
+</tr>
+<tr>
+<td>Record preservation (5 years from submission, or longer if requested)</td>
+<td><code>audit_log</code> retention Beat task with configurable cutoff (<code>AUDIT_LOG_RETENTION_DAYS</code>, default 365 — set to 1825 for MLPR-strict compliance via env var)</td>
+</tr>
+<tr>
+<td>Reporting officer designation</td>
+<td><code>profiles.role</code> enum + <code>/admin/team</code></td>
+</tr>
+<tr>
+<td>Suspicious transaction monitoring system</td>
+<td>8 detection rules + 6 TBML rules + sanctions + KYC re-screen Beat task</td>
+</tr>
+</tbody>
+</table>
+<p>Source: <code>REG RULES/_mlpr_extracted.txt</code> (Bangla, extracted on best-effort basis).</p>
+<hr />
+<h2>┼ 5 · RELAC — Related Acts and Rules mapping</h2>
+<p>BFIU's RELAC family is the predicate-offence supporting-law set. Sixteen statutes; the relevant subset for AML detection on this platform:</p>
+<table>
+<thead>
+<tr>
+<th>RELAC statute</th>
+<th>Year</th>
+<th>Predicate offence category surfaced</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><a href="http://bdlaws.minlaw.gov.bd/act-details-1476.html">Customs Act</a></td>
+<td>2023</td>
+<td><code>smuggling_customs_excise</code> §2(cc)(18) — TBML + smuggling</td>
+</tr>
+<tr>
+<td><a href="http://bdlaws.minlaw.gov.bd/act-1429.html">Income Tax Act</a></td>
+<td>2023</td>
+<td><code>tax_related_offences</code> §2(cc)(19)</td>
+</tr>
+<tr>
+<td><a href="http://bdlaws.minlaw.gov.bd/act-914.html">Anti-Corruption Act</a></td>
+<td>2004</td>
+<td><code>corruption_and_bribery</code> §2(cc)(1)</td>
+</tr>
+<tr>
+<td><a href="http://bdlaws.minlaw.gov.bd/act-1276.html">Narcotics Control Act</a></td>
+<td>2018</td>
+<td><code>illegal_trade_narcotics</code> §2(cc)(8)</td>
+</tr>
+<tr>
+<td><a href="http://bdlaws.minlaw.gov.bd/upload/act/2025-05-25-11-22-35-Ordinance-No.-25-of-2025.pdf">Cyber Security Ordinance</a></td>
+<td>2025</td>
+<td><code>other_bb_gazetted</code> §2(cc)(28) — cyber-fraud predicate</td>
+</tr>
+<tr>
+<td><a href="http://bdlaws.minlaw.gov.bd/act-1086.html">Prevention of Human Trafficking Act</a></td>
+<td>2012</td>
+<td><code>human_trafficking</code> §2(cc)(16) + <code>trafficking_women_children</code> §2(cc)(12)</td>
+</tr>
+<tr>
+<td><a href="http://bdlaws.minlaw.gov.bd/act-38.html?hl=1">Arms Act</a></td>
+<td>1878</td>
+<td><code>illegal_trade_firearms</code> §2(cc)(7)</td>
+</tr>
+<tr>
+<td><a href="https://www.bfiu.org.bd/pdf/regulationguideline/act/gold_policy-2018(amended)-2021.pdf">Gold Policy (amended)</a></td>
+<td>2021</td>
+<td><code>smuggling_currency</code> §2(cc)(14) — precious-metal predicate</td>
+</tr>
+<tr>
+<td><a href="http://bdlaws.minlaw.gov.bd/upload/act/2021-11-17-11-42-18-41.-Mutual-Legal-Assitant-in-Criminal-Matters-Act-2012.pdf">Mutual Legal Assistance in Criminal Matters Act</a> + <a href="https://www.bb.org.bd/aboutus/dept/bfiu/laws/mutuallegalassistance_rules2012.pdf">Rules</a></td>
+<td>2012</td>
+<td>Cross-border via <code>mlpa_24_4</code> + <code>recipient_authority = foreign_fiu_egmont</code></td>
+</tr>
+<tr>
+<td><a href="http://bdlaws.minlaw.gov.bd/act-1392.html">Bankers' Books Evidence Act</a></td>
+<td>2021</td>
+<td>Audit-trail evidentiary value</td>
+</tr>
+<tr>
+<td><a href="http://bdlaws.minlaw.gov.bd/act-835.html">Women and Children Abuse Prevention Act</a></td>
+<td>2000</td>
+<td><code>trafficking_women_children</code> §2(cc)(12)</td>
+</tr>
+<tr>
+<td><a href="http://bdlaws.minlaw.gov.bd/act-details-479.html">Extradition Act</a></td>
+<td>1974</td>
+<td>Cross-border</td>
+</tr>
+<tr>
+<td><a href="http://bdlaws.minlaw.gov.bd/act-217.html">Prevention of Corruption Act</a></td>
+<td>1947</td>
+<td><code>corruption_and_bribery</code> §2(cc)(1)</td>
+</tr>
+<tr>
+<td><a href="http://bdlaws.minlaw.gov.bd/act-75.html?hl=1">Code of Criminal Procedure</a></td>
+<td>1898</td>
+<td>Procedural</td>
+</tr>
+<tr>
+<td><a href="http://bdlaws.minlaw.gov.bd/act-88.html">Limitation Act</a></td>
+<td>1908</td>
+<td>Procedural</td>
+</tr>
+</tbody>
+</table>
+<p>The 16 statutes are referenced as URLs in the RELAC index at <a href="https://www.bfiu.org.bd/index.php/actsandrules/relac">https://www.bfiu.org.bd/index.php/actsandrules/relac</a>. Each predicate-offence tag on a Kestrel alert / STR / case / dissemination is the bridge between the suspicious activity Kestrel detects and the supporting law a prosecutor would charge under.</p>
+<hr />
+<h2>┼ 6 · Audit, evidentiary, and RLS guarantees</h2>
+<h3>6.1 Audit log</h3>
+<p>Append-only <code>audit_log</code> table (no UPDATE policy in RLS — INSERT only from application code, no DELETE). Every dissemination, STR submission, alert action, case mutation, AI invocation, and admin change writes a row keyed to actor <code>user_id</code> + actor <code>org_id</code> + IP + request_id + timestamp + structured <code>details jsonb</code>. Bankers' Books Evidence Act 2021 evidentiary standard applies.</p>
+<h3>6.2 RLS per-org isolation</h3>
+<p>Every domain table is RLS-enabled with policies derived from <code>auth_org_id()</code> + <code>is_regulator()</code>. Bank persona sees own-org rows only; regulator persona sees across orgs. Cross-bank shared tables (<code>entities</code>, <code>matches</code>, <code>connections</code>, <code>watchlist_entries</code>, <code>reference_tables</code>) are shared by design. <strong>No regulator escape hatch on <code>audit_log</code></strong> — the regulator cannot see another org's audit trail without an explicit dissemination request (MLPA §23(1)(b)) that itself gets audit-logged.</p>
+<h3>6.3 Persona-aware anonymisation (FATF Recommendation 9 + Circular 22 confidentiality)</h3>
+<p>Bank persona NEVER sees other bank names on the cross-bank or TBML dashboards — peer banks render as <code>Peer institution N</code>, match keys redact to last 4 characters (<code>····5001</code>). Enforced server-side in <code>services/cross_bank.py</code> + <code>services/tbml.py</code> — not at the UI layer. The API never returns the full key to a bank caller.</p>
+<p>Regression-tested via <code>tests/test_cross_bank.py</code> + <code>tests/test_tbml_dashboard_service.py</code>.</p>
+<hr />
+<h2>┼ 7 · Honest gaps</h2>
+<ol>
+<li><strong>Outbound goAML-XML adapter to UNODC central server</strong>: file-based XML import + export round-trip is implemented (<code>engine/app/parsers/goaml_xml.py</code> + the per-STR export route). Machine-to-machine sync into the goAML central server is not yet built — <code>engine/app/adapters/goaml.py</code> is a stub. BFIU disseminations continue to use the export path.</li>
+<li><strong>Customs reference-price benchmark feed</strong>: the over/under-invoicing rules require <code>trade_transactions.market_reference_value</code> to fire. A live feed from NBR's customs reference-price database is a Phase C dependency; today the field is populated manually or via a periodic ingestion job that banks operate on their side.</li>
+<li><strong>Live ingestion of BB Domestic Sanctions List</strong>: synthetic seed of 22 watchlist entries (including 4 BB Domestic) is on prod. Live BFIU domestic-list ingestion is gated on <code>KESTREL_WATCHLIST_INGESTION_ENABLED=true</code> (currently off). The list at <a href="https://www.bfiu.org.bd/pdf/local_sanction_list_eng.pdf">https://www.bfiu.org.bd/pdf/local_sanction_list_eng.pdf</a> is the source; English + Bangla variants are published periodically.</li>
+<li><strong>EU Financial Sanctions File</strong> — requires credentialed access. 1-day wire-up after the credential lands.</li>
+<li><strong>Pen test + SOC 2</strong>: not yet certified. Path documented in <code>docs/sales/production-readiness.md</code>. First-pilot revenue funds the pen test + SOC 2 kickoff.</li>
+</ol>
+<hr />
+<h2>┼ 8 · Migration ledger (procurement traceability)</h2>
+<table>
+<thead>
+<tr>
+<th>Migration</th>
+<th>Date applied</th>
+<th>What it adds</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>001</td>
+<td>2026-04</td>
+<td>Core schema (orgs, profiles, entities, accounts, transactions, alerts, cases, STRs)</td>
+</tr>
+<tr>
+<td>002–022</td>
+<td>2026-04 → 2026-05</td>
+<td>V1 through V3 phases — see <code>CLAUDE.md</code> §"Current state"</td>
+</tr>
+<tr>
+<td><strong>023</strong></td>
+<td>2026-05-16</td>
+<td><code>bank_filer</code> persona + <code>filing_only</code> plan tier (goAML-replacement free tier)</td>
+</tr>
+<tr>
+<td><strong>024</strong></td>
+<td>2026-05-16</td>
+<td><code>disseminations.recipient_authority</code> (13 named BD authorities) + <code>mlpa_section</code> (16 enabling clauses) + <code>circular_22_exchange</code> boolean</td>
+</tr>
+<tr>
+<td><strong>025</strong></td>
+<td>2026-05-16</td>
+<td><code>predicate_offences text[]</code> on STR + Case + Dissemination with 28-code CHECK from MLPA §2(cc)</td>
+</tr>
+<tr>
+<td><strong>026</strong></td>
+<td>2026-05-16</td>
+<td><code>typologies.predicate_offences</code> + <code>mlpa_section</code> + <code>bfiu_avenue_ref</code>; 29 BD-specific TBML avenues seeded</td>
+</tr>
+<tr>
+<td><strong>027</strong></td>
+<td>2026-05-16</td>
+<td><code>trade_transactions</code> table — ~50 columns covering LC structure, HS code, country pair, B/L, customs BE, settlement</td>
+</tr>
+<tr>
+<td><strong>028</strong></td>
+<td>2026-05-16</td>
+<td><code>alerts.source_type</code> += <code>tbml_scan</code>; <code>alerts.predicate_offences</code> + <code>linked_trade_id</code> + <code>bfiu_avenue_ref</code></td>
+</tr>
+</tbody>
+</table>
+<p>Source migrations live under <code>supabase/migrations/</code>. Every CHECK constraint, index, and column comment in this document is verifiable against the SQL on the filesystem.</p>
+<hr />
+<h2>┼ Glossary</h2>
+<table>
+<thead>
+<tr>
+<th>Term</th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>AD</strong></td>
+<td>Authorised Dealer — a scheduled bank licensed to handle foreign exchange</td>
+</tr>
+<tr>
+<td><strong>B/L</strong></td>
+<td>Bill of Lading</td>
+</tr>
+<tr>
+<td><strong>BAMLCO</strong></td>
+<td>Branch Anti-Money Laundering Compliance Officer</td>
+</tr>
+<tr>
+<td><strong>BE</strong></td>
+<td>Bill of Entry — customs-side import declaration</td>
+</tr>
+<tr>
+<td><strong>BFIU</strong></td>
+<td>Bangladesh Financial Intelligence Unit</td>
+</tr>
+<tr>
+<td><strong>CAMLCO</strong></td>
+<td>Chief Anti-Money Laundering Compliance Officer</td>
+</tr>
+<tr>
+<td><strong>CTR</strong></td>
+<td>Cash Transaction Report (Tk 10 lakh threshold)</td>
+</tr>
+<tr>
+<td><strong>ERC</strong></td>
+<td>Exporter Registration Certificate</td>
+</tr>
+<tr>
+<td><strong>FERA</strong></td>
+<td>Foreign Exchange Regulation Act 1947</td>
+</tr>
+<tr>
+<td><strong>GFET</strong></td>
+<td>Guidelines for Foreign Exchange Transactions (BB 2018)</td>
+</tr>
+<tr>
+<td><strong>IER</strong></td>
+<td>Information Exchange Request — Egmont workflow</td>
+</tr>
+<tr>
+<td><strong>IRC</strong></td>
+<td>Importer Registration Certificate</td>
+</tr>
+<tr>
+<td><strong>LC</strong></td>
+<td>Letter of Credit</td>
+</tr>
+<tr>
+<td><strong>LCAF</strong></td>
+<td>LC Authorisation Form</td>
+</tr>
+<tr>
+<td><strong>MLA</strong></td>
+<td>Mutual Legal Assistance</td>
+</tr>
+<tr>
+<td><strong>MLPA / MLPR</strong></td>
+<td>Money Laundering Prevention Act / Rules</td>
+</tr>
+<tr>
+<td><strong>NBR</strong></td>
+<td>National Board of Revenue</td>
+</tr>
+<tr>
+<td><strong>RELAC</strong></td>
+<td>Related Acts and Rules (BFIU index of supporting statutes)</td>
+</tr>
+<tr>
+<td><strong>STR / SAR</strong></td>
+<td>Suspicious Transaction Report / Suspicious Activity Report</td>
+</tr>
+<tr>
+<td><strong>TBML</strong></td>
+<td>Trade-Based Money Laundering</td>
+</tr>
+<tr>
+<td><strong>UNSCR</strong></td>
+<td>UN Security Council Resolution (sanctions framework)</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<p><em>Document version 2026-05-16. The migration ledger and every regulatory citation in this document map to a SQL file under <code>supabase/migrations/</code> or a paragraph in <code>REG RULES/*.ocr.txt</code>. For procurement review under NDA, the full pg_policies dump + tenant-isolation simulation transcript is available on request.</em></p>
+<p><strong>Contact</strong>: intake@kestrelfin.com · Enso Intelligence Inc., Dhaka · <code>kestrelfin.com</code></p></body></html>

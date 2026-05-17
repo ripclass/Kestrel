@@ -99,6 +99,28 @@ const users = [
       org_type: "bank",
     },
   },
+  {
+    // City Bank CAMLCO demo persona — second commercial Pro-tier prospect
+    // alongside Sonali. Distinct workspace so City Bank pitch shows their own
+    // bank name in the operator panel.
+    email: process.env.CITY_CAMLCO_EMAIL ?? "camlco@kestrel-city.test",
+    password: process.env.CITY_CAMLCO_PASSWORD ?? "Kestrel!City!2026",
+    email_confirm: true,
+    user_metadata: {
+      org_id: "9c666666-6666-4666-8666-666666666666",
+      full_name: "Nashid Karim",
+      role: "manager",
+      persona: "bank_camlco",
+      designation: "Chief AML Compliance Officer",
+      org_type: "bank",
+    },
+    app_metadata: {
+      org_id: "9c666666-6666-4666-8666-666666666666",
+      role: "manager",
+      persona: "bank_camlco",
+      org_type: "bank",
+    },
+  },
 ];
 
 async function findUserByEmail(email) {
