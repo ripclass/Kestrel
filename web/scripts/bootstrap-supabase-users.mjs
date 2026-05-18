@@ -100,6 +100,29 @@ const users = [
     },
   },
   {
+    // Sonali SPO — Ramprosad Das. Admin-tier seat for the Sonali pilot demo
+    // (May 18, 2026). Sits alongside Mahmudul Karim (manager/Deputy CAMLCO).
+    // Hand the password directly to Ramprosad face-to-face; rotate after
+    // the pilot agreement is signed.
+    email: process.env.SONALI_SPO_EMAIL ?? "ramprosad@kestrel-sonali.test",
+    password: process.env.SONALI_SPO_PASSWORD ?? "Kestrel!Sonali!2026",
+    email_confirm: true,
+    user_metadata: {
+      org_id: "9c222222-2222-4222-8222-222222222222",
+      full_name: "Ramprosad Das",
+      role: "admin",
+      persona: "bank_camlco",
+      designation: "SPO, AML Compliance, Sonali Bank PLC",
+      org_type: "bank",
+    },
+    app_metadata: {
+      org_id: "9c222222-2222-4222-8222-222222222222",
+      role: "admin",
+      persona: "bank_camlco",
+      org_type: "bank",
+    },
+  },
+  {
     // City Bank CAMLCO demo persona — second commercial Pro-tier prospect
     // alongside Sonali. Distinct workspace so City Bank pitch shows their own
     // bank name in the operator panel.
