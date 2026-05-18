@@ -3,13 +3,18 @@ title: First-time high value
 category: behavioral
 weight: 4.0
 description: >
-  Large transfer to a new beneficiary from a relatively new account.
+  High-value transaction in a recently-opened account — single transaction
+  above BDT 10 lakh from an account less than 30 days old to a beneficiary
+  with no prior transaction history. Applies to individual and proprietorship
+  accounts. Regulatory basis: BFIU Circular 26 § 4.3 (new-account monitoring) +
+  FATF Recommendation 10 (Customer Due Diligence) + Wolfsberg AML Principles
+  § 5.4 (initial-period activity monitoring).
 
 conditions:
   trigger: new_beneficiary_high_value
   params:
-    min_amount: 500000
-    max_account_age_days: 90
+    min_amount: 1000000
+    max_account_age_days: 30
     no_prior_transactions_to_beneficiary: true
 
 scoring:

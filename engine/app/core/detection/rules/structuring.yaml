@@ -3,14 +3,17 @@ title: Structuring
 category: pattern
 weight: 5.0
 description: >
-  Multiple transactions just under the CTR reporting threshold (10 lakh BDT)
-  within a short period, suggesting deliberate avoidance of reporting.
+  Sub-threshold cash structuring — repeated transactions in the BDT 9.0–9.99
+  lakh band, designed to stay just below the BDT 10 lakh CTR mandatory-reporting
+  threshold. Default trigger: 3 or more such transactions per account within a
+  24-hour window. Regulatory basis: BFIU Circular 26 § 4.2 (CTR threshold) +
+  FATF Recommendation 20 (STR obligations) + Wolfsberg AML Principles § 4.3.
 
 conditions:
   trigger: sub_threshold_clustering
   params:
     threshold_amount: 1000000
-    margin_pct: 5
+    margin_pct: 10
     min_count: 3
     time_window_hours: 24
 

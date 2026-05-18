@@ -3,15 +3,19 @@ title: Dormant account spike
 category: pattern
 weight: 5.0
 description: >
-  Account with near-zero balance suddenly receives large credits.
-  Rented or hijacked accounts often show this pattern.
+  Dormant account reactivation with significant transaction activity — an
+  account inactive for 30+ days suddenly transacting above BDT 5 lakh
+  (individual) or BDT 10 lakh (proprietorship/corporate) within 30 days of
+  reactivation. Rented or hijacked accounts commonly show this pattern.
+  Regulatory basis: BFIU Circular 26 § 4.6 (dormant-account monitoring) +
+  FATF Recommendation 10 (ongoing CDD) + Wolfsberg AML Principles § 5.5.
 
 conditions:
   trigger: balance_spike_after_dormancy
   params:
     dormant_days: 30
     max_prior_balance: 10000
-    min_spike_amount: 5000000
+    min_spike_amount: 500000
 
 scoring:
   base: 65
