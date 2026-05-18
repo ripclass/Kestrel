@@ -214,29 +214,45 @@ html.dark {
   border-radius: 0;
 }
 
-/* Slim scrollbars in the platform surface — Claude.ai-style.
+/* Slim scrollbars — Claude.ai-style.
  * Default browser scrollbars are 16-18px on Windows; we trim to 8px and
- * use a low-contrast bone thumb that brightens on hover. Track is fully
- * transparent so it doesn't draw a visible gutter. */
-.platform-surface ::-webkit-scrollbar {
+ * use a low-contrast thumb that brightens on hover. Track + corner fully
+ * transparent so they don't draw a visible gutter.
+ *
+ * Applied globally to <html> + every descendant so it catches:
+ *   - The document-level scroll (where the main content area scrolls).
+ *   - The sidebar's overflow-y-auto.
+ *   - Any inner panel that scrolls.
+ *
+ * Public marketing pages get the same slim treatment which fits the
+ * Sovereign Ledger aesthetic across the whole site. */
+html::-webkit-scrollbar,
+*::-webkit-scrollbar {
   width: 8px;
   height: 8px;
 }
-.platform-surface ::-webkit-scrollbar-track {
+html::-webkit-scrollbar-track,
+*::-webkit-scrollbar-track {
   background: transparent;
 }
-.platform-surface ::-webkit-scrollbar-thumb {
+html::-webkit-scrollbar-thumb,
+*::-webkit-scrollbar-thumb {
   background: rgba(234, 230, 218, 0.16);
   border-radius: 0;
 }
-.platform-surface ::-webkit-scrollbar-thumb:hover {
+html::-webkit-scrollbar-thumb:hover,
+*::-webkit-scrollbar-thumb:hover {
   background: rgba(234, 230, 218, 0.32);
 }
-.platform-surface ::-webkit-scrollbar-corner {
+html::-webkit-scrollbar-corner,
+*::-webkit-scrollbar-corner {
   background: transparent;
 }
-.platform-surface,
-.platform-surface * {
+html {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(234, 230, 218, 0.16) transparent;
+}
+*, *::before, *::after {
   scrollbar-width: thin;
   scrollbar-color: rgba(234, 230, 218, 0.16) transparent;
 }
