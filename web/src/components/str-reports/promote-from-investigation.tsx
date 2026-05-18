@@ -82,9 +82,18 @@ export function PromoteFromInvestigation({
 
       setPhase("creating");
 
+      // str_reports.subject_account is NOT NULL in the DB schema (migration 001).
+      // The AI-investigation entity may be a phone / NID / business — not an
+      // account number — but we still need a non-empty identifier for the
+      // legacy column. Use entity_name; the analyst edits it on the detail
+      // page once the draft loads.
+      const subjectIdentifier =
+        prefill.entity_name?.trim() || `AI-INV-${prefill.entity_id.slice(0, 8)}`;
+
       const body = {
         reportType: "str",
-        subjectName: prefill.entity_name ?? "Subject from AI investigation",
+        subjectName: subjectIdentifier,
+        subjectAccount: subjectIdentifier,
         narrative: buildNarrative(prefill),
         category: "money_laundering",
         metadata: {
