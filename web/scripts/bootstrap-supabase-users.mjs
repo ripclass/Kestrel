@@ -123,6 +123,93 @@ const users = [
     },
   },
   {
+    // Sonali AML Unit Head — manager-role seat covering the operational floor
+    // (section heads, daily triage oversight). Demonstrates the manager
+    // seat tier alongside the admin (Ramprosad) and Deputy CAMLCO (Mahmudul).
+    email: process.env.SONALI_UNITHEAD_EMAIL ?? "unithead@kestrel-sonali.test",
+    password: process.env.SONALI_UNITHEAD_PASSWORD ?? "Kestrel!Sonali!2026",
+    email_confirm: true,
+    user_metadata: {
+      org_id: "9c222222-2222-4222-8222-222222222222",
+      full_name: "Ferdous Akhter",
+      role: "manager",
+      persona: "bank_camlco",
+      designation: "AML Unit Head, Sonali Bank PLC",
+      org_type: "bank",
+    },
+    app_metadata: {
+      org_id: "9c222222-2222-4222-8222-222222222222",
+      role: "manager",
+      persona: "bank_camlco",
+      org_type: "bank",
+    },
+  },
+  {
+    // Sonali AML Investigator — analyst-role seat. The bulk seat that handles
+    // daily alert triage + STR drafting + case investigation.
+    email: process.env.SONALI_ANALYST1_EMAIL ?? "analyst1@kestrel-sonali.test",
+    password: process.env.SONALI_ANALYST1_PASSWORD ?? "Kestrel!Sonali!2026",
+    email_confirm: true,
+    user_metadata: {
+      org_id: "9c222222-2222-4222-8222-222222222222",
+      full_name: "Tahsina Begum",
+      role: "analyst",
+      persona: "bank_camlco",
+      designation: "AML Investigator, Sonali Bank PLC",
+      org_type: "bank",
+    },
+    app_metadata: {
+      org_id: "9c222222-2222-4222-8222-222222222222",
+      role: "analyst",
+      persona: "bank_camlco",
+      org_type: "bank",
+    },
+  },
+  {
+    // Sonali Case Officer — analyst-role seat focused on case ownership +
+    // dissemination preparation. Same role tier as Investigator but separate
+    // operational function.
+    email: process.env.SONALI_ANALYST2_EMAIL ?? "analyst2@kestrel-sonali.test",
+    password: process.env.SONALI_ANALYST2_PASSWORD ?? "Kestrel!Sonali!2026",
+    email_confirm: true,
+    user_metadata: {
+      org_id: "9c222222-2222-4222-8222-222222222222",
+      full_name: "Kabir Hossain",
+      role: "analyst",
+      persona: "bank_camlco",
+      designation: "Case Officer, Sonali Bank PLC",
+      org_type: "bank",
+    },
+    app_metadata: {
+      org_id: "9c222222-2222-4222-8222-222222222222",
+      role: "analyst",
+      persona: "bank_camlco",
+      org_type: "bank",
+    },
+  },
+  {
+    // Sonali Internal Audit — viewer-role read-only seat. Used by SBU/audit
+    // staff who consume the AML team's outputs but cannot mutate. Pattern
+    // generalises to any bank's audit / compliance committee tier.
+    email: process.env.SONALI_AUDIT_EMAIL ?? "audit@kestrel-sonali.test",
+    password: process.env.SONALI_AUDIT_PASSWORD ?? "Kestrel!Sonali!2026",
+    email_confirm: true,
+    user_metadata: {
+      org_id: "9c222222-2222-4222-8222-222222222222",
+      full_name: "Nazma Sultana",
+      role: "viewer",
+      persona: "bank_camlco",
+      designation: "Internal Audit, Sonali Bank PLC",
+      org_type: "bank",
+    },
+    app_metadata: {
+      org_id: "9c222222-2222-4222-8222-222222222222",
+      role: "viewer",
+      persona: "bank_camlco",
+      org_type: "bank",
+    },
+  },
+  {
     // City Bank CAMLCO demo persona — second commercial Pro-tier prospect
     // alongside Sonali. Distinct workspace so City Bank pitch shows their own
     // bank name in the operator panel.
