@@ -1,12 +1,13 @@
+from datetime import datetime, timezone
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, Query, Response
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.auth import AuthenticatedUser, get_current_user
 from app.dependencies import get_current_session
 from app.schemas.report import ComplianceScorecard, NationalReportResponse, ReportExportResponse, TrendSeriesResponse
-from app.services.pdf_export import build_report_export
+from app.services.pdf_export import render_report_pack_pdf
 from app.services.reporting import build_compliance_scorecard, build_national_dashboard, build_trend_series
 
 router = APIRouter()
@@ -36,9 +37,22 @@ async def trends(
     return await build_trend_series(session)
 
 
-@router.post("/export", response_model=ReportExportResponse)
+@router.post("/export")
 async def export_report(
+    user: Annotated[AuthenticatedUser, Depends(get_current_user)],
+    session: Annotated[AsyncSession, Depends(get_current_session)],
     report_type: str = Query("national"),
-    user: Annotated[AuthenticatedUser, Depends(get_current_user)] = None,
-) -> ReportExportResponse:
-    return ReportExportResponse.model_validate(build_report_export(report_type))
+) -> Response:
+    pdf_bytes = await render_report_pack_pdf(
+        session, report_type=report_type, user=user
+    )
+    timestamp = datetime.now(timezone.utc).strftime("%Y%m%d-%H%M")
+    filename = f"kestrel-{report_type}-pack-{timestamp}.pdf"
+    return Response(
+        content=pdf_bytes,
+        media_type="application/pdf",
+        headers={
+            "Content-Disposition": f'attachment; filename="{filename}"',
+            "Cache-Control": "no-store",
+        },
+    )
