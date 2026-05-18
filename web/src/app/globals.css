@@ -214,6 +214,33 @@ html.dark {
   border-radius: 0;
 }
 
+/* Slim scrollbars in the platform surface — Claude.ai-style.
+ * Default browser scrollbars are 16-18px on Windows; we trim to 8px and
+ * use a low-contrast bone thumb that brightens on hover. Track is fully
+ * transparent so it doesn't draw a visible gutter. */
+.platform-surface ::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+.platform-surface ::-webkit-scrollbar-track {
+  background: transparent;
+}
+.platform-surface ::-webkit-scrollbar-thumb {
+  background: rgba(234, 230, 218, 0.16);
+  border-radius: 0;
+}
+.platform-surface ::-webkit-scrollbar-thumb:hover {
+  background: rgba(234, 230, 218, 0.32);
+}
+.platform-surface ::-webkit-scrollbar-corner {
+  background: transparent;
+}
+.platform-surface,
+.platform-surface * {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(234, 230, 218, 0.16) transparent;
+}
+
 /*
  * A11y: keyboard focus indicator.
  *
