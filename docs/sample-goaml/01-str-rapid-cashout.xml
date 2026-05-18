@@ -1,0 +1,156 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Sample goAML STR — Rapid cash-out pattern.
+  Synthetic data for Kestrel demos. Reporting org is Sonali Bank PLC.
+  Subject: Salim Reza, BDT 27,50,000 received then withdrawn within 24 hours
+  across three branches. Classic rapid cash-out / structuring indicator.
+-->
+<report>
+  <submission_code>STR</submission_code>
+  <report_code>E</report_code>
+  <rentity_id>SBPL</rentity_id>
+  <rentity_branch>Motijheel HO</rentity_branch>
+  <submission_date>2026-05-17T09:32:00</submission_date>
+  <currency_code_local>BDT</currency_code_local>
+  <reporting_person>
+    <first_name>Mahmudul</first_name>
+    <last_name>Karim</last_name>
+    <title>Deputy CAMLCO, Sonali Bank PLC</title>
+  </reporting_person>
+  <location>
+    <address>
+      <address>Sonali Bank Bhaban, Motijheel C/A</address>
+      <town>Dhaka</town>
+      <country_code>BD</country_code>
+    </address>
+  </location>
+  <reason>Subject received BDT 27,50,000 in two deposits from previously
+    unknown counterparties and withdrew the full amount in cash across
+    three Sonali branches over 18 hours. Pattern matches BFIU TBML
+    Guidelines § 2.4.1 indicators + Kestrel rule rapid_cashout. Account
+    was opened 31 days ago with minimal historical activity. Subject's
+    declared occupation does not justify the volume.</reason>
+  <action>Account flagged for enhanced monitoring; counterparty IDs
+    forwarded for cross-bank correlation.</action>
+  <transaction>
+    <transactionnumber>SBPL-2605-198772</transactionnumber>
+    <internal_ref_number>TXN-2026-05-15-001</internal_ref_number>
+    <transaction_location>Sonali Bank, Motijheel Main Branch</transaction_location>
+    <transaction_description>Inbound BEFTN credit</transaction_description>
+    <date_transaction>2026-05-15T11:14:00</date_transaction>
+    <transmode_code>BEFTN</transmode_code>
+    <amount_local>1500000.00</amount_local>
+    <transaction_currency_code>BDT</transaction_currency_code>
+    <t_from>
+      <from_account>
+        <account>2756202622138</account>
+        <institution_code>CTBL</institution_code>
+        <institution_name>City Bank PLC</institution_name>
+      </from_account>
+    </t_from>
+    <t_to>
+      <to_account>
+        <account>2532484038200</account>
+        <institution_code>SBPL</institution_code>
+        <institution_name>Sonali Bank PLC</institution_name>
+      </to_account>
+      <to_person>
+        <first_name>Salim</first_name>
+        <last_name>Reza</last_name>
+        <nationality_document>
+          <document_type>NID</document_type>
+          <document_number>3502735816440</document_number>
+        </nationality_document>
+        <phones>
+          <phone>
+            <tph_contact_type>mobile</tph_contact_type>
+            <tph_number>01711555088</tph_number>
+          </phone>
+        </phones>
+      </to_person>
+    </t_to>
+  </transaction>
+  <transaction>
+    <transactionnumber>SBPL-2605-198773</transactionnumber>
+    <internal_ref_number>TXN-2026-05-15-002</internal_ref_number>
+    <transaction_location>Sonali Bank, Motijheel Main Branch</transaction_location>
+    <transaction_description>Inbound NPSB credit</transaction_description>
+    <date_transaction>2026-05-15T15:42:00</date_transaction>
+    <transmode_code>NPSB</transmode_code>
+    <amount_local>1250000.00</amount_local>
+    <transaction_currency_code>BDT</transaction_currency_code>
+    <t_from>
+      <from_account>
+        <account>1546682527153</account>
+        <institution_code>IBBL</institution_code>
+        <institution_name>Islami Bank Bangladesh PLC</institution_name>
+      </from_account>
+    </t_from>
+    <t_to>
+      <to_account>
+        <account>2532484038200</account>
+        <institution_code>SBPL</institution_code>
+        <institution_name>Sonali Bank PLC</institution_name>
+      </to_account>
+    </t_to>
+  </transaction>
+  <transaction>
+    <transactionnumber>SBPL-2605-198801</transactionnumber>
+    <internal_ref_number>TXN-2026-05-16-007</internal_ref_number>
+    <transaction_location>Sonali Bank, Gulshan Branch</transaction_location>
+    <transaction_description>Cash withdrawal — counter</transaction_description>
+    <date_transaction>2026-05-16T10:08:00</date_transaction>
+    <transmode_code>CASH</transmode_code>
+    <amount_local>950000.00</amount_local>
+    <transaction_currency_code>BDT</transaction_currency_code>
+    <t_from>
+      <from_account>
+        <account>2532484038200</account>
+        <institution_code>SBPL</institution_code>
+        <institution_name>Sonali Bank PLC</institution_name>
+      </from_account>
+      <from_person>
+        <first_name>Salim</first_name>
+        <last_name>Reza</last_name>
+        <nationality_document>
+          <document_type>NID</document_type>
+          <document_number>3502735816440</document_number>
+        </nationality_document>
+      </from_person>
+    </t_from>
+  </transaction>
+  <transaction>
+    <transactionnumber>SBPL-2605-198844</transactionnumber>
+    <internal_ref_number>TXN-2026-05-16-019</internal_ref_number>
+    <transaction_location>Sonali Bank, Dhanmondi Branch</transaction_location>
+    <transaction_description>Cash withdrawal — counter</transaction_description>
+    <date_transaction>2026-05-16T13:55:00</date_transaction>
+    <transmode_code>CASH</transmode_code>
+    <amount_local>950000.00</amount_local>
+    <transaction_currency_code>BDT</transaction_currency_code>
+    <t_from>
+      <from_account>
+        <account>2532484038200</account>
+        <institution_code>SBPL</institution_code>
+        <institution_name>Sonali Bank PLC</institution_name>
+      </from_account>
+    </t_from>
+  </transaction>
+  <transaction>
+    <transactionnumber>SBPL-2605-198902</transactionnumber>
+    <internal_ref_number>TXN-2026-05-16-038</internal_ref_number>
+    <transaction_location>Sonali Bank, Uttara Sector 7 Branch</transaction_location>
+    <transaction_description>Cash withdrawal — counter</transaction_description>
+    <date_transaction>2026-05-16T17:20:00</date_transaction>
+    <transmode_code>CASH</transmode_code>
+    <amount_local>850000.00</amount_local>
+    <transaction_currency_code>BDT</transaction_currency_code>
+    <t_from>
+      <from_account>
+        <account>2532484038200</account>
+        <institution_code>SBPL</institution_code>
+        <institution_name>Sonali Bank PLC</institution_name>
+      </from_account>
+    </t_from>
+  </transaction>
+</report>

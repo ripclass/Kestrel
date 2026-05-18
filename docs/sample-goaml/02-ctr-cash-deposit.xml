@@ -1,0 +1,54 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Sample goAML CTR — Cash Transaction Report.
+  Synthetic data. BDT 12,75,000 cash deposit at Sonali branch by a
+  trading-business owner. Above BDT 10,00,000 CTR threshold so the
+  report is mandatory regardless of suspicion. Single transaction.
+-->
+<report>
+  <submission_code>CTR</submission_code>
+  <report_code>C</report_code>
+  <rentity_id>SBPL</rentity_id>
+  <rentity_branch>Motijheel HO</rentity_branch>
+  <submission_date>2026-05-17T10:14:00</submission_date>
+  <currency_code_local>BDT</currency_code_local>
+  <reporting_person>
+    <first_name>Mahmudul</first_name>
+    <last_name>Karim</last_name>
+    <title>Deputy CAMLCO, Sonali Bank PLC</title>
+  </reporting_person>
+  <location>
+    <address>
+      <town>Dhaka</town>
+      <country_code>BD</country_code>
+    </address>
+  </location>
+  <reason>Mandatory CTR filing — single cash deposit of BDT 12,75,000
+    at Sonali Bank, Karwan Bazar Branch. Depositor stated source as
+    "garments export proceeds." No suspicion at this stage; reported
+    for threshold compliance per BFIU Circular 26.</reason>
+  <action>Routine threshold reporting; no additional action.</action>
+  <transaction>
+    <transactionnumber>SBPL-2605-201233</transactionnumber>
+    <internal_ref_number>TXN-2026-05-17-101</internal_ref_number>
+    <transaction_location>Sonali Bank, Karwan Bazar Branch</transaction_location>
+    <transaction_description>Cash deposit — counter</transaction_description>
+    <date_transaction>2026-05-17T11:02:00</date_transaction>
+    <transmode_code>CASH</transmode_code>
+    <amount_local>1275000.00</amount_local>
+    <transaction_currency_code>BDT</transaction_currency_code>
+    <t_to>
+      <to_account>
+        <account>4001220938415</account>
+        <institution_code>SBPL</institution_code>
+        <institution_name>Sonali Bank PLC</institution_name>
+      </to_account>
+      <to_entity>
+        <name>Rizwana Garments Ltd</name>
+        <incorporation_number>RJSC-C-178233/2018</incorporation_number>
+        <incorporation_country>BD</incorporation_country>
+        <business>Knit garments export</business>
+      </to_entity>
+    </t_to>
+  </transaction>
+</report>
