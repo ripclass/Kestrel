@@ -231,6 +231,69 @@ const users = [
       org_type: "bank",
     },
   },
+  {
+    // City Bank ML&TFPD demo seat — Arif Ahmed. Sr. Manager, Monitoring &
+    // Compliance. Attending the 2026-05-19 City pilot demo. Manager-tier
+    // bank_camlco; the actual CAMLCO seat (admin) stays reserved for the
+    // CAMLCO above this unit.
+    email: process.env.CITY_ARIF_EMAIL ?? "arif@kestrel-city.test",
+    password: process.env.CITY_ARIF_PASSWORD ?? "Kestrel!City!2026",
+    email_confirm: true,
+    user_metadata: {
+      org_id: "9c666666-6666-4666-8666-666666666666",
+      full_name: "Arif Ahmed",
+      role: "manager",
+      persona: "bank_camlco",
+      designation: "Sr. Manager, Monitoring & Compliance, ML&TFPD, City Bank PLC",
+      org_type: "bank",
+    },
+    app_metadata: {
+      org_id: "9c666666-6666-4666-8666-666666666666",
+      role: "manager",
+      persona: "bank_camlco",
+      org_type: "bank",
+    },
+  },
+  {
+    // City Bank ML&TFPD demo seat — Md. Tafazzal Hossain. Senior Manager.
+    email: process.env.CITY_TAFAZZAL_EMAIL ?? "tafazzal@kestrel-city.test",
+    password: process.env.CITY_TAFAZZAL_PASSWORD ?? "Kestrel!City!2026",
+    email_confirm: true,
+    user_metadata: {
+      org_id: "9c666666-6666-4666-8666-666666666666",
+      full_name: "Md. Tafazzal Hossain",
+      role: "manager",
+      persona: "bank_camlco",
+      designation: "Senior Manager, MLTFPD, City Bank PLC",
+      org_type: "bank",
+    },
+    app_metadata: {
+      org_id: "9c666666-6666-4666-8666-666666666666",
+      role: "manager",
+      persona: "bank_camlco",
+      org_type: "bank",
+    },
+  },
+  {
+    // City Bank ML&TFPD demo seat — Shakib Tahsin Rahim. Senior Manager.
+    email: process.env.CITY_SHAKIB_EMAIL ?? "shakib@kestrel-city.test",
+    password: process.env.CITY_SHAKIB_PASSWORD ?? "Kestrel!City!2026",
+    email_confirm: true,
+    user_metadata: {
+      org_id: "9c666666-6666-4666-8666-666666666666",
+      full_name: "Shakib Tahsin Rahim",
+      role: "manager",
+      persona: "bank_camlco",
+      designation: "Senior Manager, MLTFPD, City Bank PLC",
+      org_type: "bank",
+    },
+    app_metadata: {
+      org_id: "9c666666-6666-4666-8666-666666666666",
+      role: "manager",
+      persona: "bank_camlco",
+      org_type: "bank",
+    },
+  },
 ];
 
 async function findUserByEmail(email) {
