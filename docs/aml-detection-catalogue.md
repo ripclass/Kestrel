@@ -146,6 +146,8 @@ These rules fire inline during realtime scoring + KYC onboarding + daily Beat re
 | **Roadmap** | 8 rules | Further-out work. Either requires new data ingestion (credit card, branch attribution, etc.), new dependencies (adverse-media API), or customer-driven prioritisation. |
 | **Total catalogue** | **36 rules** | Covers every category in the canonical AML monitoring framework. |
 
+Beyond the 36 production rules above, Kestrel maintains an **upstream curated rule library** spanning trade finance (ICC publications + Incoterms + Collections + SBLC + Guarantees), country-specific regulatory overlays, customs, commodities, bank profiles, and sectoral sanctions — currently ~9,000 actively curated rules with continuous expansion as FATF / OFAC / BFIU / Bangladesh Bank publish updates. This library is the source from which selective rule families are onboarded per pilot based on the bank's product mix; a typical LC-heavy commercial bank operates ~5,500 of the library's rules. Per-pilot scope is documented in the deployment plan.
+
 ### Active rule list (17 in production today)
 
 `structuring` · `rapid_cashout` · `fan_in_burst` · `fan_out_burst` · `layering` · `first_time_high_value` · `dormant_spike` · `proximity_to_bad` · `country_pair_high_risk` · `over_invoicing` · `under_invoicing` · `multiple_invoicing` · `phantom_shipment` · `declaration_value_mismatch` · `transshipment_routing` · `sanctions_party_hit` · `pep_hit` + realtime modifiers `payment_mode_high_risk` / `hs_code_anomaly` / `country_pair_high_risk_modifier`.
