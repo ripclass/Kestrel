@@ -232,10 +232,32 @@ const users = [
     },
   },
   {
+    // City Bank Head of MLTFPD — Jahedul Islam. Admin seat (City's actual
+    // CAMLCO-tier role; sits above Arif/Tafazzal/Shakib in MLTFPD). Backup
+    // demo seat for the 2026-05-19 meeting in case he attends.
+    email: process.env.CITY_JAHEDUL_EMAIL ?? "jahedul@kestrel-city.test",
+    password: process.env.CITY_JAHEDUL_PASSWORD ?? "Kestrel!City!2026",
+    email_confirm: true,
+    user_metadata: {
+      org_id: "9c666666-6666-4666-8666-666666666666",
+      full_name: "Jahedul Islam",
+      role: "admin",
+      persona: "bank_camlco",
+      designation: "Head of Money Laundering & Terrorist Financing Prevention Division, City Bank PLC",
+      org_type: "bank",
+    },
+    app_metadata: {
+      org_id: "9c666666-6666-4666-8666-666666666666",
+      role: "admin",
+      persona: "bank_camlco",
+      org_type: "bank",
+    },
+  },
+  {
     // City Bank ML&TFPD demo seat — Arif Ahmed. Sr. Manager, Monitoring &
     // Compliance. Attending the 2026-05-19 City pilot demo. Manager-tier
-    // bank_camlco; the actual CAMLCO seat (admin) stays reserved for the
-    // CAMLCO above this unit.
+    // bank_camlco; manager seat (admin tier belongs to Jahedul as the
+    // Head of MLTFPD).
     email: process.env.CITY_ARIF_EMAIL ?? "arif@kestrel-city.test",
     password: process.env.CITY_ARIF_PASSWORD ?? "Kestrel!City!2026",
     email_confirm: true,
