@@ -210,6 +210,77 @@ const users = [
     },
   },
   {
+    // Sonali Senior Officer — Mahbubur Rahman. Real Sonali pilot team member
+    // named by Ramprosad (May 20, 2026). Senior Officer grade → manager role
+    // (operational oversight; can run scans). Seat is provisioned but stays
+    // dark until Ramprosad chooses to reveal Kestrel to the wider team.
+    email: process.env.SONALI_MAHBUBUR_EMAIL ?? "mahbubur@kestrel-sonali.test",
+    password: process.env.SONALI_MAHBUBUR_PASSWORD ?? "Kestrel!Sonali!2026",
+    email_confirm: true,
+    user_metadata: {
+      org_id: "9c222222-2222-4222-8222-222222222222",
+      full_name: "Mahbubur Rahman",
+      role: "manager",
+      persona: "bank_camlco",
+      designation: "Senior Officer, AML Compliance, Sonali Bank PLC",
+      org_type: "bank",
+    },
+    app_metadata: {
+      org_id: "9c222222-2222-4222-8222-222222222222",
+      role: "manager",
+      persona: "bank_camlco",
+      org_type: "bank",
+    },
+  },
+  {
+    // Sonali Officer — Md. Saifur Rahman. Real Sonali pilot team member named
+    // by Ramprosad (May 20, 2026). Officer grade → analyst role (daily triage
+    // + STR drafting; cannot upload raw extracts). Seat provisioned but stays
+    // dark until Ramprosad reveals Kestrel to the wider team.
+    email: process.env.SONALI_SAIFUR_EMAIL ?? "saifur@kestrel-sonali.test",
+    password: process.env.SONALI_SAIFUR_PASSWORD ?? "Kestrel!Sonali!2026",
+    email_confirm: true,
+    user_metadata: {
+      org_id: "9c222222-2222-4222-8222-222222222222",
+      full_name: "Md. Saifur Rahman",
+      role: "analyst",
+      persona: "bank_camlco",
+      designation: "Officer, AML Compliance, Sonali Bank PLC",
+      org_type: "bank",
+    },
+    app_metadata: {
+      org_id: "9c222222-2222-4222-8222-222222222222",
+      role: "analyst",
+      persona: "bank_camlco",
+      org_type: "bank",
+    },
+  },
+  {
+    // Sonali IT / Data Integration Owner — placeholder name pending the real
+    // IT contact from Ramprosad. manager role: scan upload requires manager+,
+    // so this is the seat that owns data ingestion into the Sonali workspace.
+    // Deliberately the sole seat that touches raw extracts — analysts only see
+    // processed alerts/entities/cases, which preserves IT's data-custodian
+    // gatekeeper role. Role-based email so it survives an IT staff change.
+    email: process.env.SONALI_IT_EMAIL ?? "it@kestrel-sonali.test",
+    password: process.env.SONALI_IT_PASSWORD ?? "Kestrel!Sonali!2026",
+    email_confirm: true,
+    user_metadata: {
+      org_id: "9c222222-2222-4222-8222-222222222222",
+      full_name: "Imran Hossain",
+      role: "manager",
+      persona: "bank_camlco",
+      designation: "Data Integration Owner (IT), Sonali Bank PLC",
+      org_type: "bank",
+    },
+    app_metadata: {
+      org_id: "9c222222-2222-4222-8222-222222222222",
+      role: "manager",
+      persona: "bank_camlco",
+      org_type: "bank",
+    },
+  },
+  {
     // City Bank CAMLCO demo persona — second commercial Pro-tier prospect
     // alongside Sonali. Distinct workspace so City Bank pitch shows their own
     // bank name in the operator panel.
