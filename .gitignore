@@ -66,3 +66,13 @@ vestox-snapshot.yml
 
 
 .firecrawl/
+
+.vercel
+
+# Internal commercial strategy docs (NOT for public repo / customer-facing).
+# Contains revenue-flow / product-strategy / inter-product detail.
+docs/internal/
+
+# Local regulatory-reference corpus — OCR'd BFIU/MLPA PDFs, grep-only resource.
+REG RULES/
+
