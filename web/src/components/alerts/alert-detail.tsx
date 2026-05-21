@@ -16,6 +16,7 @@ import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { NetworkCanvas } from "@/components/investigate/network-canvas";
 import { RiskScore } from "@/components/common/risk-score";
 import { detailFromPayload, readResponsePayload } from "@/lib/http";
+import { recordAiCorrection, type AiOutcomeLabel } from "@/lib/ai-outcome";
 import type { AiExplanation as AiExplanationModel, AlertDetail as AlertDetailModel } from "@/types/domain";
 import type {
   AiExplanationResponse,
@@ -56,6 +57,7 @@ export function AlertDetail({ alertId }: { alertId: string }) {
   const [pendingAction, setPendingAction] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [aiExplanation, setAiExplanation] = useState<AiExplanationModel | null>(null);
+  const [aiExplanationLogId, setAiExplanationLogId] = useState<string | null>(null);
   const [aiLoading, setAiLoading] = useState(false);
   const [aiError, setAiError] = useState<string | null>(null);
   const [strDrafting, setStrDrafting] = useState(false);
@@ -95,6 +97,7 @@ export function AlertDetail({ alertId }: { alertId: string }) {
         }
         const payload = (await readResponsePayload<AiExplanationResponse>(response)) as AiExplanationResponse;
         setAiExplanation(payload.result);
+        setAiExplanationLogId(payload.meta?.outcomeLogId ?? null);
       } catch {
         setAiError("AI analysis unavailable.");
       } finally {
@@ -124,6 +127,19 @@ export function AlertDetail({ alertId }: { alertId: string }) {
       const mutation = result as AlertMutationResponse;
       setAlert(mutation.alert);
       setNotice(actionLabel(payload.action));
+      // The alert disposition is the analyst's implicit verdict on the AI
+      // explanation — capture it as a training signal (best-effort).
+      const verdict: AiOutcomeLabel | null =
+        payload.action === "mark_false_positive"
+          ? "rejected"
+          : payload.action === "mark_true_positive" ||
+              payload.action === "escalate" ||
+              payload.action === "create_case"
+            ? "accepted"
+            : null;
+      if (verdict) {
+        void recordAiCorrection(aiExplanationLogId, { outcomeLabel: verdict });
+      }
       if (payload.action === "create_case" && mutation.case) {
         router.push(`/cases/${mutation.case.id}`);
       }
@@ -151,12 +167,14 @@ export function AlertDetail({ alertId }: { alertId: string }) {
       });
       let narrative = "";
       let category = alert.alertType || "fraud";
+      let aiOutcomeLogId: string | null = null;
       if (narrativeRes.ok) {
         const narrativePayload = (await readResponsePayload<AiStrNarrativeResponse>(
           narrativeRes,
         )) as AiStrNarrativeResponse;
         narrative = narrativePayload.result.narrative;
         category = narrativePayload.result.categorySuggestion || category;
+        aiOutcomeLogId = narrativePayload.meta?.outcomeLogId ?? null;
       }
 
       const strRes = await fetch("/api/str-reports", {
@@ -173,7 +191,13 @@ export function AlertDetail({ alertId }: { alertId: string }) {
           category,
           channels: [],
           narrative,
-          metadata: { source_alert_id: alert.id, ai_generated: true },
+          metadata: {
+            source_alert_id: alert.id,
+            ai_generated: true,
+            // Carried so an analyst edit in the STR workspace records back
+            // as a training correction against this AI invocation.
+            ...(aiOutcomeLogId ? { ai_outcome_log_id: aiOutcomeLogId } : {}),
+          },
         }),
       });
       if (!strRes.ok) {

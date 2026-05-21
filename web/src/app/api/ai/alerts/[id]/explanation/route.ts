@@ -29,6 +29,7 @@ export async function POST(_request: Request, { params }: RouteContext) {
       provider: envelope.meta.provider,
       model: envelope.meta.model,
       fallbackUsed: envelope.meta.fallback_used,
+      outcomeLogId: envelope.meta.outcome_log_id ?? null,
     },
     result: {
       summary: envelope.result.summary,

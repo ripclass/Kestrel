@@ -331,6 +331,9 @@ export interface AiExplanationResponse {
     provider: string;
     model: string;
     fallbackUsed: boolean;
+    /** ai_outcome_log row id — used to record the analyst's verdict on
+     *  this AI output (V3 sovereign-LLM training corpus). */
+    outcomeLogId: string | null;
   };
   result: {
     summary: string;
@@ -353,6 +356,9 @@ export interface AiStrNarrativeResponse {
     provider: string;
     model: string;
     fallbackUsed: boolean;
+    /** ai_outcome_log row id — threaded into the created STR's metadata so
+     *  an analyst edit later records as a training correction. */
+    outcomeLogId: string | null;
   };
   result: {
     narrative: string;

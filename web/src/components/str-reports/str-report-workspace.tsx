@@ -16,6 +16,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { detailFromPayload, readResponsePayload } from "@/lib/http";
+import { recordAiCorrection } from "@/lib/ai-outcome";
 
 function toDraftPayload(report: STRReportDetail): STRDraftPayload {
   return {
@@ -127,6 +128,10 @@ export function STRReportWorkspace({
   const [pendingAction, setPendingAction] = useState<string | null>(null);
   const [applyCount, setApplyCount] = useState(0);
   const narrativeRef = useRef<HTMLTextAreaElement | null>(null);
+  // Captured once, on first load: the ai_outcome_log id this STR was drafted
+  // from (if any) and the AI's original narrative. An analyst edit that
+  // diverges from the baseline is recorded as a training correction.
+  const aiCaptureRef = useRef<{ logId: string | null; baseline: string } | null>(null);
 
   useEffect(() => {
     void (async () => {
@@ -139,8 +144,17 @@ export function STRReportWorkspace({
           setError(detailFromPayload(payload, "Unable to load STR report."));
           return;
         }
-        setReport(payload as STRReportDetail);
-        setDraft(toDraftPayload(payload as STRReportDetail));
+        const loaded = payload as STRReportDetail;
+        setReport(loaded);
+        setDraft(toDraftPayload(loaded));
+        if (!aiCaptureRef.current) {
+          const meta = (loaded.metadata ?? {}) as Record<string, unknown>;
+          const logId = meta.ai_outcome_log_id;
+          aiCaptureRef.current = {
+            logId: typeof logId === "string" ? logId : null,
+            baseline: loaded.narrative ?? "",
+          };
+        }
         setError(null);
       } catch (caughtError) {
         setError(caughtError instanceof Error ? caughtError.message : "Unable to load STR report.");
@@ -186,6 +200,17 @@ export function STRReportWorkspace({
       setReport((payload as STRMutationResponse).report);
       setDraft(toDraftPayload((payload as STRMutationResponse).report));
       setNotice("Draft saved.");
+      // If this STR was AI-drafted and the analyst has edited the narrative
+      // away from the AI's original, record the analyst version as a gold
+      // training correction (best-effort — never blocks the save).
+      const capture = aiCaptureRef.current;
+      const savedNarrative = draft.narrative ?? "";
+      if (capture?.logId && savedNarrative.trim() !== capture.baseline.trim()) {
+        void recordAiCorrection(capture.logId, {
+          correction: { narrative: savedNarrative },
+          outcomeLabel: "edited",
+        });
+      }
     } catch (caughtError) {
       setError(caughtError instanceof Error ? caughtError.message : "Unable to save STR draft.");
       setNotice(null);
