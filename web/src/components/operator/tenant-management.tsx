@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 
 import { ErrorState } from "@/components/common/error-state";
 import { LoadingState } from "@/components/common/loading";
+import { provisionTenant } from "@/app/actions/provision-tenant";
 
 type Engagement = "active" | "idle" | "dormant" | "never";
 type TenantKind = "demo" | "pilot" | "live";
@@ -22,6 +23,8 @@ interface Tenant {
 }
 
 const KINDS: TenantKind[] = ["demo", "pilot", "live"];
+const ORG_TYPES = ["bank", "mfs", "nbfi", "regulator"];
+const PLAN_IDS = ["starter", "professional", "enterprise", "filing_only"];
 
 function engagementTone(engagement: Engagement): string {
   if (engagement === "never" || engagement === "dormant") return "text-accent";
@@ -44,6 +47,204 @@ function Eyebrow({ children }: { children: React.ReactNode }) {
       <span aria-hidden className="mr-2 text-accent">┼</span>
       {children}
     </p>
+  );
+}
+
+const fieldClass =
+  "border border-border bg-background px-3 py-2 font-mono text-sm text-foreground";
+const labelClass =
+  "font-mono text-[10px] uppercase tracking-[0.22em] text-muted-foreground";
+
+function ProvisionForm({ onProvisioned }: { onProvisioned: () => void }) {
+  const [open, setOpen] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
+  const [form, setForm] = useState({
+    orgName: "",
+    orgType: "bank",
+    planId: "professional",
+    tenantKind: "pilot" as TenantKind,
+    adminName: "",
+    adminEmail: "",
+    adminDesignation: "",
+    seedDemoData: true,
+  });
+
+  function update<K extends keyof typeof form>(key: K, value: (typeof form)[K]) {
+    setForm((current) => ({ ...current, [key]: value }));
+    setNotice(null);
+  }
+
+  async function submit(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setSubmitting(true);
+    setError(null);
+    setNotice(null);
+    try {
+      const result = await provisionTenant(form);
+      if (!result.success) {
+        setError(result.message ?? "Provisioning failed.");
+        return;
+      }
+      setNotice(`Tenant provisioned — admin invite sent to ${form.adminEmail.trim()}.`);
+      setForm({
+        orgName: "",
+        orgType: "bank",
+        planId: "professional",
+        tenantKind: "pilot",
+        adminName: "",
+        adminEmail: "",
+        adminDesignation: "",
+        seedDemoData: true,
+      });
+      onProvisioned();
+    } catch {
+      setError("Provisioning failed — unexpected error.");
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  return (
+    <section className="border border-border">
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        className="flex w-full items-center justify-between px-6 py-5 text-left"
+      >
+        <Eyebrow>Provision tenant</Eyebrow>
+        <span className="font-mono text-[11px] uppercase tracking-[0.22em] text-accent">
+          {open ? "− close" : "+ new tenant"}
+        </span>
+      </button>
+
+      {open ? (
+        <form className="space-y-5 border-t border-border px-6 py-6" onSubmit={submit}>
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+            <label className="flex flex-col gap-2">
+              <span className={labelClass}>Organization name *</span>
+              <input
+                type="text"
+                value={form.orgName}
+                onChange={(e) => update("orgName", e.target.value)}
+                placeholder="Agrani Bank PLC"
+                required
+                className={fieldClass}
+              />
+            </label>
+            <label className="flex flex-col gap-2">
+              <span className={labelClass}>Organization type</span>
+              <select
+                value={form.orgType}
+                onChange={(e) => update("orgType", e.target.value)}
+                className={fieldClass}
+              >
+                {ORG_TYPES.map((t) => (
+                  <option key={t} value={t}>{t}</option>
+                ))}
+              </select>
+            </label>
+            <label className="flex flex-col gap-2">
+              <span className={labelClass}>Plan</span>
+              <select
+                value={form.planId}
+                onChange={(e) => update("planId", e.target.value)}
+                className={fieldClass}
+              >
+                {PLAN_IDS.map((p) => (
+                  <option key={p} value={p}>{p}</option>
+                ))}
+              </select>
+            </label>
+            <div className="flex flex-col gap-2">
+              <span className={labelClass}>Classification</span>
+              <div className="flex border border-border">
+                {KINDS.map((kind) => (
+                  <button
+                    key={kind}
+                    type="button"
+                    onClick={() => update("tenantKind", kind)}
+                    className={`flex-1 px-3 py-2 font-mono text-[10px] uppercase tracking-[0.22em] transition ${
+                      form.tenantKind === kind
+                        ? "bg-foreground text-background"
+                        : "text-muted-foreground hover:text-foreground"
+                    }`}
+                  >
+                    {kind}
+                  </button>
+                ))}
+              </div>
+            </div>
+            <label className="flex flex-col gap-2">
+              <span className={labelClass}>First admin — full name *</span>
+              <input
+                type="text"
+                value={form.adminName}
+                onChange={(e) => update("adminName", e.target.value)}
+                placeholder="Mahbubur Rahman"
+                required
+                className={fieldClass}
+              />
+            </label>
+            <label className="flex flex-col gap-2">
+              <span className={labelClass}>First admin — email *</span>
+              <input
+                type="email"
+                value={form.adminEmail}
+                onChange={(e) => update("adminEmail", e.target.value)}
+                placeholder="camlco@agranibank.org"
+                required
+                className={fieldClass}
+              />
+            </label>
+            <label className="flex flex-col gap-2 md:col-span-2">
+              <span className={labelClass}>First admin — designation</span>
+              <input
+                type="text"
+                value={form.adminDesignation}
+                onChange={(e) => update("adminDesignation", e.target.value)}
+                placeholder="Chief AML Compliance Officer"
+                className={fieldClass}
+              />
+            </label>
+          </div>
+
+          <label className="flex items-center gap-3">
+            <input
+              type="checkbox"
+              checked={form.seedDemoData}
+              onChange={(e) => update("seedDemoData", e.target.checked)}
+              className="h-4 w-4 accent-[var(--accent)]"
+            />
+            <span className="font-mono text-[11px] uppercase tracking-[0.18em] text-muted-foreground">
+              Seed demo data — populates the workspace within ~10 min so the admin lands on a live-looking demo
+            </span>
+          </label>
+
+          {error ? (
+            <p className="font-mono text-xs uppercase tracking-[0.18em] text-destructive">
+              ┼ ERROR · {error}
+            </p>
+          ) : null}
+          {notice ? (
+            <p className="font-mono text-xs uppercase tracking-[0.18em] text-accent">
+              ┼ {notice}
+            </p>
+          ) : null}
+
+          <div className="flex justify-end">
+            <button
+              type="submit"
+              disabled={submitting}
+              className="border border-foreground bg-foreground px-5 py-2 font-mono text-[11px] uppercase tracking-[0.22em] text-background transition hover:bg-background hover:text-foreground disabled:opacity-50"
+            >
+              {submitting ? "Provisioning…" : "Provision tenant"}
+            </button>
+          </div>
+        </form>
+      ) : null}
+    </section>
   );
 }
 
@@ -109,6 +310,8 @@ export function TenantManagement() {
         </p>
       ) : null}
 
+      <ProvisionForm onProvisioned={refresh} />
+
       <section className="border border-border">
         <div className="border-b border-border px-6 py-5">
           <Eyebrow>Tenants · {tenants.length}</Eyebrow>
@@ -169,8 +372,8 @@ export function TenantManagement() {
       </section>
 
       <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-muted-foreground">
-        ┼ Provisioning new tenants, plan changes and seat management are managed
-        via the bootstrap script — console-native provisioning is a planned module.
+        ┼ Provisioning creates the organization and emails the first admin a
+        magic-link invite. Add further seats via the bootstrap script.
       </p>
     </div>
   );
