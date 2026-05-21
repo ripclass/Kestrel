@@ -49,6 +49,17 @@ function shortId(id: string) {
   return `${id.slice(0, 4)}··${id.slice(-4)}`;
 }
 
+/** Valid str_reports.category values (mirrors the DB CHECK constraint).
+ *  An alert *type* (e.g. rapid_cashout) is NOT a category. */
+const STR_CATEGORIES = new Set([
+  "fraud",
+  "money_laundering",
+  "terrorist_financing",
+  "tbml",
+  "cyber_crime",
+  "other",
+]);
+
 export function AlertDetail({ alertId }: { alertId: string }) {
   const router = useRouter();
   const [alert, setAlert] = useState<AlertDetailModel | null>(null);
@@ -166,14 +177,19 @@ export function AlertDetail({ alertId }: { alertId: string }) {
         }),
       });
       let narrative = "";
-      let category = alert.alertType || "fraud";
+      // Detection-alert STRs default to money_laundering — the alert *type*
+      // (e.g. rapid_cashout) is not a valid str_reports.category.
+      let category = "money_laundering";
       let aiOutcomeLogId: string | null = null;
       if (narrativeRes.ok) {
         const narrativePayload = (await readResponsePayload<AiStrNarrativeResponse>(
           narrativeRes,
         )) as AiStrNarrativeResponse;
         narrative = narrativePayload.result.narrative;
-        category = narrativePayload.result.categorySuggestion || category;
+        const suggested = narrativePayload.result.categorySuggestion;
+        if (suggested && STR_CATEGORIES.has(suggested)) {
+          category = suggested;
+        }
         aiOutcomeLogId = narrativePayload.meta?.outcomeLogId ?? null;
       }
 

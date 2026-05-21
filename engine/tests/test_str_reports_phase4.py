@@ -7,7 +7,12 @@ from sqlalchemy.dialects.postgresql import INET
 from app.auth import AuthenticatedUser
 from app.models.audit import AuditLog
 from app.models.str_report import STRReport
-from app.services.str_reports import _append_lifecycle_event, build_str_enrichment_payload, serialize_report_detail
+from app.services.str_reports import (
+    _append_lifecycle_event,
+    _normalize_str_category,
+    build_str_enrichment_payload,
+    serialize_report_detail,
+)
 
 
 def build_user(**overrides) -> AuthenticatedUser:
@@ -47,6 +52,28 @@ def build_report() -> STRReport:
         metadata_json={"review": {"notes": [{"note": "Initial note"}]}},
         created_at=datetime.now(UTC),
     )
+
+
+def test_normalize_str_category_passes_through_valid_values() -> None:
+    for valid in ("fraud", "money_laundering", "terrorist_financing", "tbml", "cyber_crime", "other"):
+        assert _normalize_str_category(valid) == valid
+
+
+def test_normalize_str_category_coerces_alert_type_to_other() -> None:
+    """An alert *type* (rapid_cashout) is not a category — coerce, don't 500."""
+    assert _normalize_str_category("rapid_cashout") == "other"
+    assert _normalize_str_category("structuring") == "other"
+
+
+def test_normalize_str_category_unset_keeps_historical_default() -> None:
+    assert _normalize_str_category(None) == "fraud"
+    assert _normalize_str_category("") == "fraud"
+    assert _normalize_str_category("   ") == "fraud"
+
+
+def test_normalize_str_category_is_case_insensitive() -> None:
+    assert _normalize_str_category("Money_Laundering") == "money_laundering"
+    assert _normalize_str_category(" TBML ") == "tbml"
 
 
 def test_append_lifecycle_event_records_history_and_assignment() -> None:

@@ -34,6 +34,27 @@ _REVIEW_OUTCOMES = {
     "dismiss": "dismissed",
 }
 
+# The str_reports.category DB CHECK constraint allows exactly this set.
+# A caller (e.g. "Draft STR from alert") may pass an alert *type* such as
+# `rapid_cashout` — which is not a category — so the value is normalised
+# here. An unrecognised category becomes `other` rather than 500-ing the
+# INSERT on the CHECK constraint; analysts refine it in the STR workspace.
+_VALID_STR_CATEGORIES = frozenset(
+    {"fraud", "money_laundering", "terrorist_financing", "tbml", "cyber_crime", "other"}
+)
+
+
+def _normalize_str_category(value: Any) -> str:
+    """Coerce an STR category to a constraint-valid value.
+
+    Unset → `fraud` (the historical default); a recognised value passes
+    through; anything else → `other`.
+    """
+    if value is None or str(value).strip() == "":
+        return "fraud"
+    candidate = str(value).strip().lower()
+    return candidate if candidate in _VALID_STR_CATEGORIES else "other"
+
 
 def _as_float(value: Decimal | float | int | None) -> float:
     if value is None:
@@ -434,7 +455,7 @@ async def create_str_report(
         currency=payload.get("currency", "BDT"),
         transaction_count=payload.get("transaction_count", 0),
         primary_channel=payload.get("primary_channel"),
-        category=payload.get("category", "fraud"),
+        category=_normalize_str_category(payload.get("category")),
         narrative=payload.get("narrative"),
         channels=payload.get("channels", []),
         date_range_start=payload.get("date_range_start"),
