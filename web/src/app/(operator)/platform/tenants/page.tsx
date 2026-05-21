@@ -8,7 +8,7 @@ export default async function TenantsPage() {
     <PageFrame
       eyebrow="Operator · Tenants"
       title="Tenant management"
-      description="Every tenant on the platform, with plan, seat coverage and classification. Mark a tenant demo / pilot / live — the classification controls how the Pilot Health board groups it. It is a label only; it does not touch the tenant's data, plan, or isolation."
+      description="Provision a new tenant — organization, plan, classification, and the first admin invite — in one step, or manage existing ones. Marking a tenant demo / pilot / live controls how the Pilot Health board groups it; the classification is a label only and does not touch the tenant's data, plan, or isolation."
     >
       <TenantManagement />
     </PageFrame>
