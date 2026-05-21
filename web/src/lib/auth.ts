@@ -91,6 +91,37 @@ export async function requireRole(...roles: Role[]) {
 }
 
 /**
+ * Platform-operator gate. Access to the cross-tenant pilot-health console is
+ * an Enso-internal email allow-list (`KESTREL_PLATFORM_OPERATORS`), not the
+ * per-tenant role model — a bank or BFIU customer must never see pilot
+ * telemetry across other tenants. This is a UX gate; the engine route
+ * (`/platform/*`) enforces the same allow-list authoritatively.
+ */
+export function isPlatformOperatorEmail(email: string | null | undefined): boolean {
+  if (!email) {
+    return false;
+  }
+  const allow = new Set(
+    (process.env.KESTREL_PLATFORM_OPERATORS ?? "")
+      .split(",")
+      .map((entry) => entry.trim().toLowerCase())
+      .filter(Boolean),
+  );
+  return allow.has(email.trim().toLowerCase());
+}
+
+export async function requirePlatformOperator() {
+  const viewer = await requireViewer();
+
+  if (!isPlatformOperatorEmail(viewer.email)) {
+    // Don't reveal the console exists — bounce non-operators to Overview.
+    redirect("/overview");
+  }
+
+  return viewer;
+}
+
+/**
  * Bank filer surface allowlist (path prefixes). Anything outside these prefixes
  * redirects a filer back to /strs. The full feature set — cross-bank,
  * AI, KYC, screening, real-time, cases, admin — stays hidden by route as
