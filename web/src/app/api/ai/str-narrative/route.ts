@@ -38,6 +38,7 @@ export async function POST(request: NextRequest) {
       provider: envelope.meta.provider,
       model: envelope.meta.model,
       fallbackUsed: envelope.meta.fallback_used,
+      outcomeLogId: envelope.meta.outcome_log_id ?? null,
     },
     result: {
       narrative: envelope.result.narrative,
