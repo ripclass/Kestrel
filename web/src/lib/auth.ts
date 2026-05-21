@@ -110,6 +110,46 @@ export function isPlatformOperatorEmail(email: string | null | undefined): boole
   return allow.has(email.trim().toLowerCase());
 }
 
+/** Operator-console roles — gate which modules each Enso team member sees.
+ *  See docs/internal/operations-readiness.md §6. */
+export type OperatorRole =
+  | "owner"
+  | "operations"
+  | "engineer"
+  | "aml"
+  | "ml"
+  | "devops"
+  | "sales";
+
+/**
+ * Resolve an operator's console role. Mirrors the engine's
+ * `Settings.platform_operator_role`: an explicit mapping from
+ * `KESTREL_PLATFORM_OPERATOR_ROLES`, else `owner` for any allow-listed
+ * operator without a mapping, else `null` for non-operators. A malformed
+ * role map fails safe to `owner` rather than locking the founder out.
+ */
+export function platformOperatorRole(
+  email: string | null | undefined,
+): OperatorRole | null {
+  if (!isPlatformOperatorEmail(email)) {
+    return null;
+  }
+  const normalized = (email as string).trim().toLowerCase();
+  const raw = (process.env.KESTREL_PLATFORM_OPERATOR_ROLES ?? "").trim();
+  if (raw) {
+    try {
+      const map = JSON.parse(raw) as Record<string, unknown>;
+      const role = map[normalized];
+      if (typeof role === "string" && role.trim()) {
+        return role.trim().toLowerCase() as OperatorRole;
+      }
+    } catch {
+      // fall through to owner
+    }
+  }
+  return "owner";
+}
+
 export async function requirePlatformOperator() {
   const viewer = await requireViewer();
 

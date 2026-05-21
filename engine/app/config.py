@@ -1,3 +1,4 @@
+import json
 from functools import lru_cache
 from pathlib import Path
 
@@ -88,11 +89,16 @@ class Settings(BaseSettings):
     kestrel_audit_archive_bucket: str | None = None
 
     # Platform-operator console: comma-separated allow-list of Enso operator
-    # emails. The cross-tenant pilot-health surface (`/platform/*`) is gated
-    # on membership. Empty => no one has access (fail-closed). This is an
+    # emails. The cross-tenant operator surface (`/platform/*`) is gated on
+    # membership. Empty => no one has access (fail-closed). This is an
     # Enso-internal gate — distinct from the per-tenant `bank`/`regulator`
     # role model — so BFIU and bank customers never see pilot telemetry.
     kestrel_platform_operators: str = ""
+    # Optional per-operator role map (JSON: {"email": "role"}). Roles gate
+    # which operator-console modules each Enso team member sees — see
+    # docs/internal/operations-readiness.md §6. Any allow-listed operator not
+    # named here defaults to `owner` (today the founder is the only operator).
+    kestrel_platform_operator_roles: str = ""
 
     def is_onprem(self) -> bool:
         return self.kestrel_deployment_mode.lower() == "onprem"
@@ -109,6 +115,31 @@ class Settings(BaseSettings):
         if not email:
             return False
         return email.strip().lower() in self.platform_operator_emails()
+
+    def platform_operator_role(self, email: str | None) -> str | None:
+        """Resolve an operator's console role.
+
+        Returns the mapped role from ``kestrel_platform_operator_roles`` if
+        present; otherwise ``owner`` for any allow-listed operator without an
+        explicit mapping; ``None`` for non-operators. Fail-safe: a malformed
+        role JSON degrades to "every operator is owner" rather than locking
+        the founder out.
+        """
+        if not self.is_platform_operator(email):
+            return None
+        assert email is not None
+        normalized = email.strip().lower()
+        raw = (self.kestrel_platform_operator_roles or "").strip()
+        if raw:
+            try:
+                mapping = json.loads(raw)
+                if isinstance(mapping, dict):
+                    role = mapping.get(normalized)
+                    if isinstance(role, str) and role.strip():
+                        return role.strip().lower()
+            except (ValueError, TypeError):
+                pass
+        return "owner"
 
     def cors_origin_list(self) -> list[str]:
         return [item.strip() for item in self.allowed_origins.split(",") if item.strip()]

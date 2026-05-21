@@ -7,12 +7,14 @@ import { LoadingState } from "@/components/common/loading";
 
 type Engagement = "active" | "idle" | "dormant" | "never";
 type Trend = "rising" | "falling" | "flat" | "new";
+type TenantKind = "demo" | "pilot" | "live";
 
 interface PilotCard {
   org_id: string;
   org_name: string;
   org_type: string;
   plan_id: string;
+  tenant_kind: TenantKind;
   created_at: string | null;
   seats: number;
   seats_logged_in: number;
@@ -107,6 +109,12 @@ function engagementTone(engagement: Engagement): string {
   return "text-foreground";
 }
 
+function kindTone(kind: TenantKind): string {
+  if (kind === "live") return "text-foreground";
+  if (kind === "pilot") return "text-foreground";
+  return "text-muted-foreground/60";
+}
+
 function trendGlyph(trend: Trend): string {
   if (trend === "rising") return "▲";
   if (trend === "falling") return "▼";
@@ -155,6 +163,66 @@ function Chip({ children, tone }: { children: React.ReactNode; tone: string }) {
     <span className={`font-mono text-[10px] uppercase tracking-[0.2em] ${tone}`}>
       {children}
     </span>
+  );
+}
+
+function TenantRow({
+  p,
+  expanded,
+  detail,
+  detailError,
+  onToggle,
+}: {
+  p: PilotCard;
+  expanded: boolean;
+  detail: PilotDetail | undefined;
+  detailError: string | undefined;
+  onToggle: (orgId: string) => void;
+}) {
+  return (
+    <li>
+      <button
+        type="button"
+        onClick={() => onToggle(p.org_id)}
+        className="w-full px-6 py-5 text-left transition hover:bg-foreground/[0.03]"
+      >
+        <div className="flex flex-wrap items-baseline gap-x-4 gap-y-2">
+          <span className="text-sm text-foreground">{p.org_name}</span>
+          <Chip tone="text-muted-foreground">{p.org_type}</Chip>
+          <Chip tone="text-muted-foreground">{p.plan_id}</Chip>
+          <Chip tone={kindTone(p.tenant_kind)}>{p.tenant_kind}</Chip>
+          <Chip tone={engagementTone(p.engagement)}>● {p.engagement}</Chip>
+          <span className="ml-auto font-mono text-[10px] uppercase tracking-[0.18em] text-muted-foreground">
+            activity {relativeTime(p.last_activity_at)}
+          </span>
+        </div>
+        <div className="mt-3 flex flex-wrap gap-x-6 gap-y-1 font-mono text-[11px] tabular-nums text-muted-foreground">
+          <span>
+            seats <span className="text-foreground">{p.seats_logged_in}/{p.seats}</span> live
+          </span>
+          <span>
+            actions 7d <span className="text-foreground">{p.actions_7d}</span>{" "}
+            <span className={trendTone(p.trend)}>{trendGlyph(p.trend)}</span>
+          </span>
+          <span>
+            users active <span className="text-foreground">{p.active_users_7d}</span>
+          </span>
+          <span>
+            STR <span className="text-foreground">{p.strs}</span>
+          </span>
+          <span>
+            alerts <span className="text-foreground">{p.alerts}</span>
+          </span>
+          <span>
+            cases <span className="text-foreground">{p.cases}</span>
+          </span>
+          <span>
+            scans <span className="text-foreground">{p.scans}</span>
+          </span>
+        </div>
+      </button>
+      {expanded ? <PilotDetailPanel detail={detail} error={detailError} /> : null}
+    </li>
   );
 }
 
@@ -216,8 +284,21 @@ export function PilotHealthBoard() {
   }
 
   const { summary, pilots } = data;
-  const stalling = pilots.filter(
-    (p) => p.org_type === "bank" && (p.engagement === "dormant" || p.engagement === "never"),
+  const realTenants = pilots.filter((p) => p.tenant_kind !== "demo");
+  const demoTenants = pilots.filter((p) => p.tenant_kind === "demo");
+  const stalling = realTenants.filter(
+    (p) => p.engagement === "dormant" || p.engagement === "never",
+  );
+
+  const renderRow = (p: PilotCard) => (
+    <TenantRow
+      key={p.org_id}
+      p={p}
+      expanded={expanded === p.org_id}
+      detail={detail[p.org_id]}
+      detailError={detailError[p.org_id]}
+      onToggle={toggle}
+    />
   );
 
   return (
@@ -230,9 +311,9 @@ export function PilotHealthBoard() {
 
       <div className="grid grid-cols-2 gap-px md:grid-cols-3 lg:grid-cols-6">
         <Stat
-          label="Tenants"
-          value={String(summary.tenants_total)}
-          sub={`${summary.tenants_bank} bank`}
+          label="Pilots & live"
+          value={String(realTenants.length)}
+          sub={`${demoTenants.length} demo`}
         />
         <Stat
           label="Active · 7d"
@@ -245,83 +326,36 @@ export function PilotHealthBoard() {
           sub="signed in ever"
         />
         <Stat label="Actions · 7d" value={String(summary.actions_7d)} sub="across all tenants" />
-        <Stat label="STRs" value={String(summary.strs_total)} sub="all tenants" />
-        <Stat label="Alerts" value={String(summary.alerts_total)} sub="all tenants" />
+        <Stat label="STRs" value={String(summary.strs_total)} sub="incl. seed data" />
+        <Stat label="Alerts" value={String(summary.alerts_total)} sub="incl. seed data" />
       </div>
 
       {stalling.length > 0 ? (
         <div className="border border-accent/50 px-6 py-4">
           <p className="font-mono text-[11px] uppercase tracking-[0.2em] text-accent">
-            ┼ {stalling.length} bank{stalling.length === 1 ? "" : "s"} stalling ·{" "}
+            ┼ {stalling.length} pilot{stalling.length === 1 ? "" : "s"} stalling ·{" "}
             {stalling.map((p) => p.org_name).join(" · ")}
           </p>
         </div>
       ) : null}
 
-      <Section eyebrow={`Tenants · ${pilots.length} · sorted by last activity`}>
-        {pilots.length === 0 ? (
+      <Section eyebrow={`Pilots & live · ${realTenants.length}`}>
+        {realTenants.length === 0 ? (
           <p className="px-6 py-6 font-mono text-xs uppercase tracking-[0.22em] text-muted-foreground">
-            No tenants provisioned.
+            No pilot or live tenants. Classify a tenant under Tenants.
           </p>
         ) : (
-          <ul className="divide-y divide-border">
-            {pilots.map((p) => (
-              <li key={p.org_id}>
-                <button
-                  type="button"
-                  onClick={() => toggle(p.org_id)}
-                  className="w-full px-6 py-5 text-left transition hover:bg-foreground/[0.03]"
-                >
-                  <div className="flex flex-wrap items-baseline gap-x-4 gap-y-2">
-                    <span className="text-sm text-foreground">{p.org_name}</span>
-                    <Chip tone="text-muted-foreground">{p.org_type}</Chip>
-                    <Chip tone="text-muted-foreground">{p.plan_id}</Chip>
-                    <Chip tone={engagementTone(p.engagement)}>● {p.engagement}</Chip>
-                    <span className="ml-auto font-mono text-[10px] uppercase tracking-[0.18em] text-muted-foreground">
-                      activity {relativeTime(p.last_activity_at)}
-                    </span>
-                  </div>
-                  <div className="mt-3 flex flex-wrap gap-x-6 gap-y-1 font-mono text-[11px] tabular-nums text-muted-foreground">
-                    <span>
-                      seats{" "}
-                      <span className="text-foreground">
-                        {p.seats_logged_in}/{p.seats}
-                      </span>{" "}
-                      live
-                    </span>
-                    <span>
-                      actions 7d{" "}
-                      <span className="text-foreground">{p.actions_7d}</span>{" "}
-                      <span className={trendTone(p.trend)}>{trendGlyph(p.trend)}</span>
-                    </span>
-                    <span>
-                      users active <span className="text-foreground">{p.active_users_7d}</span>
-                    </span>
-                    <span>
-                      STR <span className="text-foreground">{p.strs}</span>
-                    </span>
-                    <span>
-                      alerts <span className="text-foreground">{p.alerts}</span>
-                    </span>
-                    <span>
-                      cases <span className="text-foreground">{p.cases}</span>
-                    </span>
-                    <span>
-                      scans <span className="text-foreground">{p.scans}</span>
-                    </span>
-                  </div>
-                </button>
-                {expanded === p.org_id ? (
-                  <PilotDetailPanel
-                    detail={detail[p.org_id]}
-                    error={detailError[p.org_id]}
-                  />
-                ) : null}
-              </li>
-            ))}
-          </ul>
+          <ul className="divide-y divide-border">{realTenants.map(renderRow)}</ul>
         )}
       </Section>
+
+      {demoTenants.length > 0 ? (
+        <Section eyebrow={`Demo / sandbox · ${demoTenants.length}`}>
+          <ul className="divide-y divide-border opacity-70">
+            {demoTenants.map(renderRow)}
+          </ul>
+        </Section>
+      ) : null}
     </div>
   );
 }
