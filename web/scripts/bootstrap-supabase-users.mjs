@@ -35,7 +35,7 @@ const users = [
     email_confirm: true,
     user_metadata: {
       org_id: "9c111111-1111-4111-8111-111111111111",
-      full_name: "Kestrel Platform Operator",
+      full_name: "Ripon Chowdhury",
       role: "admin",
       persona: "bfiu_director",
       designation: "Platform Operator, Enso Intelligence",

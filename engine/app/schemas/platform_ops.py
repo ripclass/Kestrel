@@ -3,12 +3,13 @@
 Enso-internal, cross-tenant. Gated by the operator email allow-list — see
 ``app.auth.require_platform_operator``. All read-only.
 """
-from typing import Literal
+from typing import Any, Literal
 
 from pydantic import BaseModel, Field
 
 Engagement = Literal["active", "idle", "dormant", "never"]
 Trend = Literal["rising", "falling", "flat", "new"]
+TenantKind = Literal["demo", "pilot", "live"]
 
 
 class PilotHealthCard(BaseModel):
@@ -16,6 +17,7 @@ class PilotHealthCard(BaseModel):
     org_name: str
     org_type: str
     plan_id: str
+    tenant_kind: TenantKind = "demo"
     created_at: str | None = None
     seats: int = 0
     seats_logged_in: int = 0
@@ -76,3 +78,60 @@ class PilotDetailResponse(BaseModel):
     users: list[PilotUserActivity] = Field(default_factory=list)
     recent_actions: list[PilotAuditEntry] = Field(default_factory=list)
     action_breakdown: dict[str, int] = Field(default_factory=dict)
+
+
+# --- operator session --------------------------------------------------------
+
+class OperatorSession(BaseModel):
+    email: str
+    name: str | None = None
+    role: str
+
+
+# --- tenant management -------------------------------------------------------
+
+class TenantRow(BaseModel):
+    org_id: str
+    org_name: str
+    org_type: str
+    plan_id: str
+    tenant_kind: TenantKind = "demo"
+    created_at: str | None = None
+    seats: int = 0
+    seats_logged_in: int = 0
+    last_activity_at: str | None = None
+    engagement: Engagement = "never"
+
+
+class TenantListResponse(BaseModel):
+    tenants: list[TenantRow] = Field(default_factory=list)
+
+
+class TenantClassifyInput(BaseModel):
+    tenant_kind: TenantKind
+
+
+class TenantSummary(BaseModel):
+    org_id: str
+    org_name: str
+    org_type: str
+    plan_id: str
+    tenant_kind: TenantKind
+
+
+# --- system health -----------------------------------------------------------
+
+class SystemHealthComponent(BaseModel):
+    name: str
+    status: str
+    required: bool
+    detail: str | None = None
+
+
+class SystemHealthResponse(BaseModel):
+    status: str
+    version: str
+    environment: str
+    components: list[SystemHealthComponent] = Field(default_factory=list)
+    uptime: dict[str, Any] = Field(default_factory=dict)
+    generated_at: str

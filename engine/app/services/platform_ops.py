@@ -89,6 +89,25 @@ def _as_str(value: Any) -> str:
     return str(value) if value is not None else ""
 
 
+# --- tenant classification ---------------------------------------------------
+
+TENANT_KINDS = ("demo", "pilot", "live")
+
+
+def tenant_kind_of(org: Any) -> str:
+    """Read `organizations.settings.tenant_kind`, defaulting to `demo`.
+
+    A tenant with no classification is treated as demo — the operator console
+    should never mistake an unclassified seed org for a real pilot.
+    """
+    settings = getattr(org, "settings", None)
+    if isinstance(settings, dict):
+        kind = settings.get("tenant_kind")
+        if isinstance(kind, str) and kind in TENANT_KINDS:
+            return kind
+    return "demo"
+
+
 # --- login data (cross-schema, defensive) ------------------------------------
 
 async def _login_rows(session: AsyncSession) -> list[tuple[str, str, datetime | None]]:
@@ -181,6 +200,7 @@ def _build_card(
         "org_name": org.name,
         "org_type": org.org_type,
         "plan_id": org.plan_id or "starter",
+        "tenant_kind": tenant_kind_of(org),
         "created_at": _iso(getattr(org, "created_at", None)),
         "seats": seats,
         "seats_logged_in": len(real_logins),
@@ -210,6 +230,7 @@ async def build_pilot_overview(session: AsyncSession) -> dict[str, Any]:
                 Organization.org_type,
                 Organization.plan_id,
                 Organization.created_at,
+                Organization.settings,
             )
         )
     ).all()
@@ -425,4 +446,150 @@ async def _action_breakdown(
     return {
         (r[0] or "other"): int(r[1])
         for r in result.all()
+    }
+
+
+# --- tenant management -------------------------------------------------------
+
+async def list_tenants(session: AsyncSession) -> list[dict[str, Any]]:
+    """Every tenant with management-relevant fields: plan, classification,
+    seat coverage, last activity. Pilots/live sort ahead of demo tenants."""
+    now = _now()
+    orgs = (
+        await session.execute(
+            select(
+                Organization.id,
+                Organization.name,
+                Organization.org_type,
+                Organization.plan_id,
+                Organization.created_at,
+                Organization.settings,
+            )
+        )
+    ).all()
+
+    seats_result = await session.execute(
+        select(Profile.org_id, func.count()).group_by(Profile.org_id)
+    )
+    seats_by_org = {_as_str(r[0]): int(r[1]) for r in seats_result.all()}
+
+    logins_by_org: dict[str, list[datetime | None]] = {}
+    for org_id, _user_id, last_sign_in in await _login_rows(session):
+        logins_by_org.setdefault(org_id, []).append(last_sign_in)
+
+    activity_by_org = await _audit_activity(session, now)
+
+    rows: list[dict[str, Any]] = []
+    for org in orgs:
+        oid = str(org.id)
+        logins = logins_by_org.get(oid, [])
+        real_logins = [dt for dt in logins if dt is not None]
+        activity = activity_by_org.get(oid, {})
+        last_login = max(real_logins) if real_logins else None
+        last_activity = activity.get("last_activity_at")
+        rows.append(
+            {
+                "org_id": oid,
+                "org_name": org.name,
+                "org_type": org.org_type,
+                "plan_id": org.plan_id or "starter",
+                "tenant_kind": tenant_kind_of(org),
+                "created_at": _iso(getattr(org, "created_at", None)),
+                "seats": seats_by_org.get(oid, 0),
+                "seats_logged_in": len(real_logins),
+                "last_activity_at": _iso(last_activity),
+                "engagement": engagement_status(latest(last_login, last_activity), now),
+            }
+        )
+
+    kind_rank = {"live": 0, "pilot": 1, "demo": 2}
+    rows.sort(key=lambda r: (kind_rank.get(r["tenant_kind"], 3), r["org_name"].lower()))
+    return rows
+
+
+async def update_tenant_classification(
+    session: AsyncSession,
+    *,
+    org_id: str,
+    tenant_kind: str,
+    user: AuthenticatedUser,
+) -> dict[str, Any]:
+    """Set a tenant's `demo` / `pilot` / `live` classification.
+
+    This is a label only — it changes how the operator console groups the
+    tenant; it does not touch the tenant's data, plan, or RLS.
+    """
+    if tenant_kind not in TENANT_KINDS:
+        raise ValueError(f"tenant_kind must be one of {TENANT_KINDS}")
+    try:
+        org_uuid = uuid.UUID(str(org_id))
+    except (TypeError, ValueError) as exc:
+        raise ValueError("Invalid organization id") from exc
+
+    org = await session.get(Organization, org_uuid)
+    if org is None:
+        raise LookupError(f"Organization {org_id} not found")
+
+    current = dict(org.settings or {})
+    previous = current.get("tenant_kind")
+    current["tenant_kind"] = tenant_kind
+    org.settings = current  # reassign so SQLAlchemy flags the JSONB column dirty
+
+    session.add(
+        AuditLog(
+            org_id=org_uuid,
+            user_id=None,
+            action="platform.tenant.classify",
+            resource_type="organization",
+            resource_id=org_uuid,
+            details={
+                "tenant_kind": tenant_kind,
+                "previous": previous,
+                "operator": user.email,
+            },
+        )
+    )
+    await session.commit()
+    return {
+        "org_id": str(org.id),
+        "org_name": org.name,
+        "org_type": org.org_type,
+        "plan_id": org.plan_id or "starter",
+        "tenant_kind": tenant_kind,
+    }
+
+
+# --- system health -----------------------------------------------------------
+
+async def build_system_health(session: AsyncSession) -> dict[str, Any]:
+    """Compose the operator System Health view: live component probes
+    (readiness) plus uptime % and active incidents (status ledger)."""
+    from app.config import get_settings
+    from app.services.readiness import build_readiness_report
+    from app.services.status import build_status_summary
+
+    report = await build_readiness_report(get_settings())
+    status_summary = await build_status_summary(session)
+
+    components = [
+        {
+            "name": check.name,
+            "status": check.status,
+            "required": check.required,
+            "detail": check.detail,
+        }
+        for check in report.checks
+    ]
+    return {
+        "status": report.status,
+        "version": report.version,
+        "environment": report.environment,
+        "components": components,
+        "uptime": {
+            "overall_status": status_summary.get("status"),
+            "overall_uptime_30d": status_summary.get("overall_uptime_30d"),
+            "components": status_summary.get("components", []),
+            "incidents": status_summary.get("incidents", []),
+        },
+        "generated_at": _now().isoformat(),
     }

@@ -17,6 +17,7 @@ from app.services.platform_ops import (
     activity_trend,
     engagement_status,
     latest,
+    tenant_kind_of,
 )
 
 NOW = datetime(2026, 5, 21, 12, 0, 0, tzinfo=UTC)
@@ -204,3 +205,71 @@ def test_is_platform_operator_fail_closed_when_list_empty() -> None:
 def test_is_platform_operator_handles_none_email() -> None:
     s = Settings(kestrel_platform_operators="founder@enso.com")
     assert s.is_platform_operator(None) is False
+
+
+# --- operator role resolution ------------------------------------------------
+
+def test_operator_role_none_for_non_operator() -> None:
+    s = Settings(kestrel_platform_operators="ops@enso.com")
+    assert s.platform_operator_role("stranger@bank.com") is None
+
+
+def test_operator_role_defaults_to_owner_without_map() -> None:
+    s = Settings(kestrel_platform_operators="ops@enso.com")
+    assert s.platform_operator_role("ops@enso.com") == "owner"
+
+
+def test_operator_role_uses_explicit_map() -> None:
+    s = Settings(
+        kestrel_platform_operators="ops@enso.com,cs@enso.com",
+        kestrel_platform_operator_roles='{"cs@enso.com": "operations"}',
+    )
+    assert s.platform_operator_role("cs@enso.com") == "operations"
+
+
+def test_operator_role_unmapped_operator_falls_back_to_owner() -> None:
+    s = Settings(
+        kestrel_platform_operators="ops@enso.com,cs@enso.com",
+        kestrel_platform_operator_roles='{"cs@enso.com": "operations"}',
+    )
+    assert s.platform_operator_role("ops@enso.com") == "owner"
+
+
+def test_operator_role_malformed_json_fails_safe_to_owner() -> None:
+    """A broken role map must never lock the founder out."""
+    s = Settings(
+        kestrel_platform_operators="ops@enso.com",
+        kestrel_platform_operator_roles="{not valid json",
+    )
+    assert s.platform_operator_role("ops@enso.com") == "owner"
+
+
+def test_operator_role_match_is_case_insensitive() -> None:
+    s = Settings(
+        kestrel_platform_operators="cs@enso.com",
+        kestrel_platform_operator_roles='{"cs@enso.com": "operations"}',
+    )
+    assert s.platform_operator_role("CS@Enso.com") == "operations"
+
+
+# --- tenant_kind_of ----------------------------------------------------------
+
+def test_tenant_kind_reads_pilot() -> None:
+    org = SimpleNamespace(settings={"tenant_kind": "pilot"})
+    assert tenant_kind_of(org) == "pilot"
+
+
+def test_tenant_kind_defaults_to_demo_when_unset() -> None:
+    assert tenant_kind_of(SimpleNamespace(settings={})) == "demo"
+    assert tenant_kind_of(SimpleNamespace(settings=None)) == "demo"
+
+
+def test_tenant_kind_defaults_to_demo_for_invalid_value() -> None:
+    """An unclassified or junk value must never read as a real pilot."""
+    org = SimpleNamespace(settings={"tenant_kind": "production"})
+    assert tenant_kind_of(org) == "demo"
+
+
+def test_tenant_kind_live_is_honored() -> None:
+    org = SimpleNamespace(settings={"tenant_kind": "live"})
+    assert tenant_kind_of(org) == "live"
