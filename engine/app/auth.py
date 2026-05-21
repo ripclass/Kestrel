@@ -307,3 +307,21 @@ def require_roles(*roles: str):
         return user
 
     return _dependency
+
+
+async def require_platform_operator(
+    user: Annotated[AuthenticatedUser, Depends(get_current_user)],
+) -> AuthenticatedUser:
+    """Gate the cross-tenant platform-operator console.
+
+    Access is an Enso-internal email allow-list (``KESTREL_PLATFORM_OPERATORS``),
+    deliberately *not* the per-tenant role model — a bank or BFIU admin must
+    never see pilot-engagement telemetry across other tenants. Fail-closed:
+    an empty allow-list denies everyone.
+    """
+    if not settings.is_platform_operator(user.email):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Platform-operator access required.",
+        )
+    return user

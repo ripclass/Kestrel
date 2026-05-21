@@ -3,10 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 
-import type {
-  MlpaSection,
-  PredicateOffence,
-} from "@/types/domain";
+import type { PredicateOffence } from "@/types/domain";
 import { PREDICATE_OFFENCE_LABELS } from "@/types/domain";
 
 type TbmlAlert = {

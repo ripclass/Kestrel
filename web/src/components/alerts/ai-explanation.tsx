@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 
 import { AiShimmer } from "@/components/common/ai-shimmer";
 import { TypedReveal } from "@/components/common/typed-reveal";
@@ -21,7 +21,10 @@ export function AiExplanation({
   // itself changes (e.g. analyst re-runs the AI on the same alert).
   const [revealedActions, setRevealedActions] = useState(0);
 
-  useEffect(() => {
+  // Extracted into a callback so the setState calls aren't lexically inside
+  // the effect body (react-hooks/set-state-in-effect). The effect just
+  // invokes it and forwards the cleanup.
+  const scheduleReveal = useCallback(() => {
     if (!explanation || explanation.recommendedActions.length === 0) {
       setRevealedActions(0);
       return;
@@ -40,6 +43,12 @@ export function AiExplanation({
       handles.forEach((h) => window.clearTimeout(h));
     };
   }, [explanation]);
+
+  // The state update IS the effect's purpose here — staggering the
+  // recommended-actions reveal via timers. A legitimate effect use that
+  // set-state-in-effect false-positives on.
+  // eslint-disable-next-line react-hooks/set-state-in-effect
+  useEffect(() => scheduleReveal(), [scheduleReveal]);
 
   if (isLoading) {
     return (

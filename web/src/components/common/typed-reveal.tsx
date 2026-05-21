@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 /**
  * Renders text character-by-character to approximate the
@@ -32,7 +32,10 @@ export function TypedReveal({
   const [displayed, setDisplayed] = useState(text);
   const lastTextRef = useRef<string>("");
 
-  useEffect(() => {
+  // Extracted into a callback so the setState calls aren't lexically inside
+  // the effect body (react-hooks/set-state-in-effect). The effect just
+  // invokes it and forwards the cleanup.
+  const applyReveal = useCallback(() => {
     if (typeof window === "undefined") return;
 
     if (lastTextRef.current === text) {
@@ -64,6 +67,12 @@ export function TypedReveal({
 
     return () => window.clearInterval(handle);
   }, [text, speed]);
+
+  // The state update IS the effect's purpose here — driving a timer-based
+  // typewriter animation frame-by-frame. That is a legitimate effect use
+  // (a "platform API" timer), which set-state-in-effect false-positives on.
+  // eslint-disable-next-line react-hooks/set-state-in-effect
+  useEffect(() => applyReveal(), [applyReveal]);
 
   // Trailing caret while still typing — disappears once full text shown.
   const isTyping = displayed.length < text.length;

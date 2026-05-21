@@ -21,6 +21,34 @@ const supabase = createClient(
 
 const users = [
   {
+    // Enso platform-operator account — the login identity for the
+    // cross-tenant pilot-health console at /platform (PR #16). Access is
+    // gated by the KESTREL_PLATFORM_OPERATORS env allow-list, which must
+    // contain this email on BOTH Render (engine) and Vercel (web). Sits in
+    // the BFIU regulator org purely so the in-app shell has somewhere to
+    // land; the platform-ops gate itself is email-based and org-independent.
+    // The password MUST be supplied via OPS_OPERATOR_PASSWORD — this is the
+    // most privileged account in the system, so no default is baked into the
+    // repo. The entry is skipped at run time if the env var is absent.
+    email: process.env.OPS_OPERATOR_EMAIL ?? "ops@kestrelfin.com",
+    password: process.env.OPS_OPERATOR_PASSWORD,
+    email_confirm: true,
+    user_metadata: {
+      org_id: "9c111111-1111-4111-8111-111111111111",
+      full_name: "Kestrel Platform Operator",
+      role: "admin",
+      persona: "bfiu_director",
+      designation: "Platform Operator, Enso Intelligence",
+      org_type: "regulator",
+    },
+    app_metadata: {
+      org_id: "9c111111-1111-4111-8111-111111111111",
+      role: "admin",
+      persona: "bfiu_director",
+      org_type: "regulator",
+    },
+  },
+  {
     email: process.env.BFIU_DIRECTOR_EMAIL ?? "director@kestrel-bfiu.test",
     password: process.env.BFIU_DIRECTOR_PASSWORD ?? "Kestrel!BFIU!2026",
     email_confirm: true,
@@ -442,6 +470,12 @@ async function ensureUser(definition) {
 }
 
 for (const definition of users) {
+  if (!definition.password) {
+    // No password supplied (e.g. OPS_OPERATOR_PASSWORD unset). Skip rather
+    // than abort so the demo-seat workflow is unaffected.
+    console.warn(`skipped ${definition.email} — no password supplied via env`);
+    continue;
+  }
   await ensureUser(definition);
 }
 

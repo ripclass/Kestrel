@@ -87,8 +87,28 @@ class Settings(BaseSettings):
     audit_log_retention_days: int = 365
     kestrel_audit_archive_bucket: str | None = None
 
+    # Platform-operator console: comma-separated allow-list of Enso operator
+    # emails. The cross-tenant pilot-health surface (`/platform/*`) is gated
+    # on membership. Empty => no one has access (fail-closed). This is an
+    # Enso-internal gate — distinct from the per-tenant `bank`/`regulator`
+    # role model — so BFIU and bank customers never see pilot telemetry.
+    kestrel_platform_operators: str = ""
+
     def is_onprem(self) -> bool:
         return self.kestrel_deployment_mode.lower() == "onprem"
+
+    def platform_operator_emails(self) -> set[str]:
+        """Lower-cased, whitespace-trimmed operator email allow-list."""
+        return {
+            item.strip().lower()
+            for item in self.kestrel_platform_operators.split(",")
+            if item.strip()
+        }
+
+    def is_platform_operator(self, email: str | None) -> bool:
+        if not email:
+            return False
+        return email.strip().lower() in self.platform_operator_emails()
 
     def cors_origin_list(self) -> list[str]:
         return [item.strip() for item in self.allowed_origins.split(",") if item.strip()]

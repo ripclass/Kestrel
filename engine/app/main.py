@@ -25,6 +25,7 @@ from app.routers import (
     match_definitions,
     network,
     overview,
+    platform_ops,
     realtime,
     reference_tables,
     reports,
@@ -116,4 +117,5 @@ app.include_router(match_definitions.router, prefix="/match-definitions", tags=[
 app.include_router(reference_tables.router, prefix="/reference-tables", tags=["reference-tables"])
 app.include_router(reports.router, prefix="/reports", tags=["reports"])
 app.include_router(admin.router, prefix="/admin", tags=["admin"])
+app.include_router(platform_ops.router, prefix="/platform", tags=["platform"])
 app.include_router(stripe_webhooks.router, prefix="/webhooks", tags=["webhooks"])
