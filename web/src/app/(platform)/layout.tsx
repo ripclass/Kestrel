@@ -1,7 +1,9 @@
+import { redirect } from "next/navigation";
+
 import { AppSidebar } from "@/components/shell/app-sidebar";
 import { AppTopbar } from "@/components/shell/app-topbar";
 import { MobileNav } from "@/components/shell/mobile-nav";
-import { isDemoModeEnabled, requireViewer } from "@/lib/auth";
+import { isDemoModeEnabled, isPlatformOperatorEmail, requireViewer } from "@/lib/auth";
 
 export const dynamic = "force-dynamic";
 
@@ -11,6 +13,15 @@ export default async function PlatformLayout({
   children: React.ReactNode;
 }>) {
   const viewer = await requireViewer();
+
+  // Platform operators are confined to the operator console — they are an
+  // Enso-internal role, not a bank/BFIU tenant user. Any attempt to load a
+  // tenant page (including the post-login landing on /overview) bounces to
+  // the operator console, so the tenant shell + persona never render for them.
+  if (isPlatformOperatorEmail(viewer.email)) {
+    redirect("/platform");
+  }
+
   const showDemoSwitcher = isDemoModeEnabled();
 
   return (
