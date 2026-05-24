@@ -330,6 +330,19 @@ export function STRReportWorkspace({
   function applyDraftNarrative() {
     if (!report?.enrichment) return;
     updateDraft("narrative", report.enrichment.draftNarrative);
+    // The enrichment IS the AI's narrative draft. Reset the
+    // correction-capture baseline so subsequent edits diff against it
+    // (not the original pre-enrichment text) and record as a gold
+    // `edited` training row against the enrichment's str_narrative
+    // outcome_log_id (which the engine now persists on report metadata).
+    const meta = (report.metadata ?? {}) as Record<string, unknown>;
+    const logId = typeof meta.ai_outcome_log_id === "string" ? meta.ai_outcome_log_id : null;
+    if (logId) {
+      aiCaptureRef.current = {
+        logId,
+        baseline: report.enrichment.draftNarrative,
+      };
+    }
     setApplyCount((current) => current + 1);
     setError(null);
     setNotice("AI draft copied into the narrative editor. Save draft to persist it.");
