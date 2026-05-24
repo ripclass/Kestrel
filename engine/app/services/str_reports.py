@@ -718,6 +718,12 @@ async def enrich_str_report(
     )
     metadata = deepcopy(report.metadata_json or {})
     metadata["enrichment"] = enrichment.model_dump(mode="json")
+    # Thread the str_narrative invocation's outcome_log_id into report
+    # metadata so the workspace's PR #18 correction-capture hook can record
+    # an analyst edit of the enriched narrative as a gold `edited` training
+    # row (closes the "STR created not via Draft-from-alert" capture gap).
+    if narrative_result.outcome_log_id:
+        metadata["ai_outcome_log_id"] = str(narrative_result.outcome_log_id)
     report.metadata_json = _append_lifecycle_event(
         metadata,
         action="enriched",
