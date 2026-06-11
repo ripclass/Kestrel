@@ -76,3 +76,7 @@ docs/internal/
 # Local regulatory-reference corpus — OCR'd BFIU/MLPA PDFs, grep-only resource.
 REG RULES/
 
+
+# Local working material — not repo artifacts
+/*.pptx
+/Research docs/

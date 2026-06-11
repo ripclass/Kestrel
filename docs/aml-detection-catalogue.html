@@ -1,0 +1,728 @@
+<!DOCTYPE html><html><head><meta charset='utf-8'><title>aml-detection-catalogue</title><style>
+@page {
+    size: A4;
+    margin: 26mm 20mm 22mm 20mm;
+    @top-left {
+        content: "\268B  KESTREL";
+        font-family: 'IBM Plex Mono', 'Courier New', monospace;
+        font-size: 8pt;
+        color: #15171c;
+        letter-spacing: 0.28em;
+        font-weight: 600;
+    }
+    @top-right {
+        content: "AML DETECTION CATALOGUE";
+        font-family: 'IBM Plex Mono', 'Courier New', monospace;
+        font-size: 8pt;
+        color: #666;
+        letter-spacing: 0.22em;
+    }
+    @bottom-right {
+        content: counter(page) " / " counter(pages);
+        font-family: 'IBM Plex Mono', 'Courier New', monospace;
+        font-size: 9pt;
+        color: #666;
+    }
+    @bottom-left {
+        content: "KESTREL · KESTREL AML DETECTION CATALOGUE";
+        font-family: 'IBM Plex Mono', 'Courier New', monospace;
+        font-size: 8pt;
+        color: #666;
+        letter-spacing: 0.18em;
+    }
+}
+
+* { box-sizing: border-box; }
+
+body {
+    font-family: 'IBM Plex Sans', 'Helvetica Neue', sans-serif;
+    font-size: 10.5pt;
+    line-height: 1.55;
+    color: #15171c;
+}
+
+h1 {
+    font-size: 22pt;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+    margin: 0 0 4pt 0;
+    border-bottom: 1.5pt solid #ff3823;
+    padding-bottom: 8pt;
+}
+
+h2 {
+    font-size: 13pt;
+    font-weight: 600;
+    margin: 18pt 0 6pt 0;
+    page-break-after: avoid;
+}
+
+h3 {
+    font-size: 11pt;
+    font-weight: 600;
+    margin: 12pt 0 4pt 0;
+    page-break-after: avoid;
+}
+
+p, ul, ol { margin: 0 0 8pt 0; }
+
+ul, ol { padding-left: 18pt; }
+
+li { margin-bottom: 3pt; }
+
+strong { font-weight: 600; }
+
+code {
+    font-family: 'IBM Plex Mono', 'Courier New', monospace;
+    font-size: 9pt;
+    background: #f3f3f3;
+    padding: 1pt 3pt;
+    border-radius: 0;
+}
+
+pre {
+    font-family: 'IBM Plex Mono', 'Courier New', monospace;
+    font-size: 9pt;
+    background: #f3f3f3;
+    padding: 8pt 10pt;
+    border-left: 2pt solid #ff3823;
+    overflow-x: auto;
+    line-height: 1.45;
+    margin: 8pt 0;
+}
+
+pre code { background: none; padding: 0; }
+
+blockquote {
+    margin: 0 0 12pt 0;
+    padding: 8pt 14pt;
+    border-left: 2pt solid #ff3823;
+    color: #444;
+    font-style: italic;
+}
+
+table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 8pt 0 12pt 0;
+    font-size: 9.5pt;
+}
+
+th {
+    text-align: left;
+    font-weight: 600;
+    padding: 6pt 8pt;
+    border-bottom: 1pt solid #15171c;
+    background: #f8f8f8;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 8.5pt;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+}
+
+td {
+    padding: 5pt 8pt;
+    border-bottom: 0.5pt solid #ddd;
+    vertical-align: top;
+}
+
+hr {
+    border: none;
+    border-top: 0.5pt solid #ccc;
+    margin: 16pt 0;
+}
+
+a {
+    color: #ff3823;
+    text-decoration: none;
+}
+</style></head><body><h1>Kestrel AML Detection Catalogue</h1>
+<p><strong>Version</strong>: 2026-05-18 · <strong>Status</strong>: production reference · <strong>Audience</strong>: bank CAMLCO + Internal Audit + Bangladesh Bank inspection teams + BFIU procurement review.</p>
+<p>This document is the canonical list of AML detection patterns Kestrel implements. It exists because every reporting bank's AML programme is audited against (a) the pattern coverage Bangladesh Bank expects under MLPR 2019 + BFIU Circular 26 and (b) the international AML standards Bangladesh has committed to via FATF mutual evaluation. This catalogue maps Kestrel's detection rules to both reference frameworks.</p>
+<h2>Methodology</h2>
+<p>Kestrel's detection rule catalogue is derived from the publicly available AML regulatory framework Bangladesh's banking sector operates under:</p>
+<ul>
+<li><strong>FATF Recommendations 10–22</strong> — the international AML/CFT standard. Recommendations 10 (CDD), 11 (record-keeping), 20 (STR), 13 (correspondent banking), 16 (wire transfers), and 22 (DNFBPs) are particularly relevant.</li>
+<li><strong>The Wolfsberg Group Statements</strong> — global private-banking AML principles. The Wolfsberg AML Principles + the Wolfsberg Statement on Monitoring Screening and Searching define the canonical AML monitoring patterns adopted by every Tier-1 bank.</li>
+<li><strong>Egmont Group Typology Reports</strong> — public typology guidance issued by the Egmont Group (which BFIU belongs to). The Operational Typology Reports cover real-world ML/TF patterns.</li>
+<li><strong>BFIU Circular 26 (Scheduled Banks AML/CFT Master Instructions, June 2020)</strong> — Bangladesh's master compliance circular. § 4 covers transaction monitoring; § 5 covers KYC; § 6 covers STR/CTR filing.</li>
+<li><strong>BFIU Circular 22 (2019)</strong> — inter-bank information exchange.</li>
+<li><strong>BFIU TBML Guidelines (December 2019)</strong> — Bangladesh's trade-based money laundering authority document. The 29 BD-specific TBML avenues (§ 2.4.1 + § 2.4.2 + § 2.5) drive Kestrel's TBML rule set.</li>
+<li><strong>MLPA 2012 § 2(cc)</strong> — the 28 predicate offences against which every STR is classified.</li>
+<li><strong>ATA 2009 § 15</strong> — parallel terrorist-financing authority.</li>
+</ul>
+<p>Each rule below cites the regulatory basis in its description. Rules are organised by category, then by implementation status (Active = live today; Pilot-track = Day 1 of pilot; Roadmap = next phase).</p>
+<hr />
+<h2>Category 1 · Cash structuring and threshold avoidance</h2>
+<table>
+<thead>
+<tr>
+<th>ID</th>
+<th>Rule</th>
+<th>Pattern</th>
+<th>Regulatory basis</th>
+<th>Status</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>structuring</code></td>
+<td><strong>Sub-threshold cash structuring</strong></td>
+<td>Cash deposits or withdrawals in the BDT 9.0–9.99 lakh band repeating ≥ 3 times per account per month. Designed to stay just below the BDT 10 lakh CTR mandatory reporting threshold.</td>
+<td>BFIU Circular 26 § 4.2 (CTR threshold); FATF R.10 + R.20; Wolfsberg AML Principles § 4.3</td>
+<td><strong>Active</strong> (tune-for-bank)</td>
+</tr>
+<tr>
+<td><code>smurfing_multi_branch</code></td>
+<td><strong>Cross-branch fragmented deposits</strong></td>
+<td>Fragmented deposits each above BDT 1 lakh from multiple branches (5+ different branches, online deposits) within a single calendar day into the same account or related accounts. Designed to avoid single-branch detection.</td>
+<td>BFIU Circular 26 § 4.4 (smurfing); Egmont Typology Report — "Smurfs and shells"</td>
+<td><strong>Pilot-track</strong> (multi-branch attribution needs the branch dimension to be tracked on each transaction)</td>
+</tr>
+<tr>
+<td><code>multi_account_aggregation</code></td>
+<td><strong>Same-owner multi-account accumulation</strong></td>
+<td>Same person or entity holding ≥ 3 accounts within the bank, with combined cash deposits above BDT 10 lakh on the same day across those accounts. Intent: spread across own-name accounts to dilute single-account threshold checks.</td>
+<td>BFIU Circular 26 § 4.4; FATF R.10 (CDD); Wolfsberg § 5.2</td>
+<td><strong>Pilot-track</strong></td>
+</tr>
+<tr>
+<td><code>round_amount_repetition</code></td>
+<td><strong>Round-amount transaction repetition</strong></td>
+<td>Repeated transactions at round BDT thresholds (5L / 10L / 25L / 50L exactly) on the same account within a 30-day window. Classic indicator of pre-calculated structuring.</td>
+<td>FATF R.20 implementation guidance; Wolfsberg § 5.4</td>
+<td><strong>Roadmap</strong></td>
+</tr>
+</tbody>
+</table>
+<h2>Category 2 · Rapid disposal and layering</h2>
+<table>
+<thead>
+<tr>
+<th>ID</th>
+<th>Rule</th>
+<th>Pattern</th>
+<th>Regulatory basis</th>
+<th>Status</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>rapid_cashout</code></td>
+<td><strong>Rapid withdrawal after deposit</strong></td>
+<td>Funds credited then withdrawn or transferred out within the same business day, repeating ≥ 5 times in a 7-day window. Alternative trigger: ≥ 90% of any single credited amount withdrawn the next day, repeating 5 times in 10 days.</td>
+<td>BFIU Circular 26 § 4.5; FATF Recommendation 20 implementation; Wolfsberg AML Statement § 5.5</td>
+<td><strong>Active</strong> (tune-for-bank)</td>
+</tr>
+<tr>
+<td><code>fan_out_burst</code></td>
+<td><strong>Fan-out distribution burst</strong></td>
+<td>Single account dispatches funds to ≥ 10 distinct beneficiaries in a 24-hour window. Classic layering indicator for funds moving through an intermediary account.</td>
+<td>Egmont Operational Typology Reports; FATF R.20</td>
+<td><strong>Active</strong></td>
+</tr>
+<tr>
+<td><code>fan_in_burst</code></td>
+<td><strong>Fan-in concentration burst</strong></td>
+<td>Single account receives funds from ≥ 10 distinct payers in a 24-hour window. Mule-account indicator.</td>
+<td>Egmont OTRs; FATF R.20</td>
+<td><strong>Active</strong></td>
+</tr>
+<tr>
+<td><code>layering</code></td>
+<td><strong>Cross-bank multi-hop layering</strong></td>
+<td>Funds move across 3+ bank hops within a 72-hour window for the same identifier chain. Detected against the shared cross-bank entity graph.</td>
+<td>FATF R.20; Wolfsberg § 5.5; Egmont — "Mules and chains"</td>
+<td><strong>Active</strong></td>
+</tr>
+<tr>
+<td><code>wire_to_new_beneficiary</code></td>
+<td><strong>First-time wire to new beneficiary</strong></td>
+<td>First outbound wire transfer (RTGS / SWIFT / cross-border) from an account to a beneficiary it has not transacted with before, where the wire amount exceeds BDT 5 lakh.</td>
+<td>FATF R.16 (wire transfers); Wolfsberg AML Principles § 5.5</td>
+<td><strong>Pilot-track</strong></td>
+</tr>
+</tbody>
+</table>
+<h2>Category 3 · Account age and dormancy</h2>
+<table>
+<thead>
+<tr>
+<th>ID</th>
+<th>Rule</th>
+<th>Pattern</th>
+<th>Regulatory basis</th>
+<th>Status</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>first_time_high_value</code></td>
+<td><strong>High-value transaction in new account</strong></td>
+<td>Account &lt; 30 days old, with either a single transaction &gt; BDT 10 lakh or ≥ 10 transactions cumulatively totalling &gt; BDT 20 lakh. Applies to individual and proprietorship accounts.</td>
+<td>BFIU Circular 26 § 4.3; FATF R.10 (CDD); Wolfsberg § 5.4</td>
+<td><strong>Active</strong> (tune-for-bank)</td>
+</tr>
+<tr>
+<td><code>dormant_spike</code></td>
+<td><strong>Dormant account reactivation spike</strong></td>
+<td>Account inactive for ≥ 6 months reactivated and transacting ≥ BDT 5 lakh (individual) or ≥ BDT 10 lakh (proprietorship / corporate) within 30 days of reactivation.</td>
+<td>BFIU Circular 26 § 4.6; FATF R.10 implementation; Wolfsberg § 5.5</td>
+<td><strong>Active</strong> (tune-for-bank)</td>
+</tr>
+<tr>
+<td><code>account_age_velocity_mismatch</code></td>
+<td><strong>Activity-age velocity mismatch</strong></td>
+<td>Daily transaction count or volume exceeds the average for accounts of similar age + customer-type by ≥ 3 standard deviations.</td>
+<td>FATF R.20; Wolfsberg AML Statement § 5.3 (behavioural baselining)</td>
+<td><strong>Roadmap</strong></td>
+</tr>
+</tbody>
+</table>
+<h2>Category 4 · Time and velocity</h2>
+<table>
+<thead>
+<tr>
+<th>ID</th>
+<th>Rule</th>
+<th>Pattern</th>
+<th>Regulatory basis</th>
+<th>Status</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>off_hours_burst</code></td>
+<td><strong>Off-hours transaction burst</strong></td>
+<td>≥ 5 transactions from the same account between 10 PM and 6 AM in a single calendar day (online / ATM / card / interbank). Indicates either automation, mule operation, or attempt to avoid daytime review.</td>
+<td>BFIU Circular 26 § 4.7 (timing indicators); Wolfsberg § 5.5</td>
+<td><strong>Pilot-track</strong></td>
+</tr>
+<tr>
+<td><code>velocity_anomaly</code></td>
+<td><strong>Velocity baseline anomaly</strong></td>
+<td>Daily transaction count for the account exceeds its rolling 30-day median by ≥ 5x.</td>
+<td>FATF R.20 implementation; Wolfsberg behavioural-baselining principles</td>
+<td><strong>Roadmap</strong></td>
+</tr>
+</tbody>
+</table>
+<h2>Category 5 · Geographic risk</h2>
+<table>
+<thead>
+<tr>
+<th>ID</th>
+<th>Rule</th>
+<th>Pattern</th>
+<th>Regulatory basis</th>
+<th>Status</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>country_pair_high_risk</code></td>
+<td><strong>High-risk jurisdiction exposure</strong></td>
+<td>Inbound or outbound transaction to/from a high-risk country exceeding BDT 5 lakh (individuals) or BDT 10 lakh (non-individuals). High-risk jurisdictions defined by FATF grey/blacklist + OFAC comprehensive sanctions + UN sanctions + UK OFSI.</td>
+<td>FATF R.19 (high-risk countries); BFIU Circular 24; OFAC SDN; UN Consolidated; Wolfsberg § 4.5</td>
+<td><strong>Active</strong> (realtime modifier; tune-for-bank list)</td>
+</tr>
+<tr>
+<td><code>geographic_dispersion</code></td>
+<td><strong>Same-NID multi-district activity</strong></td>
+<td>Same NID withdrawing or transacting across ≥ 5 different districts of Bangladesh within a 7-day window. Indicates either money-mule operation or identity reuse.</td>
+<td>FATF R.20 implementation; Wolfsberg AML Statement § 5.5</td>
+<td><strong>Pilot-track</strong></td>
+</tr>
+<tr>
+<td><code>border_corridor_exposure</code></td>
+<td><strong>Border-corridor remittance pattern</strong></td>
+<td>Cross-border MFS or wire transfers concentrated through the Sylhet / Cox's Bazar / Banglabandha corridors (recognised hundi routes) exceeding BDT 2 lakh per transaction.</td>
+<td>BFIU Circular 26 § 4.5; Egmont Hundi typology report; Wolfsberg § 5.5</td>
+<td><strong>Roadmap</strong></td>
+</tr>
+</tbody>
+</table>
+<h2>Category 6 · Customer-profile and KYC mismatch</h2>
+<table>
+<thead>
+<tr>
+<th>ID</th>
+<th>Rule</th>
+<th>Pattern</th>
+<th>Regulatory basis</th>
+<th>Status</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>proximity_to_bad</code></td>
+<td><strong>Two-hop proximity to flagged entity</strong></td>
+<td>The transaction's source or destination is within 2 hops in the shared entity graph of a previously-flagged subject (cross-bank).</td>
+<td>FATF R.18 (cross-border information sharing); Egmont graph-analytics OTR; BFIU Circular 22</td>
+<td><strong>Active</strong></td>
+</tr>
+<tr>
+<td><code>customer_profile_mismatch</code></td>
+<td><strong>Activity vs. declared profile mismatch</strong></td>
+<td>Transaction volume or counterparty mix significantly diverges from the customer's declared occupation, business type, or expected activity profile at KYC.</td>
+<td>FATF R.10 (CDD risk-based approach); BFIU Circular 26 § 5.3 (ongoing monitoring); Wolfsberg § 5.4</td>
+<td><strong>Pilot-track</strong></td>
+</tr>
+<tr>
+<td><code>dealer_cash_high_value</code></td>
+<td><strong>Cash transaction by precious-metal / gemstone dealer</strong></td>
+<td>Cash transactions above BDT 20 lakh by customers whose KYC indicates dealer-in-precious-metals, gemstones, or high-value-goods business type.</td>
+<td>FATF R.22 (DNFBPs); BFIU Circular 20 (DNFBPs); Wolfsberg § 4.4</td>
+<td><strong>Pilot-track</strong></td>
+</tr>
+<tr>
+<td><code>pep_exposure_spike</code></td>
+<td><strong>PEP-linked account activity spike</strong></td>
+<td>Account linked to a Politically Exposed Person (per the PEP watchlist) shows transaction volume or counterparty count ≥ 3x its rolling baseline.</td>
+<td>FATF R.12 (PEPs); BFIU Circular 26 § 5.5; Wolfsberg PEP Principles</td>
+<td><strong>Roadmap</strong></td>
+</tr>
+<tr>
+<td><code>ubo_pattern_inference</code></td>
+<td><strong>Beneficial-owner pattern inference</strong></td>
+<td>Account's transaction pattern (counterparty graph + amount distribution) is statistically consistent with a different UBO than the declared one.</td>
+<td>FATF R.24 + R.25 (beneficial ownership); BFIU Circular 26 § 5.4</td>
+<td><strong>Roadmap</strong></td>
+</tr>
+</tbody>
+</table>
+<h2>Category 7 · Charity and NGO</h2>
+<table>
+<thead>
+<tr>
+<th>ID</th>
+<th>Rule</th>
+<th>Pattern</th>
+<th>Regulatory basis</th>
+<th>Status</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>charity_donation_anomaly</code></td>
+<td><strong>Unusual charity / NGO donation pattern</strong></td>
+<td>Donations to registered charitable organisations exceeding BDT 20 lakh in a calendar month OR donation frequency &gt; 5 events/month from the same account.</td>
+<td>FATF R.8 (NPO sector); BFIU Circular 26 § 4.9; ATA 2009 (TF concerns on NPOs)</td>
+<td><strong>Pilot-track</strong></td>
+</tr>
+</tbody>
+</table>
+<h2>Category 8 · Virtual assets and digital channels</h2>
+<table>
+<thead>
+<tr>
+<th>ID</th>
+<th>Rule</th>
+<th>Pattern</th>
+<th>Regulatory basis</th>
+<th>Status</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>crypto_keyword_indicator</code></td>
+<td><strong>Crypto / virtual-asset description match</strong></td>
+<td>Transaction description, narrative, or memo field contains keywords associated with crypto / virtual-asset transactions (e.g. "BTC", "ETH", "USDT", "binance", "exchange wallet"). Bangladesh Bank prohibits cryptocurrency dealings; any reference is suspicious.</td>
+<td>Bangladesh Bank FE Circular 18/2017 (crypto prohibition); FATF R.15 (virtual assets)</td>
+<td><strong>Pilot-track</strong> (transaction-text scanning rule; low engineering effort)</td>
+</tr>
+<tr>
+<td><code>vasp_counterparty</code></td>
+<td><strong>Virtual-asset service provider counterparty</strong></td>
+<td>Inbound or outbound transfer where the counterparty institution is a known VASP (virtual asset service provider) — Binance, Coinbase, etc.</td>
+<td>FATF R.15; FATF Updated Guidance on Virtual Assets (June 2023); BFIU forthcoming VASP guidance</td>
+<td><strong>Roadmap</strong></td>
+</tr>
+</tbody>
+</table>
+<h2>Category 9 · Cards</h2>
+<table>
+<thead>
+<tr>
+<th>ID</th>
+<th>Rule</th>
+<th>Pattern</th>
+<th>Regulatory basis</th>
+<th>Status</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>credit_card_third_party_payment</code></td>
+<td><strong>Third-party credit card bill payment pattern</strong></td>
+<td>Credit card bill paid by parties other than the cardholder ≥ X times within a calendar month, OR aggregate third-party bill payments exceed Y% of total bill settlement. Default thresholds: X=3, Y=50%.</td>
+<td>FATF R.20; Wolfsberg Statement on Monitoring § 4.3; BFIU Circular 26 § 4.8</td>
+<td><strong>Pilot-track</strong></td>
+</tr>
+<tr>
+<td><code>credit_card_fund_transfer_dispersion</code></td>
+<td><strong>Credit-card fund transfer to many unrelated parties</strong></td>
+<td>Fund transfers from credit card account to ≥ 10 different beneficiary accounts (individuals) or ≥ 20 (proprietorship / corporate) within a calendar month.</td>
+<td>Wolfsberg Card AML Principles; FATF R.16</td>
+<td><strong>Pilot-track</strong></td>
+</tr>
+<tr>
+<td><code>credit_card_limit_utilisation_pattern</code></td>
+<td><strong>Repeated full-limit utilisation with rapid repayment</strong></td>
+<td>Credit card usage ≥ 80% of approved limit occurring ≥ 4 times in a calendar month, with repayments by self or third party. Indicates either layering through the card line or hidden-source repayment activity.</td>
+<td>Wolfsberg Card AML Principles; BFIU Circular 26 § 4.8</td>
+<td><strong>Pilot-track</strong></td>
+</tr>
+<tr>
+<td><code>card_off_hours_pos</code></td>
+<td><strong>Off-hours POS / ATM activity</strong></td>
+<td>POS or ATM transactions ≥ 5 in a single day between 11 PM and 5 AM.</td>
+<td>BFIU Circular 26 § 4.7 (timing indicators); Wolfsberg § 5.5</td>
+<td><strong>Roadmap</strong></td>
+</tr>
+</tbody>
+</table>
+<h2>Category 10 · Pay orders, cheques, and instruments</h2>
+<table>
+<thead>
+<tr>
+<th>ID</th>
+<th>Rule</th>
+<th>Pattern</th>
+<th>Regulatory basis</th>
+<th>Status</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>pay_order_unclaimed_aged</code></td>
+<td><strong>Aged unclaimed pay order</strong></td>
+<td>Pay order remains unclaimed (not encashed by the payee) for ≥ 6 months after issuance. Indicates either parking of funds, broken transaction chain, or instrument issued without clear underlying purpose.</td>
+<td>BFIU Circular 26 § 4.11 (instruments); Bangladesh Bank Negotiable Instruments Act guidance</td>
+<td><strong>Pilot-track</strong></td>
+</tr>
+<tr>
+<td><code>cheque_serial_pattern</code></td>
+<td><strong>Repetitive cheque payments to same payee</strong></td>
+<td>Series of consecutive-numbered cheques (≥ 5) from the same account paid to the same payee within 30 days. Indicates structured payment with intent to obscure single-transaction visibility.</td>
+<td>BFIU Circular 26 § 4.11; FATF R.20</td>
+<td><strong>Roadmap</strong></td>
+</tr>
+</tbody>
+</table>
+<h2>Category 11 · Trade-based money laundering (BFIU TBML Guidelines 2019)</h2>
+<p>These 6 rules implement the operational detection layer for Bangladesh's TBML Guidelines (Dec 2019), § 2.4.1 import avenues + § 2.4.2 export avenues + § 2.5 royalty/technical fee + Appendix B operational alerts. The 29-avenue regulatory taxonomy is encoded in the Kestrel typology library (<code>/intelligence/typologies</code>).</p>
+<table>
+<thead>
+<tr>
+<th>ID</th>
+<th>Rule</th>
+<th>Pattern</th>
+<th>Regulatory basis</th>
+<th>Status</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>over_invoicing</code></td>
+<td><strong>Import / export over-invoicing</strong></td>
+<td>Declared transaction value exceeds market reference price by ≥ 2x for the same HS code and origin-destination corridor.</td>
+<td>BFIU TBML Guidelines § 2.4.1.3 + § 2.4.2.3; FATF TBML Typology Report (2006)</td>
+<td><strong>Active</strong></td>
+</tr>
+<tr>
+<td><code>under_invoicing</code></td>
+<td><strong>Import / export under-invoicing</strong></td>
+<td>Declared transaction value is below market reference by ≥ 50% for the same HS code and corridor.</td>
+<td>BFIU TBML Guidelines § 2.4.1.4 + § 2.4.2.4; FATF TBML Typology (2006)</td>
+<td><strong>Active</strong></td>
+</tr>
+<tr>
+<td><code>multiple_invoicing</code></td>
+<td><strong>Multi-bank invoice presentation</strong></td>
+<td>Same Bill of Lading or LC reference presented at ≥ 2 banks. Cross-bank detection.</td>
+<td>BFIU TBML Guidelines § 2.4.1.5; FATF TBML Typology (2006) — multi-invoicing</td>
+<td><strong>Active</strong></td>
+</tr>
+<tr>
+<td><code>phantom_shipment</code></td>
+<td><strong>LC settlement without shipment evidence</strong></td>
+<td>LC settled but no Bill of Lading / port-of-loading / vessel record / customs Bill of Entry traceable.</td>
+<td>BFIU TBML Guidelines § 2.4.1.7 + § 2.4.1.8</td>
+<td><strong>Active</strong></td>
+</tr>
+<tr>
+<td><code>declaration_value_mismatch</code></td>
+<td><strong>Customs declaration value mismatch</strong></td>
+<td>Customs Bill of Entry declared value differs from LC settlement value by ≥ 30%.</td>
+<td>BFIU TBML Guidelines § 2.4.1.6; FATF TBML Typology (2006) — declaration mismatch</td>
+<td><strong>Active</strong></td>
+</tr>
+<tr>
+<td><code>transshipment_routing</code></td>
+<td><strong>High-risk transshipment routing</strong></td>
+<td>Goods routed through high-risk transshipment jurisdiction (HK / SG / AE / IR-adjacent corridors) inconsistent with stated trade economics.</td>
+<td>BFIU TBML Guidelines § 2.4.1.13; BFIU Circular 24; FATF R.19</td>
+<td><strong>Active</strong></td>
+</tr>
+</tbody>
+</table>
+<h2>Category 12 · Realtime transaction-scoring modifiers</h2>
+<p>These three modifiers are applied per-call to <code>POST /transactions/score</code> (the per-transaction decisioning API). They adjust the realtime score without being primary rules.</p>
+<table>
+<thead>
+<tr>
+<th>ID</th>
+<th>Rule</th>
+<th>Pattern</th>
+<th>Regulatory basis</th>
+<th>Status</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>payment_mode_high_risk</code></td>
+<td><strong>High-risk payment mode</strong></td>
+<td>High-risk channels (CASH, WIRE, certain MFS patterns) adjust the realtime score upward at decisioning time.</td>
+<td>Wolfsberg AML Principles § 5.3 (channel risk); BFIU Circular 26 § 4.7</td>
+<td><strong>Active</strong></td>
+</tr>
+<tr>
+<td><code>hs_code_anomaly</code></td>
+<td><strong>HS-code activity inconsistency</strong></td>
+<td>The declared HS code on a trade transaction is inconsistent with the shipper's declared business sector or historical activity.</td>
+<td>BFIU TBML Guidelines § 2.4.1.7; FATF TBML Typology (2006)</td>
+<td><strong>Active</strong></td>
+</tr>
+<tr>
+<td><code>country_pair_high_risk_modifier</code></td>
+<td><strong>High-risk corridor pair</strong></td>
+<td>The (from-country, to-country) pair for this transaction is in the high-risk corridor list (e.g. BD ↔ AE ↔ HK ↔ shell-incorporated).</td>
+<td>FATF R.19; BFIU Circular 24</td>
+<td><strong>Active</strong></td>
+</tr>
+</tbody>
+</table>
+<h2>Category 13 · Sanctions / PEP / adverse-media screening (inline)</h2>
+<p>These rules fire inline during realtime scoring + KYC onboarding + daily Beat re-screening. Not numbered as separate rules because they're part of the screening service, but listed for completeness.</p>
+<table>
+<thead>
+<tr>
+<th>ID</th>
+<th>Rule</th>
+<th>Pattern</th>
+<th>Regulatory basis</th>
+<th>Status</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>sanctions_party_hit</code></td>
+<td><strong>OFAC / UN / UK / EU / BB Domestic sanctions hit on transaction party</strong></td>
+<td>The from-party or to-party of a transaction matches an entry on OFAC SDN, UN consolidated, UK OFSI, EU FSF, or Bangladesh Bank's domestic sanctions list at score ≥ 0.7 (4-dimension composite: name + DOB + nationality + identifier).</td>
+<td>FATF R.6 (targeted financial sanctions); BFIU Circular 19; UN Security Council Resolutions 1267/1373/1989</td>
+<td><strong>Active</strong> (5 sources live in screening service)</td>
+</tr>
+<tr>
+<td><code>pep_hit</code></td>
+<td><strong>Politically Exposed Person watchlist match</strong></td>
+<td>Customer or counterparty matches a domestic or foreign PEP list.</td>
+<td>FATF R.12 (PEPs); BFIU Circular 26 § 5.5; Wolfsberg PEP Principles</td>
+<td><strong>Active</strong></td>
+</tr>
+<tr>
+<td><code>adverse_media_finding</code></td>
+<td><strong>Adverse media on customer or counterparty</strong></td>
+<td>News + media database search returns adverse content (fraud / corruption / sanctioned activity) about the customer or counterparty.</td>
+<td>FATF R.10 (CDD); Wolfsberg Statement on Adverse Media (2018)</td>
+<td><strong>Roadmap</strong> (adapter is wired to ComplyAdvantage; requires customer credential to activate)</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2>Summary — coverage status</h2>
+<table>
+<thead>
+<tr>
+<th>Status</th>
+<th>Count</th>
+<th>What it means</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Active</strong></td>
+<td>17 rules</td>
+<td>Live in production today. Banks see alerts from these rules now.</td>
+</tr>
+<tr>
+<td><strong>Pilot-track</strong></td>
+<td>11 rules</td>
+<td>Engineering-complete or low-effort additions. Shipped as part of any commercial pilot's Day 0–Day 30 ramp.</td>
+</tr>
+<tr>
+<td><strong>Roadmap</strong></td>
+<td>8 rules</td>
+<td>Further-out work. Either requires new data ingestion (credit card, branch attribution, etc.), new dependencies (adverse-media API), or customer-driven prioritisation.</td>
+</tr>
+<tr>
+<td><strong>Total catalogue</strong></td>
+<td><strong>36 rules</strong></td>
+<td>Covers every category in the canonical AML monitoring framework.</td>
+</tr>
+</tbody>
+</table>
+<p>Beyond the 36 production rules above, Kestrel maintains an <strong>upstream curated rule library</strong> spanning trade finance (ICC publications + Incoterms + Collections + SBLC + Guarantees), country-specific regulatory overlays, customs, commodities, bank profiles, and sectoral sanctions — currently ~9,000 actively curated rules with continuous expansion as FATF / OFAC / BFIU / Bangladesh Bank publish updates. This library is the source from which selective rule families are onboarded per pilot based on the bank's product mix; a typical LC-heavy commercial bank operates ~5,500 of the library's rules. Per-pilot scope is documented in the deployment plan.</p>
+<h3>Active rule list (17 in production today)</h3>
+<p><code>structuring</code> · <code>rapid_cashout</code> · <code>fan_in_burst</code> · <code>fan_out_burst</code> · <code>layering</code> · <code>first_time_high_value</code> · <code>dormant_spike</code> · <code>proximity_to_bad</code> · <code>country_pair_high_risk</code> · <code>over_invoicing</code> · <code>under_invoicing</code> · <code>multiple_invoicing</code> · <code>phantom_shipment</code> · <code>declaration_value_mismatch</code> · <code>transshipment_routing</code> · <code>sanctions_party_hit</code> · <code>pep_hit</code> + realtime modifiers <code>payment_mode_high_risk</code> / <code>hs_code_anomaly</code> / <code>country_pair_high_risk_modifier</code>.</p>
+<h3>Pilot-track (11 — committed Day 0–30 of any pilot)</h3>
+<p><code>smurfing_multi_branch</code> · <code>multi_account_aggregation</code> · <code>wire_to_new_beneficiary</code> · <code>off_hours_burst</code> · <code>geographic_dispersion</code> · <code>customer_profile_mismatch</code> · <code>dealer_cash_high_value</code> · <code>charity_donation_anomaly</code> · <code>crypto_keyword_indicator</code> · <code>credit_card_third_party_payment</code> · <code>credit_card_fund_transfer_dispersion</code> · <code>credit_card_limit_utilisation_pattern</code> · <code>pay_order_unclaimed_aged</code>.</p>
+<h3>Roadmap (8 — phased delivery beyond pilot baseline)</h3>
+<p><code>round_amount_repetition</code> · <code>account_age_velocity_mismatch</code> · <code>velocity_anomaly</code> · <code>border_corridor_exposure</code> · <code>pep_exposure_spike</code> · <code>ubo_pattern_inference</code> · <code>vasp_counterparty</code> · <code>card_off_hours_pos</code> · <code>cheque_serial_pattern</code> · <code>adverse_media_finding</code>.</p>
+<hr />
+<h2>How rules are tuned per bank</h2>
+<p>Each rule in the Active list is <strong>a YAML file under <code>engine/app/core/detection/rules/</code> or <code>engine/app/core/detection/trade_rules/</code></strong> with default thresholds. Per-bank overrides live in the <code>rules</code> Postgres table. A bank admin tunes rules via the <strong>Admin → Rules</strong> surface (see Tutorial 24 of the platform walk).</p>
+<p>Tuning examples typical for a Tier-1 commercial bank in Bangladesh:</p>
+<ul>
+<li><code>structuring</code>: threshold band → 9.0–9.99 lakh (default 9.0–9.99 lakh — matches BFIU Circular 26 § 4.2 implicitly).</li>
+<li><code>rapid_cashout</code>: 5-times-per-week + 90%-next-day branches both active.</li>
+<li><code>first_time_high_value</code>: thresholds → single tx &gt; BDT 10 lakh OR ≥ 10 txns totalling &gt; BDT 20 lakh.</li>
+<li><code>dormant_spike</code>: thresholds → BDT 5 lakh (individual) / BDT 10 lakh (proprietorship) within 30 days of reactivation.</li>
+<li><code>country_pair_high_risk</code>: thresholds → BDT 5 lakh (individuals) / BDT 10 lakh (non-individuals).</li>
+</ul>
+<p>These specific numerical tunings are documented per-bank in the pilot onboarding plan; the system rule's defaults are deliberately set close to BFIU's expected baseline so onboarding tuning is light.</p>
+<hr />
+<h2>Map to MLPA § 2(cc) predicate offences</h2>
+<p>Every alert produced by these rules can be tagged with one or more MLPA 2012 § 2(cc) predicate offences when the analyst drafts the resulting STR. The 28 predicate offences are enumerated on <code>/admin/reference-tables → Agencies</code> and selectable on every dissemination form. Typical mappings:</p>
+<ul>
+<li>Cash structuring rules → <code>(5) Fraud</code> + <code>(21) Concealment/disguise of criminal proceeds</code>.</li>
+<li>Trade-based rules → <code>(18) Smuggling/customs offences (TBML)</code> + often <code>(5) Fraud</code> + <code>(6) Forgery</code>.</li>
+<li>High-risk country / sanctions hit → <code>(17) Terrorist financing</code> (when ATA § 15 invoked) or sector-specific predicate.</li>
+<li>Charity / NPO rule → <code>(17) Terrorist financing</code> (ATA 2009 + FATF R.8).</li>
+<li>Credit card rules → <code>(5) Fraud</code> + <code>(20) Insider trading + market manipulation</code> depending on counterparty.</li>
+</ul>
+<hr />
+<h2>How this catalogue evolves</h2>
+<p>New rules enter Kestrel through three channels:</p>
+<ol>
+<li><strong>Public regulatory updates</strong> — when BFIU issues a new circular, FATF updates its Recommendations, or Bangladesh Bank publishes new guidance, the Kestrel team adds rules in the next release.</li>
+<li><strong>Bank-specific risk patterns</strong> — banks can author bespoke detection patterns via the <strong>Match Definitions</strong> surface (<code>/admin/match-definitions</code> — see Tutorial 25). These run alongside the system rules.</li>
+<li><strong>Cross-bank intelligence</strong> — patterns surfaced by the cross-bank match aggregation that no single bank could detect alone, codified back into the catalogue.</li>
+</ol>
+<p>The Active + Pilot-track sets above represent Kestrel's 2026-Q2 production baseline. The Roadmap items are sequenced for delivery through 2026-Q3 and 2026-Q4 based on customer prioritisation.</p>
+<hr />
+<h2>References</h2>
+<ol>
+<li>FATF. <em>International Standards on Combating Money Laundering and the Financing of Terrorism &amp; Proliferation — The FATF Recommendations.</em> Updated edition.</li>
+<li>The Wolfsberg Group. <em>Wolfsberg Anti-Money Laundering Principles for Private Banking.</em> Most recent revision.</li>
+<li>The Wolfsberg Group. <em>Wolfsberg Statement on Monitoring Screening and Searching.</em></li>
+<li>Egmont Group. <em>Operational Typology Reports (public summaries).</em></li>
+<li>Bangladesh Bank Financial Intelligence Unit. <em>BFIU Circular 26 — Anti Money Laundering and Combating Financing of Terrorism Instructions for Scheduled Banks.</em> 16 June 2020.</li>
+<li>Bangladesh Bank Financial Intelligence Unit. <em>BFIU Circular 22 — Inter-Bank Information Exchange.</em> 31 January 2019.</li>
+<li>Bangladesh Bank Financial Intelligence Unit. <em>BFIU Guidelines for Prevention of Trade-Based Money Laundering.</em> December 2019.</li>
+<li>Bangladesh Parliament. <em>The Money Laundering Prevention Act, 2012</em> (as amended).</li>
+<li>Bangladesh Parliament. <em>The Anti-Terrorism Act, 2009</em> (as amended 2013).</li>
+<li>FATF. <em>Trade-Based Money Laundering — Typology Report.</em> 2006 + 2020 supplements.</li>
+</ol>
+<hr />
+<p><em>This catalogue is the canonical reference for Kestrel's AML detection coverage and is updated on each platform release. For per-rule implementation detail, refer to the YAML rule definitions in <code>engine/app/core/detection/</code> in the Kestrel codebase. For tuning surface walkthrough, see Tutorial 24 — Admin · Rules.</em></p></body></html>

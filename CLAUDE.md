@@ -6,7 +6,9 @@ Kestrel is a standalone financial crime intelligence platform for Bangladesh. It
 
 ## Current state
 
-> **Prod (2026-05-05):** V2 fully shipped (phases 1-6) + **V3 phases 1-7 shipped**. Capability matrix: **15/18 at Excellent**, 2 at Partial-with-plan (sovereign AI serving production traffic — gated on V3 P4 corpus + first cleared promotion-harness run; first on-prem customer rollout — framework shipped, awaiting first signed Tier-3 customer). V3 P7 closes operational maturity: Stripe webhook receiver (`POST /webhooks/stripe` with HMAC-SHA256 signature verification, no proactive Stripe outbound calls), monthly transaction-cap metering (`metered_writes` table, 402 PAYMENT REQUIRED on starter-tier overage, period rolls at first-of-month Asia/Dhaka), audit-log retention Beat task (daily 03:30 BDT, 365-day default cutoff, optional Supabase Storage archive), latency regression CI (100-call pure-helper burst, p99 < 5ms budget). Cloud is `kestrel-nine.vercel.app` + `kestrel-engine.onrender.com`, AI via OpenRouter (`anthropic/claude-sonnet-4.6`), all 3 Render services running. Migrations 001–022 applied.
+> **Prod (2026-06-11):** V2 + V3 fully shipped, plus the **post-V3 PR wave #1–#25** (bank_filer persona, BFIU Phase A+B regulatory alignment incl. TBML, operator console, tenant scoping + auth hardening + peer-name anonymisation). Engine: **145 routes across 27 routers, migrations 001–028 applied, 620/620 pytest, 11 Beat jobs**. Web: 48 platform pages. Canonical web URL is `https://kestrelfin.com` (NOT kestrel-nine.vercel.app — legacy preview). Engine `kestrel-engine.onrender.com`, AI via OpenRouter (`anthropic/claude-sonnet-4.6`), all 3 Render services running. **Two live pilot tenants provisioned (Sonali Bank 9 seats, City Bank 5 seats) — branch + PR workflow is mandatory; no direct pushes to main.** See §"Post-V3 work" for the PR wave; per-phase detail in the V2/V3 sections below is historical.
+>
+> Capability matrix: 15/18 Excellent; sovereign-AI-in-prod and first-on-prem-customer remain data-soak / customer-pull.
 
 Ten build-out sessions shipped end-to-end:
 - **Intelligence-core** (2026-04-15/16): real detection engine (8 YAML rules + evaluator + scorer + resolver + matcher + pipeline), scan upload path, WeasyPrint PDF case pack, SAR/CTR report types, AI alert auto-explanation + Draft STR, DB-backed typologies, CommandView polish, modifier conditions, incremental scan scope, Phase 10 hardening (request IDs + structured JSON logs + standardised error envelope + `docs/RUNBOOK.md`).
@@ -20,7 +22,7 @@ Ten build-out sessions shipped end-to-end:
 - **V2 phase 5: KYC / CDD onboarding** (2026-05-05): `/customers` 6-route surface + KYC service that screens primary + beneficial owners inline + migration 016 (`customers` + alerts.source_type relaxation) + Beat-driven re-screening at 03:00 BDT + 13-row synthetic seed for Sonali Bank (P5.1+P5.2+P5.4 `74fbbe6`). KYC UI at `/customers` (list + new + detail) + nav entry (bank persona only) + docs §9 (P5.3 `50aff3f`). See §"KYC / CDD onboarding (V2 P5)" below.
 - **V2 phase 6: status / pricing / demo polish** (2026-05-05): public status surface at `/status` driven by `uptime_pings` 5-min Beat ledger + `status_incidents` ledger (P6.1 engine + web). Pricing-tier enforcement via migrations 017+018 + `services/billing.py` + 402 PAYMENT REQUIRED on starter-tier calls to paid features (P6.2). Weekly demo refresher Beat task at Mon 04:00 BDT (P6.3). `/demo` public route with persona switcher (P6.3 web). `docs/world-class-capability-matrix.md` (new) closes V2 with 14/18 capabilities at Excellent (P6.4). Engine commit `caf7507`; web commit pending. See §"Status + pricing + demo (V2 P6)" below.
 
-**Aggregate prod state:**
+**Aggregate prod state (historical snapshot at V2 close, 2026-05-05 — current numbers are in the banner above):**
 - 123 engine routes across 23 routers (6 new in V2 P6: status_public router with summary/incidents/plans + admin status incident management). 268/268 pytest. `GET /ready` on `https://kestrel-engine.onrender.com` shows auth/db/redis/storage/worker=ok; `ai:openai = skipped` with model `anthropic/claude-sonnet-4.6` (configured + reachability probe disabled).
 - Migrations 001–013 applied. 012 (`advisor_fixes`) locked `search_path = ''` on 7 SECURITY DEFINER helpers; 013 (`qualify_security_definer_helpers`, 2026-05-05) schema-qualified the 5 of those that referenced unqualified relations/sequences. Migrations 001 + 002 retroactively recorded in `supabase_migrations.schema_migrations` after the audit found them missing.
 - Prod data (post V2 phase 2 — no bank tenant has signed up via /signup/bank yet, so demo-bank seed has never fired): 197 reference_tables, 5 typologies, **52 entities** (28 pre-V2 + 24 multi-bank seed), 377 accounts, 547 transactions, **10 STRs**, **40 alerts**, 1 case, **7 matches**.
@@ -42,7 +44,7 @@ What V2 ships next (not in main yet — see `KESTREL-WORLD-CLASS-BUILD-V2.md` an
 ### Stack
 - **Frontend**: Next.js 16.2.2 App Router, React 19.2.4, TypeScript 5, Tailwind v4, shadcn-style UI, `@xyflow/react` (network graphs), `recharts`, `zustand`, `zod`, `@tanstack/react-table`, `date-fns`. Node pinned to 22.x.
 - **Backend**: Python `>=3.12` (pinned 3.12.8 via `engine/.python-version`), FastAPI `>=0.115`, SQLAlchemy 2 async + asyncpg, Pydantic v2, `python-jose`, `networkx`, `celery[redis]`, `PyYAML`, `pdfplumber`, `pandas`, `openpyxl`, `weasyprint`, `lxml`, `jinja2`, `httpx`. Build backend: `hatchling`.
-- **Database**: Supabase Postgres. Schema source of truth: `supabase/migrations/001_schema.sql` → `013_*.sql`.
+- **Database**: Supabase Postgres. Schema source of truth: `supabase/migrations/001_schema.sql` → `028_*.sql`.
 - **Auth**: Supabase Auth. Engine validates two ways: `SUPABASE_JWT_SECRET` (HS256, preferred) or JWKS at `{SUPABASE_URL}/auth/v1/.well-known/jwks.json` (10-min cache). See `engine/app/auth.py`.
 - **Storage**: Supabase Storage, buckets `kestrel-uploads` + `kestrel-exports` (configurable via `STORAGE_BUCKET_*`). Scan uploads write raw CSV/XLSX to `kestrel-uploads`; PDF/XLSX/XML exports stream directly. Readiness probe verifies both buckets.
 - **Cache/Queue**: Redis on Render. Celery app `kestrel` at `app.tasks.celery_app.celery_app`. Tasks: `worker.ping`, `app.tasks.scan_tasks.run_all_orgs`, `app.tasks.str_tasks.daily_digest`, `app.tasks.export_tasks.weekly_compliance_report`, `app.tasks.demo_seed_tasks.apply_pending` (V2 P2.3). Beat at 02:00 / 06:30 / Mon 05:00 Asia/Dhaka + every 10 min for `apply_pending`.
@@ -62,15 +64,15 @@ What V2 ships next (not in main yet — see `KESTREL-WORLD-CLASS-BUILD-V2.md` an
 - `web/src/app/actions/` — server actions: `access.ts` (briefing intake + Resend notification, V2 P2.5), `bank-signup.ts` (V2 P2.2; service-role org create + `auth.admin.inviteUserByEmail`).
 - `web/src/components/` — `shell/`, `common/`, plus per-domain folders. New in V2 P2: `web/src/components/banks/` (8 sections + signup form).
 - `web/src/lib/` — Supabase clients, `auth.ts`, `engine-server.ts`, per-domain normalizers, `demo.ts`, `runtime.ts` (env-flag helpers including `isBankDirectSignupEnabled`).
-- `engine/app/routers/` — 19 files, one per domain.
-- `engine/app/services/` — 28 files, all DB-backed; routers never execute SQL directly. (`cross_bank.py` added in V2 P1.1.)
-- `engine/app/models/` — 21 SQLAlchemy models.
+- `engine/app/routers/` — 27 files, one per domain.
+- `engine/app/services/` — 43 files, all DB-backed; routers never execute SQL directly. `tenancy.py` is the isolation layer (see §"Auth and tenancy model").
+- `engine/app/models/` — 30 SQLAlchemy models.
 - `engine/app/core/` — `detection/` (rules YAML + loader/evaluator/scorer), `resolver.py`, `matcher.py`, `pipeline.py`, `match_dsl.py`, `graph/`.
 - `engine/app/parsers/` — `csv.py`, `xlsx.py`, `statement_pdf.py`, `goaml_xml.py` (lxml-based, permissive).
 - `engine/app/ai/` — provider abstraction + redaction + audit + redteam.
 - `engine/app/tasks/` — Celery tasks: scan / str / export / `demo_seed_tasks` (V2 P2.3) + `celery_app.py` + `_runtime.py` (per-task NullPool engine).
 - `engine/seed/` — synthetic data generators (`dbbl_synthetic.py` + `load_dbbl_synthetic.py` for the original DBBL fixture; `multi_bank_synthetic.py` + `multi_bank_to_sql.py` from V2 P1.2 for cross-bank topology across BRAC / City / Islami / Sonali; `load_demo_bank.py` from V2 P2.3 for new bank tenants).
-- `supabase/migrations/` — 13 files.
+- `supabase/migrations/` — 28 files.
 - `docs/` — `production-plan.md`, `goaml-coverage.md` (procurement), `RUNBOOK.md`, `production-audit-2026-04.md` (engineering ground-truth baseline), `cross-bank-intelligence.md` + `.html` (V2 P1.3 procurement whitepaper), `multi-tenant-isolation-verified.md` (V2 P2.4 procurement-grade isolation proof), `render_pdf.py` (markdown → HTML/PDF for whitepapers).
 
 ## Database schema
@@ -113,7 +115,7 @@ Flow:
 4. Engine `HTTPBearer` runs `authenticate_token()` → `decode_access_token()` (HS256 if secret set, else JWKS).
 5. `resolve_authenticated_user()` returns `AuthenticatedUser(user_id, email, org_id, org_type, role, persona, designation)`.
 6. Role gating via `require_roles(...)`. `/admin/reference-tables` mutations also require `org_type == "regulator"`.
-7. Row-level isolation is Postgres RLS. `auth_org_id()` + `is_regulator()` are `SECURITY DEFINER`.
+7. Row-level isolation is Postgres RLS **for direct-PostgREST access only**. **The engine connects as the table-owner role (`postgres`) and BYPASSES RLS** — no table sets FORCE ROW LEVEL SECURITY. Service-layer scoping via `app/services/tenancy.py` is the ONLY isolation on engine queries (PR #23): `scope_to_user(stmt, user, Model.org_id)` for lists (regulator = all; missing org claim = WHERE false, fail closed) and `ensure_org_access(row.org_id, user)` for fetch-by-id (404, not 403). Every new service touching an org-owned table MUST use these. Same rule for display labels: any helper resolving `Organization.name` sees EVERY org's name — persona gating must happen in code (regulator = real names, bank = own name + `Peer institution N`; see `cross_bank._label_orgs_for_user` / `investigation._label_orgs`, PR #25). `auth_org_id()` + `is_regulator()` are `SECURITY DEFINER` (PostgREST path).
 
 Demo fallback: when Supabase config absent AND `KESTREL_ENABLE_DEMO_MODE=true`, `authenticate_token` synthesises a user from `DEMO_USERS[KESTREL_DEMO_PERSONA]`.
 
@@ -127,7 +129,7 @@ RLS semantics:
 
 ## API routes
 
-19 routers, 99 routes, all mounted in `engine/app/main.py`. Auth: every router except `/health` + `/ready` requires Supabase JWT. Read each router file for endpoint specifics — high-level surface:
+27 routers, 145 routes, all mounted in `engine/app/main.py`. Auth: every router except `/health` + `/ready` + `/status/*` + `/webhooks/stripe` requires Supabase JWT. Read each router file for endpoint specifics — high-level surface:
 
 - **`system`** (no prefix) — `GET /health`, `GET /ready`.
 - **`/overview`** — persona-aware KPIs.
@@ -529,32 +531,31 @@ V3 phase 7 of `KESTREL-V3-PROMPT.md`. One commit (engine + harness + 38 new test
 
 **To start metered billing:** create the three Stripe Prices for starter/professional/enterprise, set the four `STRIPE_*` env vars on Render, configure the webhook endpoint at `https://kestrel-engine.onrender.com/webhooks/stripe` in the Stripe Dashboard, then move tenants from manual `plan_id` setting to Stripe Checkout. The webhook receiver is feature-complete; the customer-facing Checkout flow is a separate web build.
 
-## What's next — V3 closed
+## Post-V3 work (2026-05-16 → 2026-06-11, PRs #1–#25)
 
-V3 phases 1 through 7 shipped. The remaining capability-matrix items (sovereign AI in production traffic, first on-prem customer) are now data-soak / customer-pull rather than engineering. Outstanding small-pickups from V2 (watchlist ingestion env flag, ComplyAdvantage key, EU FSF credential, Render Beat hook, multi-bank seed apply, Resend integration) still apply.
+Everything after V3 ships via feature branch + PR (live pilots). Merged history:
 
-`KESTREL-V3-PROMPT.md` has the canonical task table with full detail.
+- **Personas + commercial split (PRs #1–#4, 2026-05-16):** `bank_filer` persona + `filing_only` plan (migration 023) — Path A free filing tier under BFIU procurement vs Path B paid platform. Middleware redirects bank_filer off non-filer paths. PR #3 fixed the silent `web/proxy.ts` → `web/src/middleware.ts` rename (Next.js ignored the old filename on Vercel).
+- **BFIU regulatory alignment Phase A+B (PRs #5–#13, 2026-05-16):** migrations 024–028. Typed dissemination recipients (MLPA clause + Circular 22), MLPA §2(cc) predicate-offence tagging on STR/Case/Dissemination, 29 BD-specific TBML avenues seeded, `trade_transactions` schema + CRUD, 6 TBML detection rules + trade_evaluator, TradeRuleHit → Alert pipeline + `POST /trade/scan`, 3 TBML modifiers on realtime scoring, `/intelligence/tbml` dashboard. Procurement doc: `docs/bd-aml-coverage.md`. Source corpus: `REG RULES/*.ocr.txt` (gitignored — grep these before web sources for BFIU/MLPA citations).
+- **PDF branding + demo seeds (PRs #14–#15, 2026-05-17):** `docs/render_pdf.py` Playwright/Chromium fallback (Windows has no WeasyPrint native deps); City CAMLCO seed users. TBML demo seed applied directly on prod for Sonali/City walkthroughs (deterministic `a0000###`/`b0000###` UUIDs — see memory for teardown).
+- **Operator console (PRs #16–#17, #20–#21, 2026-05-21):** Enso-internal cross-tenant pilot-health + tenant provisioning console, gated by `KESTREL_PLATFORM_OPERATORS` email allow-list (set on Render + Vercel); PR #21 confines operators to the console.
+- **AI correction capture (PRs #18, #22):** correction-capture hooks wired into STR-enrichment edit flows — feeds the V3 P4 sovereign training corpus in `ai_outcome_log`.
+- **Security hardening wave (PRs #23–#25, 2026-06-11):** see §"Auth and tenancy model" + Known issue 18. #23: service-layer tenant scoping on 12 services (`app/services/tenancy.py`). #24: fail-closed demo mode (missing Supabase config → 503), JWT `aud` verification (`SUPABASE_JWT_AUD`, default `authenticated`), Stripe webhook `abs()` replay window. #25: persona-aware peer-bank-name anonymisation on `/intelligence/matches` + investigate search + entity dossier (`investigation._label_orgs`).
 
-**Outstanding small-pickups from V2:**
-- Set `KESTREL_WATCHLIST_INGESTION_ENABLED=true` on Render to flip daily watchlist ingestion on (still on synthetic seed).
-- Provision `COMPLYADVANTAGE_API_KEY` to switch the adverse-media adapter from stub to live.
-- EU FSF watchlist credential (1-day wire-up after the credential lands).
-- Render Beat deploy hook URL is stale (returns 404). Engine deploys fine via Render's connected-repo path; fix when convenient.
-- Apply remaining multi-bank seed chunks (64 accounts + 105 transactions + 35 STRs) via `python -m seed.multi_bank_synthetic --apply`.
-- Install Vercel Marketplace Resend integration to flip `RESEND_API_KEY` on (briefing-intake emails currently no-op).
+**Outstanding (operator actions, not code):**
+- Set `KESTREL_WATCHLIST_INGESTION_ENABLED=true` on Render (watchlist still on synthetic seed); `COMPLYADVANTAGE_API_KEY` (adverse-media stub); EU FSF credential.
+- Engine/worker Render deploy-hook secrets absent in GH Actions — engine deploys via Render's connected-repo auto-deploy on push. **Check `render deploys list` after merges: the GH workflow going green does NOT mean the Render build succeeded** (PR #24's auto-build failed and needed an API re-trigger).
+- `/signup/bank` has no vetting/CAPTCHA/rate-limit while shared-intel tables are writable by any tenant — decide `ENABLE_BANK_DIRECT_SIGNUP=false` vs building vetting before marketing the self-serve funnel.
+- FORCE RLS as DB backstop undecided — Celery/seed paths rely on the owner bypass; service-layer scoping + regression tests are the current control.
 
-**Outstanding small-pickups:**
-- Inside V2 P1: apply the remaining multi-bank-seed chunks (accounts / transactions / STRs) to prod via `python -m seed.multi_bank_synthetic --apply`. The cross-bank dashboard works without these but they'd enrich the entity dossier downstream when bank-persona users click through to a flagged subject.
-- Inside V2 P2: install the Vercel Marketplace Resend integration on the kestrel project to flip `RESEND_API_KEY` on (briefing-intake emails currently no-op). Verify `enso-intelligence.com` in Resend (DNS: SPF TXT + DKIM CNAMEs) so From can move from `onboarding@resend.dev` to a Kestrel-branded address.
-- The first real signup via `/signup/bank` is also the first live exercise of the demo seed loader, the migration 013 fix, and the V2 P2 isolation guarantees end-to-end.
-
-**Older deferred items still apply:** outbound goAML adapter (`engine/app/adapters/goaml.py` is a stub), demo film production (separate from the procurement whitepaper which is now shipped), `web/src/lib/demo.ts` persona-card fixture cleanup.
+**Older deferred items:** outbound goAML adapter (`engine/app/adapters/goaml.py` is a stub), demo film production, `web/src/lib/demo.ts` persona-card fixture cleanup.
 
 ## Code conventions
 
 **Python (engine):**
 - FastAPI routers in `engine/app/routers/` do only parameter wiring + auth deps + delegation to `engine/app/services/`.
 - Services accept `AsyncSession` + keyword-only `user: AuthenticatedUser` and return plain dicts.
+- Every read of an org-owned table goes through `tenancy.scope_to_user` / `ensure_org_access`; every org-name label goes through a persona-aware helper. The engine bypasses RLS — see §"Auth and tenancy model".
 - SQLAlchemy 2 async: `select(...)`, `session.execute()`, `.scalars()`. Narrow projections via `select(Model.id, ...)`.
 - Helpers `_as_uuid`, `_as_float`, `_iso`, `_safe_int` are duplicated per service file (intentional, low cost).
 - Audit logging is manual: insert `AuditLog` row with `action=f"<resource>.<verb>"` and `details=request.model_dump()` before commit.
@@ -583,7 +584,7 @@ V3 phases 1 through 7 shipped. The remaining capability-matrix items (sovereign 
 - `pip install -e .[dev]`
 - `uvicorn app.main:app --reload`
 - `celery -A app.tasks.celery_app.celery_app worker --loglevel=INFO`
-- `pytest -q` (159 tests)
+- `pytest -q` (620 tests)
 - `python seed/run.py` — manifest smoke test (CI)
 - `python -m seed.dbbl_synthetic` — regenerate JSON fixtures
 - `python -m seed.load_dbbl_synthetic [--apply]`
@@ -617,4 +618,7 @@ Non-obvious gotchas:
 14. **`STRDraftUpsert` validator is strict on type-specific fields.** `report_type='ier'` without `ier_direction` + `ier_counterparty_fiu` 422s before router. Supplements need `supplements_report_id`; TBML needs `tbml_counterparty_country`; adverse media needs `media_source`. `POST /str-reports/{id}/supplements` forces both fields server-side.
 15. **Observability hook false-positives.** Vercel plugin's `posttooluse-validate` hook fires on every route handler asking for "observability instrumentation." Engine-side structured JSON logs + X-Request-ID already cover every proxied call. Skip these suggestions.
 16. **Migration 010 FK gotcha.** `access_requests` references `profiles.id` (the `auth.uid()` FK), NOT `profiles.user_id`. Fixed mid-apply during launch.
-17. **Migration 012 + 013 chain.** 012 locked `SET search_path = ''` on 7 SECURITY DEFINER helpers but didn't qualify the relations/sequences inside their bodies — `auth_org_id`, `is_regulator`, `gen_case_ref`, `gen_str_ref`, `gen_dissem_ref` all broke. 013 (2026-05-05) is the hot-fix that schema-qualifies them with `public.profiles`, `public.organizations`, `public.case_ref_seq`, etc. while preserving the `search_path = ''` lock-down. If you ever rewrite one of those functions, keep schema qualifiers in the body or the `search_path = ''` clause will silently break it again. `handle_new_user` was already qualified at 012 time, which is why bank-direct signup (V2 P2.2) wasn't broken even before 013 landed.
+17. **The engine bypasses RLS.** Connects as `postgres` (table owner, no FORCE RLS) — RLS policies only protect direct PostgREST. Tenant isolation and persona anonymisation live entirely in service code (`app/services/tenancy.py` + persona-aware label helpers). Never assume an engine query is RLS-filtered; never test isolation via "RLS simulation" alone. Regression tests: `engine/tests/test_tenant_scoping.py`, `test_investigation_labels.py`, `test_cross_bank.py`.
+18. **Render auto-deploy can fail silently.** The GH deploy workflow only fires hooks (engine/worker hook secrets absent — those jobs skip); the engine actually deploys via Render's connected-repo auto-deploy. A green GH run does NOT mean the build went live — PR #24's auto-build `build_failed` and needed re-triggering. Verify with `render deploys list srv-d7757oidbo4c73e98tlg -o json --confirm` → top entry `live` for your commit.
+19. **Branch + PR is mandatory** since live pilot seats exist (Sonali + City, 2026-05). Direct-to-main was fine pre-pilot; not anymore.
+20. **Migration 012 + 013 chain.** 012 locked `SET search_path = ''` on 7 SECURITY DEFINER helpers but didn't qualify the relations/sequences inside their bodies — `auth_org_id`, `is_regulator`, `gen_case_ref`, `gen_str_ref`, `gen_dissem_ref` all broke. 013 (2026-05-05) is the hot-fix that schema-qualifies them with `public.profiles`, `public.organizations`, `public.case_ref_seq`, etc. while preserving the `search_path = ''` lock-down. If you ever rewrite one of those functions, keep schema qualifiers in the body or the `search_path = ''` clause will silently break it again. `handle_new_user` was already qualified at 012 time, which is why bank-direct signup (V2 P2.2) wasn't broken even before 013 landed.
