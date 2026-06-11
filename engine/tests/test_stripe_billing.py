@@ -179,3 +179,15 @@ def test_grace_pinned_constants() -> None:
     it. A 7-day window is the procurement-facing commitment."""
     assert GRACE_PERIOD_DAYS == 7
     assert SIGNATURE_TOLERANCE_SECONDS == 300
+
+
+def test_signature_rejects_future_timestamp_outside_tolerance() -> None:
+    # A far-future timestamp must fail too — otherwise a captured
+    # signature with a forged future `t` stays replayable indefinitely.
+    payload = b'{"id": "evt_future"}'
+    secret = "whsec_future"
+    future = int(time.time()) + SIGNATURE_TOLERANCE_SECONDS + 60
+    header = _stripe_signature(payload=payload, secret=secret, timestamp=future)
+    check = verify_signature(payload=payload, header=header, secret=secret)
+    assert check.valid is False
+    assert check.reason == "timestamp_outside_tolerance"

@@ -169,6 +169,18 @@ def _validate_standard_claims(payload: dict[str, object]) -> None:
     if issuer and payload.get("iss") not in (issuer, None):
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token issuer")
 
+    _validate_audience(payload)
+
+
+def _validate_audience(payload: dict[str, object]) -> None:
+    expected_aud = (settings.supabase_jwt_aud or "").strip()
+    if not expected_aud:
+        return
+    aud = payload.get("aud")
+    aud_values = aud if isinstance(aud, list) else [aud]
+    if expected_aud not in [str(value) for value in aud_values if value is not None]:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token audience")
+
 
 def _decode_with_jwk(token: str, jwk_payload: dict[str, object]) -> dict[str, object]:
     try:
@@ -216,10 +228,13 @@ async def decode_access_token(token: str) -> dict[str, object]:
                 token,
                 settings.supabase_jwt_secret,
                 algorithms=["HS256"],
+                # jose skips audience validation when the claim is absent,
+                # so _validate_audience below is the single enforcement point.
                 options={"verify_aud": False},
             )
         except JWTError as exc:
             raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token") from exc
+        _validate_audience(payload)
         return payload
 
     try:

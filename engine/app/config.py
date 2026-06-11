@@ -35,6 +35,9 @@ class Settings(BaseSettings):
     supabase_service_role_key: str | None = None
     supabase_jwt_secret: str | None = None
     supabase_jwks_url: str | None = None
+    # Expected `aud` claim on Supabase access tokens. Empty string disables
+    # the audience check (escape hatch for non-Supabase token issuers).
+    supabase_jwt_aud: str = "authenticated"
 
     storage_bucket_uploads: str = "kestrel-uploads"
     storage_bucket_exports: str = "kestrel-exports"
@@ -178,9 +181,10 @@ class Settings(BaseSettings):
         )
 
     def demo_mode_enabled(self) -> bool:
-        if self.kestrel_enable_demo_mode:
-            return True
-        return not self.has_any_supabase_auth_config()
+        # Fail closed: demo identities require the explicit env opt-in.
+        # Missing Supabase config must surface as 503 on the auth path,
+        # never as an open API serving a synthesized regulator user.
+        return self.kestrel_enable_demo_mode
 
 
 @lru_cache
