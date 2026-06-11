@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { notFound } from "next/navigation";
+import { redirect } from "next/navigation";
 
 import { BankSignupForm } from "@/components/banks/bank-signup-form";
 import { PublicFooter } from "@/components/public/public-footer";
@@ -16,7 +16,10 @@ export const dynamic = "force-dynamic";
 
 export default function BankSignupPage() {
   if (!isBankDirectSignupEnabled()) {
-    notFound();
+    // Self-serve provisioning is gated until applicant vetting exists —
+    // route the intent to the briefing-intake form instead of a dead 404
+    // (11 public-surface CTAs link here).
+    redirect("/banks#access");
   }
 
   return (

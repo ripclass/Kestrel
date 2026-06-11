@@ -29,6 +29,9 @@ export function isDemoModeConfigured() {
 }
 
 export function isBankDirectSignupEnabled() {
+  // Fail closed: self-serve provisioning creates a live tenant with write
+  // access to shared-intel tables, so it must be an explicit opt-in until
+  // applicant vetting exists. Set ENABLE_BANK_DIRECT_SIGNUP=true to enable.
   const explicit = parseEnvBoolean(process.env.ENABLE_BANK_DIRECT_SIGNUP);
-  return explicit ?? true;
+  return explicit ?? false;
 }
