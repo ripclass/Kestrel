@@ -103,7 +103,9 @@ def verify_signature(
 
     Format: ``t=1234567890,v1=hexhmac,v0=hexhmac`` — verify each v1
     digest against HMAC-SHA256 of ``"{t}.{payload.decode()}"`` keyed
-    on ``secret``. Reject if the timestamp is outside the tolerance.
+    on ``secret``. Reject if the timestamp is outside the tolerance
+    window in either direction — a far-future timestamp would otherwise
+    make a captured signature replayable indefinitely.
     """
     if not secret:
         return SignatureCheck(valid=False, reason="webhook_secret_not_configured")
@@ -117,7 +119,7 @@ def verify_signature(
         timestamp = int(timestamp_raw)
     except ValueError:
         return SignatureCheck(valid=False, reason="timestamp_malformed")
-    if (now or time.time()) - timestamp > tolerance_seconds:
+    if abs((now or time.time()) - timestamp) > tolerance_seconds:
         return SignatureCheck(valid=False, reason="timestamp_outside_tolerance")
     expected = hmac.new(
         secret.encode("utf-8"),

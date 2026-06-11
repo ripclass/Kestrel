@@ -30,9 +30,10 @@ def build_settings(**overrides) -> Settings:
     return Settings.model_validate(base)
 
 
-def test_demo_mode_defaults_only_when_no_supabase_auth_config() -> None:
+def test_demo_mode_requires_explicit_opt_in() -> None:
+    # Fail closed: missing Supabase config must NOT silently open demo mode.
     no_auth = build_settings()
-    assert no_auth.demo_mode_enabled() is True
+    assert no_auth.demo_mode_enabled() is False
 
     partial_auth = build_settings(supabase_url="https://example.supabase.co")
     assert partial_auth.demo_mode_enabled() is False
@@ -42,6 +43,9 @@ def test_demo_mode_defaults_only_when_no_supabase_auth_config() -> None:
         kestrel_enable_demo_mode=True,
     )
     assert explicit_demo.demo_mode_enabled() is True
+
+    explicit_demo_no_auth = build_settings(kestrel_enable_demo_mode=True)
+    assert explicit_demo_no_auth.demo_mode_enabled() is True
 
 
 def test_provider_health_reports_missing_config_without_keys() -> None:

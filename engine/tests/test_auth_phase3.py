@@ -1,5 +1,7 @@
 import asyncio
 
+import pytest
+from fastapi import HTTPException
 from fastapi.security import HTTPAuthorizationCredentials
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric import rsa
@@ -30,6 +32,7 @@ def test_get_current_user_prefers_database_profile_context(monkeypatch) -> None:
         {
             "sub": "00000000-0000-0000-0000-000000000123",
             "email": "camlco@example.com",
+            "aud": "authenticated",
         },
         "test-secret",
         algorithm="HS256",
@@ -59,6 +62,7 @@ def test_get_current_user_falls_back_to_token_claims_when_profile_lookup_missing
         {
             "sub": "00000000-0000-0000-0000-000000000789",
             "email": "analyst@example.com",
+            "aud": "authenticated",
             "user_metadata": {
                 "org_id": "00000000-0000-0000-0000-000000000999",
                 "org_type": "regulator",
@@ -119,6 +123,7 @@ def test_get_current_user_accepts_jwks_signed_token(monkeypatch) -> None:
             "email": "camlco@example.com",
             "iss": "https://example.supabase.co/auth/v1",
             "exp": 4102444800,
+            "aud": "authenticated",
         },
         private_key.private_bytes(
             encoding=serialization.Encoding.PEM,
@@ -136,3 +141,99 @@ def test_get_current_user_accepts_jwks_signed_token(monkeypatch) -> None:
     assert user.email == "camlco@example.com"
     assert user.org_type == "bank"
     assert user.role == "manager"
+
+
+def test_hs256_token_with_wrong_audience_is_rejected(monkeypatch) -> None:
+    monkeypatch.setattr(auth_module.settings, "supabase_jwt_secret", "test-secret")
+    monkeypatch.setattr(auth_module.settings, "supabase_url", None)
+    monkeypatch.setattr(auth_module.settings, "kestrel_enable_demo_mode", False)
+
+    token = jwt.encode(
+        {
+            "sub": "00000000-0000-0000-0000-000000000123",
+            "email": "camlco@example.com",
+            "aud": "service_role",
+        },
+        "test-secret",
+        algorithm="HS256",
+    )
+
+    with pytest.raises(HTTPException) as excinfo:
+        asyncio.run(
+            auth_module.get_current_user(HTTPAuthorizationCredentials(scheme="Bearer", credentials=token))
+        )
+    assert excinfo.value.status_code == 401
+
+
+def test_hs256_token_without_audience_is_rejected(monkeypatch) -> None:
+    monkeypatch.setattr(auth_module.settings, "supabase_jwt_secret", "test-secret")
+    monkeypatch.setattr(auth_module.settings, "supabase_url", None)
+    monkeypatch.setattr(auth_module.settings, "kestrel_enable_demo_mode", False)
+
+    token = jwt.encode(
+        {
+            "sub": "00000000-0000-0000-0000-000000000123",
+            "email": "camlco@example.com",
+        },
+        "test-secret",
+        algorithm="HS256",
+    )
+
+    with pytest.raises(HTTPException) as excinfo:
+        asyncio.run(
+            auth_module.get_current_user(HTTPAuthorizationCredentials(scheme="Bearer", credentials=token))
+        )
+    assert excinfo.value.status_code == 401
+
+
+def test_empty_expected_audience_disables_the_check(monkeypatch) -> None:
+    monkeypatch.setattr(auth_module.settings, "supabase_jwt_secret", "test-secret")
+    monkeypatch.setattr(auth_module.settings, "supabase_url", None)
+    monkeypatch.setattr(auth_module.settings, "supabase_jwt_aud", "")
+    monkeypatch.setattr(auth_module.settings, "kestrel_enable_demo_mode", False)
+
+    async def fake_load_profile_context(user_id: str):
+        return {
+            "org_id": "00000000-0000-0000-0000-000000000456",
+            "org_type": "bank",
+            "role": "manager",
+            "persona": "bank_camlco",
+            "designation": "CAMLCO",
+        }
+
+    monkeypatch.setattr(auth_module, "_load_profile_context", fake_load_profile_context)
+
+    token = jwt.encode(
+        {"sub": "00000000-0000-0000-0000-000000000123", "email": "camlco@example.com"},
+        "test-secret",
+        algorithm="HS256",
+    )
+
+    user = asyncio.run(
+        auth_module.get_current_user(HTTPAuthorizationCredentials(scheme="Bearer", credentials=token))
+    )
+    assert user.role == "manager"
+
+
+def test_validate_audience_accepts_list_aud(monkeypatch) -> None:
+    monkeypatch.setattr(auth_module.settings, "supabase_jwt_aud", "authenticated")
+    auth_module._validate_audience({"aud": ["authenticated", "other"]})
+
+
+def test_validate_audience_rejects_list_without_expected(monkeypatch) -> None:
+    monkeypatch.setattr(auth_module.settings, "supabase_jwt_aud", "authenticated")
+    with pytest.raises(HTTPException) as excinfo:
+        auth_module._validate_audience({"aud": ["service_role"]})
+    assert excinfo.value.status_code == 401
+
+
+def test_missing_supabase_config_without_demo_flag_returns_503(monkeypatch) -> None:
+    # Fail closed: no auth config + no explicit demo opt-in must be a 503,
+    # never a synthesized demo identity.
+    monkeypatch.setattr(auth_module.settings, "supabase_jwt_secret", None)
+    monkeypatch.setattr(auth_module.settings, "supabase_url", None)
+    monkeypatch.setattr(auth_module.settings, "kestrel_enable_demo_mode", False)
+
+    with pytest.raises(HTTPException) as excinfo:
+        asyncio.run(auth_module.decode_access_token("any-token"))
+    assert excinfo.value.status_code == 503
