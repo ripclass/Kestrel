@@ -30,6 +30,12 @@ const NAV: OperatorNavItem[] = [
     roles: ["owner", "operations", "engineer", "devops"],
   },
   {
+    section: "Pilots",
+    label: "Signup requests",
+    href: "/platform/signups",
+    roles: ["owner", "operations", "sales"],
+  },
+  {
     section: "Platform",
     label: "System health",
     href: "/platform/system",
