@@ -1,7 +1,22 @@
 <!DOCTYPE html><html><head><meta charset='utf-8'><title>cross-bank-intelligence</title><style>
 @page {
     size: A4;
-    margin: 22mm 20mm 22mm 20mm;
+    margin: 26mm 20mm 22mm 20mm;
+    @top-left {
+        content: "\268B  KESTREL";
+        font-family: 'IBM Plex Mono', 'Courier New', monospace;
+        font-size: 8pt;
+        color: #15171c;
+        letter-spacing: 0.28em;
+        font-weight: 600;
+    }
+    @top-right {
+        content: "CROSS BANK INTELLIGENCE";
+        font-family: 'IBM Plex Mono', 'Courier New', monospace;
+        font-size: 8pt;
+        color: #666;
+        letter-spacing: 0.22em;
+    }
     @bottom-right {
         content: counter(page) " / " counter(pages);
         font-family: 'IBM Plex Mono', 'Courier New', monospace;
@@ -122,7 +137,7 @@ a {
     text-decoration: none;
 }
 </style></head><body><h1>Cross-Bank Intelligence</h1>
-<p><strong>Kestrel · Enso Intelligence · 2026-05-04</strong></p>
+<p><strong>Kestrel · Enso Intelligence · 2026-05-06</strong></p>
 <blockquote>
 <p>The signal no other vendor in Bangladesh has — and the privacy architecture that lets a competitor's CAMLCO trust it.</p>
 </blockquote>
@@ -312,5 +327,5 @@ Performs the entity-resolution step that makes cross-bank matching possible at a
 - Matcher: <code>engine/app/core/matcher.py</code>
 - Resolver: <code>engine/app/core/resolver.py</code>
 - Dashboard: <code>web/src/components/intel/cross-bank-dashboard.tsx</code>, <code>web/src/app/(platform)/intelligence/cross-bank/page.tsx</code></p>
-<p><strong>Verifiable claims</strong> — every persona-isolation assertion in §3 and §6 is backed by a unit test in <code>engine/tests/test_cross_bank.py</code> and an RLS policy verifiable via <code>pg_policies</code> on the production Supabase project (<code>bmlyqlkzeuoglyvfythg</code>). Procurement teams can request the live <code>pg_policies</code> dump.</p>
-<p><strong>Document version</strong>: 2026-05-04. Replaces all earlier informal descriptions of the cross-bank capability. Authoritative source for procurement, regulator review, and bank CTO due diligence.</p></body></html>
+<p><strong>Verifiable claims</strong> — every persona-isolation assertion in §3 and §6 is backed by a unit test in <code>engine/tests/test_cross_bank.py</code> and an RLS policy verifiable via <code>pg_policies</code> on the production Supabase project. Procurement teams can request the live <code>pg_policies</code> dump and the production project reference under NDA.</p>
+<p><strong>Document version</strong>: 2026-05-06. Replaces all earlier informal descriptions of the cross-bank capability. Authoritative source for procurement, regulator review, and bank CTO due diligence.</p></body></html>

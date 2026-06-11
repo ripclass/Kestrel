@@ -45,7 +45,22 @@ except ImportError:
 _CSS_TEMPLATE = """
 @page {{
     size: A4;
-    margin: 22mm 20mm 22mm 20mm;
+    margin: 26mm 20mm 22mm 20mm;
+    @top-left {{
+        content: "\\268B  KESTREL";
+        font-family: 'IBM Plex Mono', 'Courier New', monospace;
+        font-size: 8pt;
+        color: #15171c;
+        letter-spacing: 0.28em;
+        font-weight: 600;
+    }}
+    @top-right {{
+        content: "{doctype}";
+        font-family: 'IBM Plex Mono', 'Courier New', monospace;
+        font-size: 8pt;
+        color: #666;
+        letter-spacing: 0.22em;
+    }}
     @bottom-right {{
         content: counter(page) " / " counter(pages);
         font-family: 'IBM Plex Mono', 'Courier New', monospace;
@@ -180,13 +195,22 @@ def _derive_footer(markdown_path: Path, md_text: str) -> str:
     return f"KESTREL · {markdown_path.stem.upper().replace('-', ' ').replace('_', ' ')}"
 
 
+def _derive_doctype(markdown_path: Path) -> str:
+    """Short uppercase doctype tag for the page header (top-right)."""
+    stem = markdown_path.stem.upper().replace("-", " ").replace("_", " ")
+    # Cap noise — keep doctypes <= ~36 chars so they don't wrap.
+    return stem[:42]
+
+
 def render(markdown_path: Path) -> tuple[Path, Path | None]:
     if not markdown_path.exists():
         raise SystemExit(f"Input not found: {markdown_path}")
 
     md_text = markdown_path.read_text(encoding="utf-8")
     html_body = markdown.markdown(md_text, extensions=["tables", "fenced_code"])
-    css_styles = _CSS_TEMPLATE.format(footer=_derive_footer(markdown_path, md_text))
+    footer_text = _derive_footer(markdown_path, md_text)
+    doctype = _derive_doctype(markdown_path)
+    css_styles = _CSS_TEMPLATE.format(footer=footer_text, doctype=doctype)
 
     # Standalone HTML — embeds the print-stylesheet so browser Print -> PDF
     # uses the same styling as WeasyPrint would.
@@ -208,7 +232,29 @@ def render(markdown_path: Path) -> tuple[Path, Path | None]:
         )
     elif _PLAYWRIGHT_AVAILABLE:
         # Chromium-headless fallback — works on Windows without GDK/Pango.
+        # Chromium doesn't honour CSS @top-*/@bottom-* boxes; use page.pdf()
+        # header_template + footer_template instead so every page carries the
+        # Kestrel mark + doctype + page counter.
         pdf_path = markdown_path.with_suffix(".pdf")
+        header_html = (
+            "<div style=\"width:100%;padding:6mm 20mm 0 20mm;"
+            "font-family:'IBM Plex Mono','Courier New',monospace;"
+            "font-size:8pt;color:#15171c;display:flex;"
+            "justify-content:space-between;align-items:center;\">"
+            "<span style=\"letter-spacing:0.28em;font-weight:600;\">"
+            "<span style=\"color:#ff3823;\">&#x268B;</span>&nbsp;&nbsp;KESTREL</span>"
+            f"<span style=\"letter-spacing:0.22em;color:#666;\">{doctype}</span>"
+            "</div>"
+        )
+        footer_html = (
+            "<div style=\"width:100%;padding:0 20mm 6mm 20mm;"
+            "font-family:'IBM Plex Mono','Courier New',monospace;"
+            "font-size:8pt;color:#666;display:flex;"
+            "justify-content:space-between;align-items:center;\">"
+            f"<span style=\"letter-spacing:0.18em;\">{footer_text}</span>"
+            "<span><span class=\"pageNumber\"></span> / "
+            "<span class=\"totalPages\"></span></span></div>"
+        )
         with sync_playwright() as p:
             browser = p.chromium.launch()
             page = browser.new_page()
@@ -216,8 +262,11 @@ def render(markdown_path: Path) -> tuple[Path, Path | None]:
             page.pdf(
                 path=str(pdf_path),
                 format="A4",
-                margin={"top": "22mm", "bottom": "22mm", "left": "20mm", "right": "20mm"},
+                margin={"top": "26mm", "bottom": "22mm", "left": "20mm", "right": "20mm"},
                 print_background=True,
+                display_header_footer=True,
+                header_template=header_html,
+                footer_template=footer_html,
             )
             browser.close()
 
