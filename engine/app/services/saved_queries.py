@@ -211,6 +211,13 @@ async def record_run(
     record = await session.get(SavedQuery, UUID(query_id))
     if record is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Saved query not found.")
+    if str(record.user_id) != user.user_id and not (
+        record.is_shared and str(record.org_id) == user.org_id
+    ) and user.org_type != "regulator":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="This saved query is not visible to you.",
+        )
     record.run_count = (record.run_count or 0) + 1
     record.last_run_at = datetime.now(UTC)
     await session.commit()

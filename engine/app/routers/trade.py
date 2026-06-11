@@ -46,6 +46,7 @@ async def list_records(
 ) -> TradeTransactionListResponse:
     trades = await list_trades(
         session,
+        user=user,
         status_filter=status_filter,
         payment_mode=payment_mode,
         counterparty_country=counterparty_country,
@@ -112,4 +113,4 @@ async def record_detail(
     user: Annotated[AuthenticatedUser, Depends(get_current_user)],
     session: Annotated[AsyncSession, Depends(get_current_session)],
 ) -> TradeTransactionDetail:
-    return await get_trade(session, trade_id)
+    return await get_trade(session, trade_id, user=user)

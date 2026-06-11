@@ -36,6 +36,7 @@ async def list_records(
 ) -> IERListResponse:
     return await list_iers(
         session,
+        user=user,
         direction=direction,
         status_filter=status_filter,
         counterparty=counterparty,
@@ -72,7 +73,7 @@ async def record_detail(
     user: Annotated[AuthenticatedUser, Depends(get_current_user)],
     session: Annotated[AsyncSession, Depends(get_current_session)],
 ) -> IERDetail:
-    return await get_ier(session, ier_id)
+    return await get_ier(session, ier_id, user=user)
 
 
 @router.post("/{ier_id}/respond", response_model=IERMutationResponse)

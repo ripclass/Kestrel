@@ -18,6 +18,7 @@ from app.models.org import Organization
 from app.models.profile import Profile
 from app.models.rule import Rule
 from app.models.str_report import STRReport
+from app.services.tenancy import is_regulator, scope_to_user, user_org_uuid
 from app.schemas.admin import (
     AdminIntegrationSummary,
     AdminIntegrationsResponse,
@@ -108,16 +109,23 @@ async def _load_profiles(session: AsyncSession, user: AuthenticatedUser) -> list
     return list(result.scalars().all())
 
 
-async def _load_reports(session: AsyncSession) -> list[STRReport]:
-    return list((await session.execute(select(STRReport))).scalars().all())
+async def _load_reports(session: AsyncSession, user: AuthenticatedUser) -> list[STRReport]:
+    return list((await session.execute(scope_to_user(select(STRReport), user, STRReport.org_id))).scalars().all())
 
 
-async def _load_runs(session: AsyncSession) -> list[DetectionRun]:
-    return list((await session.execute(select(DetectionRun))).scalars().all())
+async def _load_runs(session: AsyncSession, user: AuthenticatedUser) -> list[DetectionRun]:
+    return list((await session.execute(scope_to_user(select(DetectionRun), user, DetectionRun.org_id))).scalars().all())
 
 
-async def _load_db_rules(session: AsyncSession) -> list[Rule]:
-    return list((await session.execute(select(Rule))).scalars().all())
+async def _load_db_rules(session: AsyncSession, user: AuthenticatedUser) -> list[Rule]:
+    stmt = select(Rule)
+    if not is_regulator(user):
+        org_uuid = user_org_uuid(user)
+        conditions = [Rule.is_system.is_(True)]
+        if org_uuid is not None:
+            conditions.append(Rule.org_id == org_uuid)
+        stmt = stmt.where(or_(*conditions))
+    return list((await session.execute(stmt)).scalars().all())
 
 
 async def _load_rule_variants(session: AsyncSession, code: str) -> list[Rule]:
@@ -295,9 +303,9 @@ async def build_admin_summary(
     runtime_settings = settings or get_settings()
     org = await _load_org(session, user)
     profiles = await _load_profiles(session, user)
-    reports = await _load_reports(session)
-    runs = await _load_runs(session)
-    rules = build_rule_catalog_items(load_rules(RULES_DIR), await _load_db_rules(session))
+    reports = await _load_reports(session, user)
+    runs = await _load_runs(session, user)
+    rules = build_rule_catalog_items(load_rules(RULES_DIR), await _load_db_rules(session, user))
     integrations = build_api_integrations(
         settings=runtime_settings,
         include_synthetic=user.org_type == "regulator",
@@ -366,8 +374,10 @@ async def build_team_directory(
 
 async def build_rule_catalog(
     session: AsyncSession,
+    *,
+    user: AuthenticatedUser,
 ) -> AdminRulesResponse:
-    db_rules = await _load_db_rules(session)
+    db_rules = await _load_db_rules(session, user)
     system_rules = load_rules(RULES_DIR)
     return AdminRulesResponse(rules=build_rule_catalog_items(system_rules, db_rules))
 

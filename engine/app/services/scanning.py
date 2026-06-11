@@ -18,6 +18,7 @@ from app.models.match import Match
 from app.schemas.scan import DetectionRunDetail, FlaggedAccount, ScanQueueRequest, ScanQueueResponse
 from app.services.csv_ingest import ingest_csv
 from app.services.storage import StorageError, upload_to_uploads_bucket
+from app.services.tenancy import ensure_org_access, scope_to_user
 
 
 def _as_uuid(value: str | UUID | None) -> UUID | None:
@@ -143,7 +144,7 @@ def _serialize_run_detail(run: DetectionRun) -> dict[str, object]:
     }
 
 
-async def _fetch_run_or_404(session: AsyncSession, run_id: str) -> DetectionRun:
+async def _fetch_run_or_404(session: AsyncSession, run_id: str, *, user: AuthenticatedUser) -> DetectionRun:
     parsed_id = _as_uuid(run_id)
     if parsed_id is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Detection run not found.")
@@ -151,6 +152,7 @@ async def _fetch_run_or_404(session: AsyncSession, run_id: str) -> DetectionRun:
     run = await session.get(DetectionRun, parsed_id)
     if run is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Detection run not found.")
+    ensure_org_access(run.org_id, user, detail="Detection run not found.")
     return run
 
 
@@ -223,20 +225,19 @@ async def _fetch_case_map(session: AsyncSession, entity_ids: list[UUID]) -> dict
     return case_map
 
 
-async def list_runs(session: AsyncSession) -> list[dict[str, object]]:
-    result = await session.execute(
-        select(DetectionRun).order_by(desc(DetectionRun.created_at).nullslast(), desc(DetectionRun.started_at).nullslast())
-    )
+async def list_runs(session: AsyncSession, *, user: AuthenticatedUser) -> list[dict[str, object]]:
+    stmt = select(DetectionRun).order_by(desc(DetectionRun.created_at).nullslast(), desc(DetectionRun.started_at).nullslast())
+    result = await session.execute(scope_to_user(stmt, user, DetectionRun.org_id))
     return [_serialize_run_summary(run) for run in result.scalars().all()]
 
 
-async def get_run_detail(session: AsyncSession, *, run_id: str) -> dict[str, object]:
-    run = await _fetch_run_or_404(session, run_id)
+async def get_run_detail(session: AsyncSession, *, user: AuthenticatedUser, run_id: str) -> dict[str, object]:
+    run = await _fetch_run_or_404(session, run_id, user=user)
     return _serialize_run_detail(run)
 
 
-async def get_results(session: AsyncSession, *, run_id: str) -> list[dict[str, object]]:
-    run = await _fetch_run_or_404(session, run_id)
+async def get_results(session: AsyncSession, *, user: AuthenticatedUser, run_id: str) -> list[dict[str, object]]:
+    run = await _fetch_run_or_404(session, run_id, user=user)
     detail = _serialize_run_detail(run)
     return list(detail["flagged_accounts"])
 

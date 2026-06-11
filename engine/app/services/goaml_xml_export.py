@@ -12,9 +12,11 @@ from xml.etree import ElementTree as ET
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.auth import AuthenticatedUser
 from app.models.org import Organization
 from app.models.str_report import STRReport
 from app.models.transaction import Transaction
+from app.services.tenancy import is_regulator, user_org_uuid
 
 
 _REPORT_TYPE_TO_SUBMISSION: dict[str, str] = {
@@ -63,7 +65,12 @@ async def _collect_transactions_for_report(
     return list(result.scalars().all())
 
 
-async def render_str_xml(session: AsyncSession, *, report_id: str) -> bytes:
+async def render_str_xml(
+    session: AsyncSession,
+    *,
+    user: AuthenticatedUser,
+    report_id: str,
+) -> bytes:
     parsed_id = UUID(report_id)
     result = await session.execute(
         select(STRReport, Organization.name.label("org_name"))
@@ -75,6 +82,10 @@ async def render_str_xml(session: AsyncSession, *, report_id: str) -> bytes:
     if row is None:
         raise ValueError(f"Report {report_id} not found")
     report, org_name = row
+    if not is_regulator(user):
+        org_uuid = user_org_uuid(user)
+        if org_uuid is None or report.org_id != org_uuid:
+            raise ValueError(f"Report {report_id} not found")
 
     root = ET.Element("report")
     _sub(root, "rentity_id", str(org_name))

@@ -18,7 +18,7 @@ async def national(
     user: Annotated[AuthenticatedUser, Depends(get_current_user)],
     session: Annotated[AsyncSession, Depends(get_current_session)],
 ) -> NationalReportResponse:
-    return await build_national_dashboard(session)
+    return await build_national_dashboard(session, user=user)
 
 
 @router.get("/compliance", response_model=ComplianceScorecard)
@@ -26,7 +26,7 @@ async def compliance(
     user: Annotated[AuthenticatedUser, Depends(get_current_user)],
     session: Annotated[AsyncSession, Depends(get_current_session)],
 ) -> ComplianceScorecard:
-    return await build_compliance_scorecard(session)
+    return await build_compliance_scorecard(session, user=user)
 
 
 @router.get("/trends", response_model=TrendSeriesResponse)
@@ -34,7 +34,7 @@ async def trends(
     user: Annotated[AuthenticatedUser, Depends(get_current_user)],
     session: Annotated[AsyncSession, Depends(get_current_session)],
 ) -> TrendSeriesResponse:
-    return await build_trend_series(session)
+    return await build_trend_series(session, user=user)
 
 
 @router.post("/export")

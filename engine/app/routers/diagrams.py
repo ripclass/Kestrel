@@ -31,7 +31,7 @@ async def list_records(
     linked_str_id: Annotated[str | None, Query(alias="linked_str_id")] = None,
 ) -> DiagramListResponse:
     items = await list_diagrams(
-        session, linked_case_id=linked_case_id, linked_str_id=linked_str_id
+        session, user=user, linked_case_id=linked_case_id, linked_str_id=linked_str_id
     )
     return DiagramListResponse(diagrams=items)
 
@@ -54,7 +54,7 @@ async def record_detail(
     user: Annotated[AuthenticatedUser, Depends(get_current_user)],
     session: Annotated[AsyncSession, Depends(get_current_session)],
 ) -> DiagramDetail:
-    return await get_diagram(session, diagram_id)
+    return await get_diagram(session, diagram_id, user=user)
 
 
 @router.patch("/{diagram_id}", response_model=DiagramMutationResponse)

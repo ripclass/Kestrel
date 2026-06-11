@@ -15,6 +15,7 @@ from app.schemas.diagram import (
     DiagramSummary,
     DiagramUpdate,
 )
+from app.services.tenancy import ensure_org_access, scope_to_user
 
 
 def _as_uuid(value: str | None) -> UUID | None:
@@ -58,10 +59,11 @@ def _serialize_detail(record: Diagram) -> DiagramDetail:
 async def list_diagrams(
     session: AsyncSession,
     *,
+    user: AuthenticatedUser,
     linked_case_id: str | None = None,
     linked_str_id: str | None = None,
 ) -> list[DiagramSummary]:
-    stmt = select(Diagram).order_by(Diagram.updated_at.desc())
+    stmt = scope_to_user(select(Diagram).order_by(Diagram.updated_at.desc()), user, Diagram.org_id)
     case_uuid = _as_uuid(linked_case_id)
     str_uuid = _as_uuid(linked_str_id)
     if case_uuid is not None:
@@ -72,10 +74,11 @@ async def list_diagrams(
     return [_serialize_summary(row) for row in result.scalars().all()]
 
 
-async def get_diagram(session: AsyncSession, diagram_id: str) -> DiagramDetail:
+async def get_diagram(session: AsyncSession, diagram_id: str, *, user: AuthenticatedUser) -> DiagramDetail:
     record = await session.get(Diagram, UUID(diagram_id))
     if record is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Diagram not found.")
+    ensure_org_access(record.org_id, user, detail="Diagram not found.")
     return _serialize_detail(record)
 
 
@@ -128,6 +131,7 @@ async def update_diagram(
     record = await session.get(Diagram, UUID(diagram_id))
     if record is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Diagram not found.")
+    ensure_org_access(record.org_id, user, detail="Diagram not found.")
     data = payload.model_dump(exclude_unset=True)
     for field in ("title", "description"):
         if field in data:
@@ -165,6 +169,7 @@ async def delete_diagram(
     record = await session.get(Diagram, UUID(diagram_id))
     if record is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Diagram not found.")
+    ensure_org_access(record.org_id, user, detail="Diagram not found.")
     org_id = record.org_id
     record_id = record.id
     await session.delete(record)

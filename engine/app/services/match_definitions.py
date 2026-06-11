@@ -29,6 +29,7 @@ from app.schemas.match_definition import (
     MatchExecutionResponse,
     MatchExecutionSummary,
 )
+from app.services.tenancy import ensure_org_access, scope_to_user
 
 logger = logging.getLogger("kestrel.services.match_definitions")
 
@@ -103,9 +104,10 @@ async def _serialize_detail(
 async def list_match_definitions(
     session: AsyncSession,
     *,
+    user: AuthenticatedUser,
     is_active: bool | None = None,
 ) -> list[MatchDefinitionSummary]:
-    stmt = select(MatchDefinition).order_by(MatchDefinition.updated_at.desc())
+    stmt = scope_to_user(select(MatchDefinition).order_by(MatchDefinition.updated_at.desc()), user, MatchDefinition.org_id)
     if is_active is not None:
         stmt = stmt.where(MatchDefinition.is_active.is_(is_active))
     result = await session.execute(stmt)
@@ -113,11 +115,12 @@ async def list_match_definitions(
 
 
 async def get_match_definition(
-    session: AsyncSession, definition_id: str
+    session: AsyncSession, definition_id: str, *, user: AuthenticatedUser
 ) -> MatchDefinitionDetail:
     record = await session.get(MatchDefinition, UUID(definition_id))
     if record is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Match definition not found.")
+    ensure_org_access(record.org_id, user, detail="Match definition not found.")
     return await _serialize_detail(session, record)
 
 
@@ -167,6 +170,7 @@ async def update_match_definition(
     record = await session.get(MatchDefinition, UUID(definition_id))
     if record is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Match definition not found.")
+    ensure_org_access(record.org_id, user, detail="Match definition not found.")
     data = payload.model_dump(exclude_unset=True)
     for field in ("name", "description", "is_active"):
         if field in data:
@@ -201,6 +205,7 @@ async def delete_match_definition(
     record = await session.get(MatchDefinition, UUID(definition_id))
     if record is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Match definition not found.")
+    ensure_org_access(record.org_id, user, detail="Match definition not found.")
     org_id = record.org_id
     record_id = record.id
     await session.delete(record)
@@ -307,6 +312,7 @@ async def execute_match_definition(
     record = await session.get(MatchDefinition, UUID(definition_id))
     if record is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Match definition not found.")
+    ensure_org_access(record.org_id, user, detail="Match definition not found.")
     if not record.is_active:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,

@@ -99,7 +99,7 @@ async def rules(
     user: Annotated[AuthenticatedUser, Depends(require_roles("manager", "admin", "superadmin"))],
     session: Annotated[AsyncSession, Depends(get_current_session)],
 ) -> AdminRulesResponse:
-    return await build_rule_catalog(session)
+    return await build_rule_catalog(session, user=user)
 
 
 @router.patch("/rules/{code}", response_model=AdminRuleMutationResponse)
@@ -173,7 +173,7 @@ async def operational_statistics(
     session: Annotated[AsyncSession, Depends(get_current_session)],
 ) -> OperationalStatisticsResponse:
     _require_regulator_admin(user)
-    return await build_operational_statistics(session)
+    return await build_operational_statistics(session, user=user)
 
 
 @router.get("/schedules", response_model=ScheduleListResponse)

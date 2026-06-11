@@ -17,6 +17,7 @@ from app.models.entity import Entity
 from app.models.match import Match
 from app.models.org import Organization
 from app.models.str_report import STRReport
+from app.services.tenancy import scope_to_user
 
 
 def _as_float(value: object) -> float:
@@ -140,6 +141,8 @@ async def _fetch_entity_or_404(session: AsyncSession, entity_id: str) -> Entity:
 async def _fetch_related_reports(
     session: AsyncSession,
     entity: Entity,
+    *,
+    user: AuthenticatedUser,
 ) -> list[tuple[STRReport, str]]:
     stmt = (
         select(STRReport, Organization.name.label("org_name"))
@@ -147,7 +150,7 @@ async def _fetch_related_reports(
         .where(or_(*_build_entity_report_filters(entity)))
         .order_by(STRReport.reported_at.desc().nullslast(), STRReport.created_at.desc())
     )
-    result = await session.execute(stmt)
+    result = await session.execute(scope_to_user(stmt, user, STRReport.org_id))
 
     rows: list[tuple[STRReport, str]] = []
     seen: set[str] = set()
@@ -350,11 +353,23 @@ async def get_entity_dossier(
     entity_id: str,
 ) -> dict[str, object]:
     entity = await _fetch_entity_or_404(session, entity_id)
-    reports = await _fetch_related_reports(session, entity)
-    alerts_result = await session.execute(select(Alert).where(Alert.entity_id == entity.id).order_by(Alert.created_at.desc()))
+    # The entity itself is shared cross-bank intel; the org-owned rows hanging
+    # off it (STR contents, alerts, cases) are scoped to the caller's org.
+    reports = await _fetch_related_reports(session, entity, user=user)
+    alerts_result = await session.execute(
+        scope_to_user(
+            select(Alert).where(Alert.entity_id == entity.id).order_by(Alert.created_at.desc()),
+            user,
+            Alert.org_id,
+        )
+    )
     alerts = list(alerts_result.scalars().all())
     cases_result = await session.execute(
-        select(Case).where(Case.linked_entity_ids.any(str(entity.id))).order_by(Case.updated_at.desc().nullslast(), Case.created_at.desc())
+        scope_to_user(
+            select(Case).where(Case.linked_entity_ids.any(str(entity.id))).order_by(Case.updated_at.desc().nullslast(), Case.created_at.desc()),
+            user,
+            Case.org_id,
+        )
     )
     cases = list(cases_result.scalars().all())
     connections = await _fetch_connections(session, entity.id)

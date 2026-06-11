@@ -12,6 +12,7 @@ from app.auth import AuthenticatedUser
 from app.models.alert import Alert
 from app.models.str_report import STRReport
 from app.services.case_mgmt import get_case_workspace
+from app.services.tenancy import scope_to_user
 
 
 async def assemble_case_pack(
@@ -34,7 +35,7 @@ async def assemble_case_pack(
         case_uuid = uuid.UUID(workspace["id"])
         conditions.append(Alert.case_id == case_uuid)
         stmt = select(Alert).where(or_(*conditions)).order_by(Alert.created_at.desc())
-        result = await session.execute(stmt)
+        result = await session.execute(scope_to_user(stmt, user, Alert.org_id))
         seen_ids: set[str] = set()
         for alert in result.scalars().all():
             key = str(alert.id)
@@ -58,12 +59,14 @@ async def assemble_case_pack(
     entity_uuids = [uuid.UUID(str(e)) for e in workspace.get("linked_entity_ids", []) if e]
     str_reports: list[dict[str, Any]] = []
     if entity_uuids:
+        # Linked entities are shared cross-bank intel, so the overlap match
+        # alone would pull other orgs' STRs into the pack — scope to caller.
         stmt = (
             select(STRReport)
             .where(STRReport.matched_entity_ids.overlap(entity_uuids))
             .order_by(STRReport.created_at.desc())
         )
-        result = await session.execute(stmt)
+        result = await session.execute(scope_to_user(stmt, user, STRReport.org_id))
         for report in result.scalars().all():
             str_reports.append(
                 {

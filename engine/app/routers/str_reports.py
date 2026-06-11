@@ -42,7 +42,7 @@ async def export_reports_xlsx(
     status_filter: Annotated[str | None, Query(alias="status")] = None,
     report_type: Annotated[str | None, Query(alias="report_type")] = None,
 ) -> StreamingResponse:
-    reports = await list_str_reports(session, status_filter=status_filter, report_type=report_type)
+    reports = await list_str_reports(session, user=user, status_filter=status_filter, report_type=report_type)
     rows = [report.model_dump(mode="json") for report in reports]
     payload = build_str_reports_xlsx(rows)
     return StreamingResponse(
@@ -59,7 +59,7 @@ async def list_reports(
     status_filter: Annotated[str | None, Query(alias="status")] = None,
     report_type: Annotated[str | None, Query(alias="report_type")] = None,
 ) -> STRListResponse:
-    reports = await list_str_reports(session, status_filter=status_filter, report_type=report_type)
+    reports = await list_str_reports(session, user=user, status_filter=status_filter, report_type=report_type)
     return STRListResponse(reports=reports)
 
 
@@ -111,7 +111,7 @@ async def report_detail(
     user: Annotated[AuthenticatedUser, Depends(get_current_user)],
     session: Annotated[AsyncSession, Depends(get_current_session)],
 ) -> STRReportDetail:
-    return await get_str_report(session, report_id)
+    return await get_str_report(session, report_id, user=user)
 
 
 @router.patch("/{report_id}", response_model=STRMutationResponse)
@@ -176,7 +176,7 @@ async def enrich_report(
         user=user,
         ip=request.client.host if request.client else None,
     )
-    report = await get_str_report(session, report_id)
+    report = await get_str_report(session, report_id, user=user)
     return STREnrichmentResponse(report=report, enrichment=enrichment)
 
 
@@ -186,7 +186,7 @@ async def list_report_supplements(
     user: Annotated[AuthenticatedUser, Depends(get_current_user)],
     session: Annotated[AsyncSession, Depends(get_current_session)],
 ) -> STRListResponse:
-    reports = await list_supplements_of(session, parent_id=report_id)
+    reports = await list_supplements_of(session, user=user, parent_id=report_id)
     return STRListResponse(reports=reports)
 
 
@@ -218,7 +218,7 @@ async def export_report_xml(
     session: Annotated[AsyncSession, Depends(get_current_session)],
 ) -> Response:
     try:
-        xml_bytes = await render_str_xml(session, report_id=report_id)
+        xml_bytes = await render_str_xml(session, user=user, report_id=report_id)
     except ValueError as exc:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
     return Response(

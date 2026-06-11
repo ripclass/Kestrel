@@ -31,7 +31,7 @@ async def list_records(
     session: Annotated[AsyncSession, Depends(get_current_session)],
     is_active: Annotated[bool | None, Query(alias="is_active")] = None,
 ) -> MatchDefinitionListResponse:
-    items = await list_match_definitions(session, is_active=is_active)
+    items = await list_match_definitions(session, user=user, is_active=is_active)
     return MatchDefinitionListResponse(match_definitions=items)
 
 
@@ -53,7 +53,7 @@ async def record_detail(
     user: Annotated[AuthenticatedUser, Depends(get_current_user)],
     session: Annotated[AsyncSession, Depends(get_current_session)],
 ) -> MatchDefinitionDetail:
-    return await get_match_definition(session, definition_id)
+    return await get_match_definition(session, definition_id, user=user)
 
 
 @router.patch("/{definition_id}", response_model=MatchDefinitionMutationResponse)
