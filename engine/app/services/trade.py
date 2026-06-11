@@ -13,6 +13,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.auth import AuthenticatedUser
 from app.models.audit import AuditLog
 from app.models.trade_transaction import TradeTransaction
+from app.services.tenancy import ensure_org_access, scope_to_user
 from app.schemas.trade_transaction import (
     TradeTransactionCreate,
     TradeTransactionDetail,
@@ -113,6 +114,7 @@ def _serialize_detail(record: TradeTransaction) -> TradeTransactionDetail:
 async def list_trades(
     session: AsyncSession,
     *,
+    user: AuthenticatedUser,
     status_filter: str | None = None,
     payment_mode: str | None = None,
     counterparty_country: str | None = None,
@@ -120,6 +122,7 @@ async def list_trades(
     limit: int = 100,
 ) -> list[TradeTransactionSummary]:
     stmt = select(TradeTransaction).order_by(TradeTransaction.created_at.desc()).limit(limit)
+    stmt = scope_to_user(stmt, user, TradeTransaction.org_id)
     if status_filter:
         stmt = stmt.where(TradeTransaction.status == status_filter)
     if payment_mode:
@@ -132,13 +135,14 @@ async def list_trades(
     return [_serialize_summary(row) for row in rows]
 
 
-async def get_trade(session: AsyncSession, trade_id: str) -> TradeTransactionDetail:
+async def get_trade(session: AsyncSession, trade_id: str, *, user: AuthenticatedUser) -> TradeTransactionDetail:
     parsed = _as_uuid(trade_id)
     if parsed is None:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid trade id.")
     row = await session.get(TradeTransaction, parsed)
     if row is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Trade transaction not found.")
+    ensure_org_access(row.org_id, user, detail="Trade transaction not found.")
     return _serialize_detail(row)
 
 

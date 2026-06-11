@@ -26,6 +26,7 @@ from app.services.investigation import (
     _serialize_entity_summary,
     get_network_graph,
 )
+from app.services.tenancy import ensure_org_access, scope_to_user
 
 
 def _as_float(value: Decimal | float | int | None) -> float:
@@ -83,7 +84,12 @@ async def _load_profile_name_map(session: AsyncSession, profile_ids: set[str]) -
     return {str(profile_id): full_name for profile_id, full_name in result.all()}
 
 
-async def _fetch_alert_with_org(session: AsyncSession, alert_id: str) -> tuple[Alert, str]:
+async def _fetch_alert_with_org(
+    session: AsyncSession,
+    alert_id: str,
+    *,
+    user: AuthenticatedUser,
+) -> tuple[Alert, str]:
     parsed_id = _as_uuid(alert_id)
     if parsed_id is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Alert not found.")
@@ -98,6 +104,7 @@ async def _fetch_alert_with_org(session: AsyncSession, alert_id: str) -> tuple[A
     if not row:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Alert not found.")
     alert, org_name = row
+    ensure_org_access(alert.org_id, user, detail="Alert not found.")
     return alert, str(org_name or "Kestrel")
 
 
@@ -147,12 +154,13 @@ def _serialize_alert_summary(
     }
 
 
-async def list_alerts(session: AsyncSession) -> list[dict[str, object]]:
-    result = await session.execute(
+async def list_alerts(session: AsyncSession, *, user: AuthenticatedUser) -> list[dict[str, object]]:
+    stmt = (
         select(Alert, Organization.name.label("org_name"))
         .outerjoin(Organization, Organization.id == Alert.org_id)
         .order_by(Alert.risk_score.desc(), Alert.created_at.desc())
     )
+    result = await session.execute(scope_to_user(stmt, user, Alert.org_id))
     rows = list(result.all())
     profile_name_map = await _load_profile_name_map(
         session,
@@ -171,7 +179,7 @@ async def get_alert_detail(
     user: AuthenticatedUser,
     alert_id: str,
 ) -> dict[str, object]:
-    alert, org_name = await _fetch_alert_with_org(session, alert_id)
+    alert, org_name = await _fetch_alert_with_org(session, alert_id, user=user)
     profile_name_map = await _load_profile_name_map(
         session,
         {str(alert.assigned_to)} if alert.assigned_to else set(),
@@ -263,7 +271,7 @@ async def update_alert(
     request: AlertMutationRequest,
     ip: str | None,
 ) -> AlertMutationResponse:
-    alert, _org_name = await _fetch_alert_with_org(session, alert_id)
+    alert, _org_name = await _fetch_alert_with_org(session, alert_id, user=user)
     linked_case: Case | None = None
     entity = await session.get(Entity, alert.entity_id) if alert.entity_id else None
 

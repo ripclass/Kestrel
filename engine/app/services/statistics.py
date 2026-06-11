@@ -3,6 +3,7 @@ from datetime import UTC, datetime
 from sqlalchemy import desc, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.auth import AuthenticatedUser
 from app.models.case import Case
 from app.models.ctr import CashTransactionReport
 from app.models.dissemination import Dissemination
@@ -17,6 +18,7 @@ from app.schemas.statistics import (
     ReportsByTypeByMonth,
     TimeToReviewAverage,
 )
+from app.services.tenancy import scope_to_user
 
 
 def _iso(value: datetime | None) -> str:
@@ -27,6 +29,8 @@ def _iso(value: datetime | None) -> str:
 
 async def build_operational_statistics(
     session: AsyncSession,
+    *,
+    user: AuthenticatedUser,
 ) -> OperationalStatisticsResponse:
     # --- reports_by_type_by_month (all STR/SAR/CTR variants stored in str_reports)
     month_expr = func.to_char(
@@ -43,7 +47,7 @@ async def build_operational_statistics(
         .order_by(month_expr.desc(), STRReport.report_type.asc())
         .limit(200)
     )
-    result = await session.execute(stmt)
+    result = await session.execute(scope_to_user(stmt, user, STRReport.org_id))
     reports_by_type_by_month = [
         ReportsByTypeByMonth(
             month=row.month or "",
@@ -64,7 +68,7 @@ async def build_operational_statistics(
         .order_by(desc("count"))
         .limit(20)
     )
-    result = await session.execute(stmt)
+    result = await session.execute(scope_to_user(stmt, user, STRReport.org_id))
     reports_by_org = [
         ReportsByOrg(org_name=row.org_name, count=int(row.count or 0))
         for row in result.all()
@@ -82,7 +86,7 @@ async def build_operational_statistics(
         .order_by(ctr_month_expr.desc())
         .limit(24)
     )
-    result = await session.execute(stmt)
+    result = await session.execute(scope_to_user(stmt, user, CashTransactionReport.org_id))
     ctr_volume_by_month = [
         CtrVolumeByMonth(
             month=row.month or "",
@@ -103,7 +107,7 @@ async def build_operational_statistics(
         .order_by(desc("count"))
         .limit(50)
     )
-    result = await session.execute(stmt)
+    result = await session.execute(scope_to_user(stmt, user, Dissemination.org_id))
     disseminations_by_agency = [
         DisseminationsByAgency(
             recipient_agency=row.recipient_agency,
@@ -119,7 +123,7 @@ async def build_operational_statistics(
         .group_by(Case.status)
         .order_by(desc("count"))
     )
-    result = await session.execute(stmt)
+    result = await session.execute(scope_to_user(stmt, user, Case.org_id))
     case_outcomes = [
         CaseOutcomeBreakdown(status=row.status or "unknown", count=int(row.count or 0))
         for row in result.all()
@@ -142,7 +146,7 @@ async def build_operational_statistics(
         .group_by(STRReport.report_type)
         .order_by(STRReport.report_type.asc())
     )
-    result = await session.execute(stmt)
+    result = await session.execute(scope_to_user(stmt, user, STRReport.org_id))
     time_to_review = [
         TimeToReviewAverage(
             report_type=row.report_type or "str",

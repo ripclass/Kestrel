@@ -25,6 +25,7 @@ from app.schemas.str_report import (
     STRReviewRequest,
     STRReviewState,
 )
+from app.services.tenancy import ensure_org_access, scope_to_user
 
 _EDITABLE_STATUSES = {"draft"}
 _REVIEW_OUTCOMES = {
@@ -253,7 +254,12 @@ async def _record_audit(
     )
 
 
-async def _fetch_report_with_org(session: AsyncSession, report_id: str) -> tuple[STRReport, str]:
+async def _fetch_report_with_org(
+    session: AsyncSession,
+    report_id: str,
+    *,
+    user: AuthenticatedUser,
+) -> tuple[STRReport, str]:
     stmt = (
         select(STRReport, Organization.name.label("org_name"))
         .join(Organization, Organization.id == STRReport.org_id)
@@ -266,6 +272,7 @@ async def _fetch_report_with_org(session: AsyncSession, report_id: str) -> tuple
     if not row:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="STR report not found.")
     report, org_name = row
+    ensure_org_access(report.org_id, user, detail="STR report not found.")
     return report, str(org_name)
 
 
@@ -350,6 +357,7 @@ async def _fetch_parent_for_supplement(
 async def list_supplements_of(
     session: AsyncSession,
     *,
+    user: AuthenticatedUser,
     parent_id: str,
 ) -> list[STRReportSummary]:
     """Return every additional_info STR that supplements ``parent_id``."""
@@ -362,13 +370,14 @@ async def list_supplements_of(
         .where(STRReport.supplements_report_id == parent_uuid)
         .order_by(STRReport.reported_at.desc().nullslast(), STRReport.created_at.desc())
     )
-    result = await session.execute(stmt)
+    result = await session.execute(scope_to_user(stmt, user, STRReport.org_id))
     return [_serialize_report(report, str(org_name)) for report, org_name in result.all()]
 
 
 async def list_str_reports(
     session: AsyncSession,
     *,
+    user: AuthenticatedUser,
     status_filter: str | None = None,
     report_type: str | None = None,
 ) -> list[STRReportSummary]:
@@ -381,12 +390,17 @@ async def list_str_reports(
         stmt = stmt.where(STRReport.status == status_filter)
     if report_type:
         stmt = stmt.where(STRReport.report_type == report_type)
-    result = await session.execute(stmt)
+    result = await session.execute(scope_to_user(stmt, user, STRReport.org_id))
     return [_serialize_report(report, str(org_name)) for report, org_name in result.all()]
 
 
-async def get_str_report(session: AsyncSession, report_id: str) -> STRReportDetail:
-    report, org_name = await _fetch_report_with_org(session, report_id)
+async def get_str_report(
+    session: AsyncSession,
+    report_id: str,
+    *,
+    user: AuthenticatedUser,
+) -> STRReportDetail:
+    report, org_name = await _fetch_report_with_org(session, report_id, user=user)
     return serialize_report_detail(report, org_name)
 
 
@@ -482,7 +496,7 @@ async def create_str_report(
     )
     await session.commit()
     await session.refresh(report)
-    refreshed, org_name = await _fetch_report_with_org(session, str(report.id))
+    refreshed, org_name = await _fetch_report_with_org(session, str(report.id), user=user)
     return STRMutationResponse(report=serialize_report_detail(refreshed, org_name))
 
 
@@ -494,7 +508,7 @@ async def update_str_report(
     payload: dict[str, Any],
     ip: str | None,
 ) -> STRMutationResponse:
-    report, org_name = await _fetch_report_with_org(session, report_id)
+    report, org_name = await _fetch_report_with_org(session, report_id, user=user)
     _ensure_editable(report, user)
     for field in [
         "subject_name",
@@ -551,7 +565,7 @@ async def submit_str_report(
     user: AuthenticatedUser,
     ip: str | None,
 ) -> STRMutationResponse:
-    report, org_name = await _fetch_report_with_org(session, report_id)
+    report, org_name = await _fetch_report_with_org(session, report_id, user=user)
     _ensure_editable(report, user)
     _ensure_submission_ready(report)
     previous_status = report.status
@@ -601,7 +615,7 @@ async def review_str_report(
     ip: str | None,
 ) -> STRMutationResponse:
     _ensure_review_access(user)
-    report, org_name = await _fetch_report_with_org(session, report_id)
+    report, org_name = await _fetch_report_with_org(session, report_id, user=user)
 
     if request.action == "assign":
         report.metadata_json = _append_lifecycle_event(
@@ -651,7 +665,7 @@ async def enrich_str_report(
     ip: str | None,
     orchestrator: AIOrchestrator | None = None,
 ) -> STREnrichmentSnapshot:
-    report, _ = await _fetch_report_with_org(session, report_id)
+    report, _ = await _fetch_report_with_org(session, report_id, user=user)
     if user.role == "viewer":
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Viewer accounts cannot generate enrichment.")
 

@@ -121,7 +121,7 @@ async def _gather_pack_payload(
                 for i, entry in enumerate(overview.operational[:5])
             ],
         }
-        scorecard = await get_scorecard(session)
+        scorecard = await get_scorecard(session, user=user)
         payload["compliance_rows"] = [
             {
                 "bank_name": row.org_name,
@@ -139,7 +139,7 @@ async def _gather_pack_payload(
         payload["pack_subtitle"] = (
             "Bank-by-bank readiness ranking — Timeliness × Conversion × Coverage."
         )
-        scorecard = await get_scorecard(session)
+        scorecard = await get_scorecard(session, user=user)
         payload["compliance_rows"] = [
             {
                 "bank_name": row.org_name,
@@ -157,7 +157,7 @@ async def _gather_pack_payload(
         payload["pack_subtitle"] = (
             "Alert volume + STR filings over the last 24 months."
         )
-        trend = await build_trend_series(session)
+        trend = await build_trend_series(session, user=user)
         rows = []
         for point in trend.series:
             alerts = point.alerts or 0
@@ -174,7 +174,7 @@ async def _gather_pack_payload(
             "rows": rows,
         }
         try:
-            stats = await build_operational_statistics(session)
+            stats = await build_operational_statistics(session, user=user)
             rows_stats = []
             # build_operational_statistics returns a dict in current shape
             if isinstance(stats, dict):

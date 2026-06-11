@@ -39,6 +39,7 @@ async def cases(
 ) -> list[CaseSummary]:
     items = await list_cases(
         session,
+        user=user,
         variant=variant,
         status_filter=status_filter,
         assigned_to=assigned_to,

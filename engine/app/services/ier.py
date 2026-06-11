@@ -29,6 +29,7 @@ from app.schemas.ier import (
     IERSummary,
 )
 from app.services.str_reports import create_str_report
+from app.services.tenancy import ensure_org_access, scope_to_user
 
 
 def _as_uuid(value: str | None) -> UUID | None:
@@ -76,7 +77,12 @@ def _serialize_detail(record: STRReport, org_name: str) -> IERDetail:
     )
 
 
-async def _fetch_with_org(session: AsyncSession, ier_id: str) -> tuple[STRReport, str]:
+async def _fetch_with_org(
+    session: AsyncSession,
+    ier_id: str,
+    *,
+    user: AuthenticatedUser,
+) -> tuple[STRReport, str]:
     stmt = (
         select(STRReport, Organization.name.label("org_name"))
         .join(Organization, Organization.id == STRReport.org_id)
@@ -87,6 +93,7 @@ async def _fetch_with_org(session: AsyncSession, ier_id: str) -> tuple[STRReport
     if row is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="IER not found.")
     record, org_name = row
+    ensure_org_access(record.org_id, user, detail="IER not found.")
     if record.report_type != "ier":
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
@@ -98,6 +105,7 @@ async def _fetch_with_org(session: AsyncSession, ier_id: str) -> tuple[STRReport
 async def list_iers(
     session: AsyncSession,
     *,
+    user: AuthenticatedUser,
     direction: str | None = None,
     status_filter: str | None = None,
     counterparty: str | None = None,
@@ -119,13 +127,13 @@ async def list_iers(
                 STRReport.ier_counterparty_country.ilike(f"%{counterparty}%"),
             )
         )
-    result = await session.execute(stmt)
+    result = await session.execute(scope_to_user(stmt, user, STRReport.org_id))
     iers = [_serialize_summary(record, str(org_name)) for record, org_name in result.all()]
     return IERListResponse(iers=iers)
 
 
-async def get_ier(session: AsyncSession, ier_id: str) -> IERDetail:
-    record, org_name = await _fetch_with_org(session, ier_id)
+async def get_ier(session: AsyncSession, ier_id: str, *, user: AuthenticatedUser) -> IERDetail:
+    record, org_name = await _fetch_with_org(session, ier_id, user=user)
     return _serialize_detail(record, org_name)
 
 
@@ -158,7 +166,7 @@ async def create_outbound_ier(
         "ier_deadline": payload.deadline,
     }
     mutation = await create_str_report(session, user=user, payload=str_payload, ip=ip)
-    record, org_name = await _fetch_with_org(session, mutation.report.id)
+    record, org_name = await _fetch_with_org(session, mutation.report.id, user=user)
     if payload.linked_entity_ids:
         record.matched_entity_ids = [
             _require_uuid(value, "Invalid linked_entity_id.") for value in payload.linked_entity_ids
@@ -197,7 +205,7 @@ async def create_inbound_ier(
         "ier_deadline": payload.deadline,
     }
     mutation = await create_str_report(session, user=user, payload=str_payload, ip=ip)
-    record, org_name = await _fetch_with_org(session, mutation.report.id)
+    record, org_name = await _fetch_with_org(session, mutation.report.id, user=user)
     if payload.linked_entity_ids:
         record.matched_entity_ids = [
             _require_uuid(value, "Invalid linked_entity_id.") for value in payload.linked_entity_ids
@@ -215,7 +223,7 @@ async def respond_to_ier(
     payload: IERRespondRequest,
     ip: str | None,
 ) -> IERMutationResponse:
-    record, org_name = await _fetch_with_org(session, ier_id)
+    record, org_name = await _fetch_with_org(session, ier_id, user=user)
     record.ier_response_narrative = payload.response_narrative.strip()
     # Capture response moves the IER into the review state.
     if record.status in {"draft", "submitted"}:
@@ -253,7 +261,7 @@ async def close_ier(
     payload: IERCloseRequest,
     ip: str | None,
 ) -> IERMutationResponse:
-    record, org_name = await _fetch_with_org(session, ier_id)
+    record, org_name = await _fetch_with_org(session, ier_id, user=user)
     previous = record.status
     record.status = "confirmed"
     record.reviewed_by = _as_uuid(user.user_id)

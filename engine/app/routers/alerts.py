@@ -19,7 +19,7 @@ async def export_alerts_xlsx(
     user: Annotated[AuthenticatedUser, Depends(require_roles("analyst", "manager", "admin", "superadmin"))],
     session: Annotated[AsyncSession, Depends(get_current_session)],
 ) -> StreamingResponse:
-    items = await list_alerts(session)
+    items = await list_alerts(session, user=user)
     payload = build_alerts_xlsx(items)
     return StreamingResponse(
         BytesIO(payload),
@@ -33,7 +33,7 @@ async def alerts(
     user: Annotated[AuthenticatedUser, Depends(get_current_user)] = None,
     session: Annotated[AsyncSession, Depends(get_current_session)] = None,
 ) -> list[AlertSummary]:
-    items = await list_alerts(session)
+    items = await list_alerts(session, user=user)
     return [AlertSummary.model_validate(item) for item in items]
 
 

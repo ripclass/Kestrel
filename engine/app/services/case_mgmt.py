@@ -7,7 +7,7 @@ from typing import Any
 from uuid import UUID
 
 from fastapi import HTTPException, status
-from sqlalchemy import or_, select
+from sqlalchemy import false, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.auth import AuthenticatedUser
@@ -33,6 +33,7 @@ from app.services.investigation import (
     _load_org_name_map,
     _serialize_entity_summary,
 )
+from app.services.tenancy import is_regulator, user_org_uuid
 
 _CLOSED_CASE_STATUSES = {"closed_confirmed", "closed_false_positive"}
 _CASE_ALERT_OUTCOMES = {
@@ -206,13 +207,26 @@ async def _build_case_graph(session: AsyncSession, case: Case) -> dict[str, obje
     return export_graph(graph, focus_entity_id)
 
 
-async def _fetch_case_or_404(session: AsyncSession, case_id: str) -> Case:
+def _user_can_access_case(case: Case, user: AuthenticatedUser) -> bool:
+    # RFI cases are routed cross-org: the recipient (requested_from) lives in
+    # a different org than the case owner, so org match alone would lock the
+    # recipient out of the RFI addressed to them.
+    if is_regulator(user):
+        return True
+    org_uuid = user_org_uuid(user)
+    if org_uuid is not None and case.org_id == org_uuid:
+        return True
+    user_uuid = _as_uuid(user.user_id)
+    return user_uuid is not None and case.requested_from == user_uuid
+
+
+async def _fetch_case_or_404(session: AsyncSession, case_id: str, *, user: AuthenticatedUser) -> Case:
     parsed_id = _as_uuid(case_id)
     if parsed_id is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Case not found.")
 
     case = await session.get(Case, parsed_id)
-    if case is None:
+    if case is None or not _user_can_access_case(case, user):
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Case not found.")
     return case
 
@@ -242,11 +256,21 @@ async def _record_case_audit(
 async def list_cases(
     session: AsyncSession,
     *,
+    user: AuthenticatedUser,
     variant: str | None = None,
     status_filter: str | None = None,
     assigned_to: str | None = None,
 ) -> list[dict[str, object]]:
     stmt = select(Case).order_by(Case.updated_at.desc().nullslast(), Case.created_at.desc())
+    if not is_regulator(user):
+        org_uuid = user_org_uuid(user)
+        user_uuid = _as_uuid(user.user_id)
+        conditions = []
+        if org_uuid is not None:
+            conditions.append(Case.org_id == org_uuid)
+        if user_uuid is not None:
+            conditions.append(Case.requested_from == user_uuid)
+        stmt = stmt.where(or_(*conditions)) if conditions else stmt.where(false())
     if variant:
         stmt = stmt.where(Case.variant == variant)
     if status_filter:
@@ -275,7 +299,7 @@ async def get_case_workspace(
     user: AuthenticatedUser,
     case_id: str,
 ) -> dict[str, object]:
-    case = await _fetch_case_or_404(session, case_id)
+    case = await _fetch_case_or_404(session, case_id, user=user)
     linked_entity_ids = {str(value) for value in case.linked_entity_ids or [] if value}
     evidence_entities = await _fetch_entities_by_ids(session, linked_entity_ids)
     org_name_map = await _load_org_name_map(
@@ -324,7 +348,7 @@ async def update_case(
     request: CaseMutationRequest,
     ip: str | None,
 ) -> CaseMutationResponse:
-    case = await _fetch_case_or_404(session, case_id)
+    case = await _fetch_case_or_404(session, case_id, user=user)
 
     if request.action == "add_note":
         if not request.note or not request.note.strip():
@@ -473,7 +497,7 @@ async def decide_proposal(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Only managers or above can decide a case proposal.",
         )
-    case = await _fetch_case_or_404(session, case_id)
+    case = await _fetch_case_or_404(session, case_id, user=user)
     if case.variant != "proposal":
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,

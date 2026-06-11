@@ -16,6 +16,7 @@ from app.schemas.dissemination import (
     DisseminationMutationResponse,
     DisseminationSummary,
 )
+from app.services.tenancy import ensure_org_access, scope_to_user
 
 
 def _as_uuid(value: str | None) -> UUID | None:
@@ -83,7 +84,12 @@ def _serialize_detail(record: Dissemination, org_name: str) -> DisseminationDeta
     )
 
 
-async def _fetch_with_org(session: AsyncSession, dissem_id: str) -> tuple[Dissemination, str]:
+async def _fetch_with_org(
+    session: AsyncSession,
+    dissem_id: str,
+    *,
+    user: AuthenticatedUser,
+) -> tuple[Dissemination, str]:
     stmt = (
         select(Dissemination, Organization.name.label("org_name"))
         .join(Organization, Organization.id == Dissemination.org_id)
@@ -94,12 +100,14 @@ async def _fetch_with_org(session: AsyncSession, dissem_id: str) -> tuple[Dissem
     if row is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Dissemination not found.")
     record, org_name = row
+    ensure_org_access(record.org_id, user, detail="Dissemination not found.")
     return record, str(org_name)
 
 
 async def list_disseminations(
     session: AsyncSession,
     *,
+    user: AuthenticatedUser,
     recipient_agency: str | None = None,
     recipient_type: str | None = None,
 ) -> list[DisseminationSummary]:
@@ -112,12 +120,17 @@ async def list_disseminations(
         stmt = stmt.where(Dissemination.recipient_agency == recipient_agency)
     if recipient_type:
         stmt = stmt.where(Dissemination.recipient_type == recipient_type)
-    result = await session.execute(stmt)
+    result = await session.execute(scope_to_user(stmt, user, Dissemination.org_id))
     return [_serialize_summary(record, str(org_name)) for record, org_name in result.all()]
 
 
-async def get_dissemination(session: AsyncSession, dissem_id: str) -> DisseminationDetail:
-    record, org_name = await _fetch_with_org(session, dissem_id)
+async def get_dissemination(
+    session: AsyncSession,
+    dissem_id: str,
+    *,
+    user: AuthenticatedUser,
+) -> DisseminationDetail:
+    record, org_name = await _fetch_with_org(session, dissem_id, user=user)
     return _serialize_detail(record, org_name)
 
 
@@ -176,5 +189,5 @@ async def create_dissemination(
     )
     await session.commit()
     await session.refresh(record)
-    detail = await get_dissemination(session, str(record.id))
+    detail = await get_dissemination(session, str(record.id), user=user)
     return DisseminationMutationResponse(dissemination=detail)

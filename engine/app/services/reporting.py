@@ -5,7 +5,7 @@ from datetime import UTC, datetime
 from decimal import Decimal
 from uuid import UUID
 
-from sqlalchemy import select
+from sqlalchemy import false, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.auth import AuthenticatedUser
@@ -17,6 +17,7 @@ from app.models.match import Match
 from app.models.org import Organization
 from app.models.str_report import STRReport
 from app.schemas.overview import KpiStat, OverviewResponse
+from app.services.tenancy import is_regulator, scope_to_user, user_org_uuid
 from app.schemas.report import (
     ComplianceScore,
     ComplianceScorecard,
@@ -107,14 +108,21 @@ def _score_org_compliance(
     )
 
 
-async def _load_reporting_context(session: AsyncSession) -> dict[str, list[object]]:
-    organizations = list((await session.execute(select(Organization))).scalars().all())
-    reports = list((await session.execute(select(STRReport))).scalars().all())
-    alerts = list((await session.execute(select(Alert))).scalars().all())
-    cases = list((await session.execute(select(Case))).scalars().all())
+async def _load_reporting_context(session: AsyncSession, *, user: AuthenticatedUser) -> dict[str, list[object]]:
+    # Org-owned rows (reports/alerts/cases/runs + the org list itself) are
+    # scoped to the caller; matches/entities stay unscoped because they are
+    # shared cross-bank intelligence and only feed aggregate stats here.
+    org_stmt = select(Organization)
+    if not is_regulator(user):
+        org_uuid = user_org_uuid(user)
+        org_stmt = org_stmt.where(Organization.id == org_uuid) if org_uuid is not None else org_stmt.where(false())
+    organizations = list((await session.execute(org_stmt)).scalars().all())
+    reports = list((await session.execute(scope_to_user(select(STRReport), user, STRReport.org_id))).scalars().all())
+    alerts = list((await session.execute(scope_to_user(select(Alert), user, Alert.org_id))).scalars().all())
+    cases = list((await session.execute(scope_to_user(select(Case), user, Case.org_id))).scalars().all())
     matches = list((await session.execute(select(Match))).scalars().all())
     entities = list((await session.execute(select(Entity))).scalars().all())
-    runs = list((await session.execute(select(DetectionRun))).scalars().all())
+    runs = list((await session.execute(scope_to_user(select(DetectionRun), user, DetectionRun.org_id))).scalars().all())
     return {
         "organizations": organizations,
         "reports": reports,
@@ -453,7 +461,7 @@ def _build_overview_stats(
 
 
 async def build_overview(session: AsyncSession, *, user: AuthenticatedUser) -> OverviewResponse:
-    context = await _load_reporting_context(session)
+    context = await _load_reporting_context(session, user=user)
     compliance_rows = _build_compliance_rows(
         organizations=context["organizations"],
         reports=context["reports"],
@@ -474,8 +482,10 @@ async def build_overview(session: AsyncSession, *, user: AuthenticatedUser) -> O
     return OverviewResponse(headline=headline, operational=operational, stats=stats)
 
 
-async def build_national_dashboard(session: AsyncSession) -> NationalReportResponse:
-    context = await _load_reporting_context(session)
+async def build_national_dashboard(session: AsyncSession, *, user: AuthenticatedUser) -> NationalReportResponse:
+    # Context is scoped to the real caller; the synthetic director below only
+    # shapes the persona-flavoured stat labels, not data access.
+    context = await _load_reporting_context(session, user=user)
     director = AuthenticatedUser(
         user_id="system-director",
         email="director@kestrel.local",
@@ -510,8 +520,8 @@ async def build_national_dashboard(session: AsyncSession) -> NationalReportRespo
     )
 
 
-async def build_compliance_scorecard(session: AsyncSession) -> ComplianceScorecard:
-    context = await _load_reporting_context(session)
+async def build_compliance_scorecard(session: AsyncSession, *, user: AuthenticatedUser) -> ComplianceScorecard:
+    context = await _load_reporting_context(session, user=user)
     return ComplianceScorecard(
         banks=_build_compliance_rows(
             organizations=context["organizations"],
@@ -523,8 +533,8 @@ async def build_compliance_scorecard(session: AsyncSession) -> ComplianceScoreca
     )
 
 
-async def build_trend_series(session: AsyncSession) -> TrendSeriesResponse:
-    context = await _load_reporting_context(session)
+async def build_trend_series(session: AsyncSession, *, user: AuthenticatedUser) -> TrendSeriesResponse:
+    context = await _load_reporting_context(session, user=user)
     return TrendSeriesResponse(
         series=_build_trend_points(
             alerts=context["alerts"],

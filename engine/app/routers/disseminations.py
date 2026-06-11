@@ -32,6 +32,7 @@ async def export_disseminations_xlsx(
 ) -> StreamingResponse:
     items = await list_disseminations(
         session,
+        user=user,
         recipient_agency=recipient_agency,
         recipient_type=recipient_type,
     )
@@ -53,6 +54,7 @@ async def list_records(
 ) -> DisseminationListResponse:
     disseminations = await list_disseminations(
         session,
+        user=user,
         recipient_agency=recipient_agency,
         recipient_type=recipient_type,
     )
@@ -80,4 +82,4 @@ async def record_detail(
     user: Annotated[AuthenticatedUser, Depends(get_current_user)],
     session: Annotated[AsyncSession, Depends(get_current_session)],
 ) -> DisseminationDetail:
-    return await get_dissemination(session, dissem_id)
+    return await get_dissemination(session, dissem_id, user=user)

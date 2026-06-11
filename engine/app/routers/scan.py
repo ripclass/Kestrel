@@ -16,7 +16,7 @@ async def runs(
     user: Annotated[AuthenticatedUser, Depends(get_current_user)] = None,
     session: Annotated[AsyncSession, Depends(get_current_session)] = None,
 ) -> list[DetectionRunSummary]:
-    return [DetectionRunSummary.model_validate(item) for item in await list_runs(session)]
+    return [DetectionRunSummary.model_validate(item) for item in await list_runs(session, user=user)]
 
 
 @router.post("/runs", response_model=ScanQueueResponse)
@@ -53,7 +53,7 @@ async def run_detail(
     user: Annotated[AuthenticatedUser, Depends(get_current_user)] = None,
     session: Annotated[AsyncSession, Depends(get_current_session)] = None,
 ) -> DetectionRunDetail:
-    return DetectionRunDetail.model_validate(await get_run_detail(session, run_id=run_id))
+    return DetectionRunDetail.model_validate(await get_run_detail(session, user=user, run_id=run_id))
 
 
 @router.get("/runs/{run_id}/results", response_model=list[FlaggedAccount])
@@ -62,4 +62,4 @@ async def results(
     user: Annotated[AuthenticatedUser, Depends(get_current_user)] = None,
     session: Annotated[AsyncSession, Depends(get_current_session)] = None,
 ) -> list[FlaggedAccount]:
-    return [FlaggedAccount.model_validate(item) for item in await get_results(session, run_id=run_id)]
+    return [FlaggedAccount.model_validate(item) for item in await get_results(session, user=user, run_id=run_id)]
