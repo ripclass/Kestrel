@@ -29,9 +29,10 @@ export function isDemoModeConfigured() {
 }
 
 export function isBankDirectSignupEnabled() {
-  // Fail closed: self-serve provisioning creates a live tenant with write
-  // access to shared-intel tables, so it must be an explicit opt-in until
-  // applicant vetting exists. Set ENABLE_BANK_DIRECT_SIGNUP=true to enable.
+  // /signup/bank is a vetted request queue — nothing is provisioned until a
+  // platform operator approves in /platform/signups — so default-on is safe.
+  // The flag remains a kill switch: ENABLE_BANK_DIRECT_SIGNUP=false redirects
+  // the page to the briefing intake.
   const explicit = parseEnvBoolean(process.env.ENABLE_BANK_DIRECT_SIGNUP);
-  return explicit ?? false;
+  return explicit ?? true;
 }

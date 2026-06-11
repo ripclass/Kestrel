@@ -6,7 +6,7 @@ Kestrel is a standalone financial crime intelligence platform for Bangladesh. It
 
 ## Current state
 
-> **Prod (2026-06-11):** V2 + V3 fully shipped, plus the **post-V3 PR wave #1–#25** (bank_filer persona, BFIU Phase A+B regulatory alignment incl. TBML, operator console, tenant scoping + auth hardening + peer-name anonymisation). Engine: **145 routes across 27 routers, migrations 001–028 applied, 620/620 pytest, 11 Beat jobs**. Web: 48 platform pages. Canonical web URL is `https://kestrelfin.com` (NOT kestrel-nine.vercel.app — legacy preview). Engine `kestrel-engine.onrender.com`, AI via OpenRouter (`anthropic/claude-sonnet-4.6`), all 3 Render services running. **Two live pilot tenants provisioned (Sonali Bank 9 seats, City Bank 5 seats) — branch + PR workflow is mandatory; no direct pushes to main.** See §"Post-V3 work" for the PR wave; per-phase detail in the V2/V3 sections below is historical.
+> **Prod (2026-06-11):** V2 + V3 fully shipped, plus the **post-V3 PR wave #1–#25** (bank_filer persona, BFIU Phase A+B regulatory alignment incl. TBML, operator console, tenant scoping + auth hardening + peer-name anonymisation). Engine: **145 routes across 27 routers, migrations 001–029 applied, 620/620 pytest, 11 Beat jobs**. Web: 48 platform pages. Canonical web URL is `https://kestrelfin.com` (NOT kestrel-nine.vercel.app — legacy preview). Engine `kestrel-engine.onrender.com`, AI via OpenRouter (`anthropic/claude-sonnet-4.6`), all 3 Render services running. **Two live pilot tenants provisioned (Sonali Bank 9 seats, City Bank 5 seats) — branch + PR workflow is mandatory; no direct pushes to main.** See §"Post-V3 work" for the PR wave; per-phase detail in the V2/V3 sections below is historical.
 >
 > Capability matrix: 15/18 Excellent; sovereign-AI-in-prod and first-on-prem-customer remain data-soak / customer-pull.
 
@@ -44,7 +44,7 @@ What V2 ships next (not in main yet — see `KESTREL-WORLD-CLASS-BUILD-V2.md` an
 ### Stack
 - **Frontend**: Next.js 16.2.2 App Router, React 19.2.4, TypeScript 5, Tailwind v4, shadcn-style UI, `@xyflow/react` (network graphs), `recharts`, `zustand`, `zod`, `@tanstack/react-table`, `date-fns`. Node pinned to 22.x.
 - **Backend**: Python `>=3.12` (pinned 3.12.8 via `engine/.python-version`), FastAPI `>=0.115`, SQLAlchemy 2 async + asyncpg, Pydantic v2, `python-jose`, `networkx`, `celery[redis]`, `PyYAML`, `pdfplumber`, `pandas`, `openpyxl`, `weasyprint`, `lxml`, `jinja2`, `httpx`. Build backend: `hatchling`.
-- **Database**: Supabase Postgres. Schema source of truth: `supabase/migrations/001_schema.sql` → `028_*.sql`.
+- **Database**: Supabase Postgres. Schema source of truth: `supabase/migrations/001_schema.sql` → `029_*.sql`.
 - **Auth**: Supabase Auth. Engine validates two ways: `SUPABASE_JWT_SECRET` (HS256, preferred) or JWKS at `{SUPABASE_URL}/auth/v1/.well-known/jwks.json` (10-min cache). See `engine/app/auth.py`.
 - **Storage**: Supabase Storage, buckets `kestrel-uploads` + `kestrel-exports` (configurable via `STORAGE_BUCKET_*`). Scan uploads write raw CSV/XLSX to `kestrel-uploads`; PDF/XLSX/XML exports stream directly. Readiness probe verifies both buckets.
 - **Cache/Queue**: Redis on Render. Celery app `kestrel` at `app.tasks.celery_app.celery_app`. Tasks: `worker.ping`, `app.tasks.scan_tasks.run_all_orgs`, `app.tasks.str_tasks.daily_digest`, `app.tasks.export_tasks.weekly_compliance_report`, `app.tasks.demo_seed_tasks.apply_pending` (V2 P2.3). Beat at 02:00 / 06:30 / Mon 05:00 Asia/Dhaka + every 10 min for `apply_pending`.
@@ -72,7 +72,7 @@ What V2 ships next (not in main yet — see `KESTREL-WORLD-CLASS-BUILD-V2.md` an
 - `engine/app/ai/` — provider abstraction + redaction + audit + redteam.
 - `engine/app/tasks/` — Celery tasks: scan / str / export / `demo_seed_tasks` (V2 P2.3) + `celery_app.py` + `_runtime.py` (per-task NullPool engine).
 - `engine/seed/` — synthetic data generators (`dbbl_synthetic.py` + `load_dbbl_synthetic.py` for the original DBBL fixture; `multi_bank_synthetic.py` + `multi_bank_to_sql.py` from V2 P1.2 for cross-bank topology across BRAC / City / Islami / Sonali; `load_demo_bank.py` from V2 P2.3 for new bank tenants).
-- `supabase/migrations/` — 28 files.
+- `supabase/migrations/` — 29 files.
 - `docs/` — `production-plan.md`, `goaml-coverage.md` (procurement), `RUNBOOK.md`, `production-audit-2026-04.md` (engineering ground-truth baseline), `cross-bank-intelligence.md` + `.html` (V2 P1.3 procurement whitepaper), `multi-tenant-isolation-verified.md` (V2 P2.4 procurement-grade isolation proof), `render_pdf.py` (markdown → HTML/PDF for whitepapers).
 
 ## Database schema
@@ -545,7 +545,7 @@ Everything after V3 ships via feature branch + PR (live pilots). Merged history:
 **Outstanding (operator actions, not code):**
 - Set `KESTREL_WATCHLIST_INGESTION_ENABLED=true` on Render (watchlist still on synthetic seed); `COMPLYADVANTAGE_API_KEY` (adverse-media stub); EU FSF credential.
 - Engine/worker Render deploy-hook secrets absent in GH Actions — engine deploys via Render's connected-repo auto-deploy on push. **Check `render deploys list` after merges: the GH workflow going green does NOT mean the Render build succeeded** (PR #24's auto-build failed and needed an API re-trigger).
-- `/signup/bank` has no vetting/CAPTCHA/rate-limit while shared-intel tables are writable by any tenant — decide `ENABLE_BANK_DIRECT_SIGNUP=false` vs building vetting before marketing the self-serve funnel.
+- ~~`/signup/bank` vetting~~ — shipped 2026-06-11: signup files a pending `bank_signup_requests` row (migration 029); operators approve/reject at `/platform/signups` (approval runs `provisionTenant` → org + admin invite); anti-abuse = honeypot + freemail-domain rejection + 3/hour/IP rate limit. `ENABLE_BANK_DIRECT_SIGNUP` is now a kill switch (default on; `false` redirects to `/banks#access`).
 - FORCE RLS as DB backstop undecided — Celery/seed paths rely on the owner bypass; service-layer scoping + regression tests are the current control.
 
 **Older deferred items:** outbound goAML adapter (`engine/app/adapters/goaml.py` is a stub), demo film production, `web/src/lib/demo.ts` persona-card fixture cleanup.

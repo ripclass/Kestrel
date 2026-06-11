@@ -30,24 +30,25 @@ export function BankSignupForm() {
       <div className="flex flex-col gap-5 border border-landing-rule-solid p-8 text-landing-foreground">
         <div className="flex items-center justify-between">
           <span className="font-landing-display uppercase tracking-[0.22em]">
-            Workspace provisioned
+            Request received
           </span>
           <span className="text-landing-alarm">┼</span>
         </div>
         <div className="h-px w-full bg-landing-rule-solid" />
         <div className="space-y-3 font-landing-body text-sm leading-relaxed text-landing-foreground/85">
           <p>
-            Magic-link invitation sent to <span className="text-landing-alarm">{submittedEmail}</span>.
+            Your workspace request is in the review queue under{" "}
+            <span className="text-landing-alarm">{submittedEmail}</span>.
           </p>
           <p className="text-landing-foreground/70">
-            Open the email, accept the invite, and you land on the bank dashboard at
-            <span className="font-landing-body uppercase tracking-[0.18em]"> /overview</span>. A demo
-            tenant of synthetic transactions is being prepared in the background and lights up after
+            Every request is verified against the Bangladesh Bank scheduled-bank list before a
+            workspace is provisioned — typically within one business day. On approval, a magic-link
+            admin invite lands in your inbox and a demo dataset is staged so the platform is live on
             first sign-in.
           </p>
         </div>
         <span className="font-landing-body text-[11px] uppercase tracking-[0.22em] text-landing-muted">
-          STATUS · INVITE_DISPATCHED · AWAITING_FIRST_LOGIN
+          STATUS · PENDING_REVIEW · INVITE_FOLLOWS_APPROVAL
         </span>
       </div>
     );
@@ -55,6 +56,11 @@ export function BankSignupForm() {
 
   return (
     <form onSubmit={handleSubmit} className="flex flex-col gap-6">
+      {/* Honeypot — humans never see this; bots that fill it get a silent no-op. */}
+      <div aria-hidden="true" style={{ display: "none" }}>
+        <label htmlFor="website">Website</label>
+        <input id="website" name="website" type="text" tabIndex={-1} autoComplete="off" />
+      </div>
       <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
         <Field label="Bank name" htmlFor="bank_name">
           <input
@@ -131,10 +137,10 @@ export function BankSignupForm() {
           disabled={loading}
           className="self-start bg-landing-alarm px-8 py-4 font-landing-display uppercase tracking-[0.22em] text-landing-bg transition hover:opacity-90 disabled:opacity-50"
         >
-          {loading ? "Provisioning…" : "Provision workspace"}
+          {loading ? "Submitting…" : "Request workspace"}
         </button>
         <p className="font-landing-body text-[10px] uppercase tracking-[0.24em] text-landing-muted">
-          ┼ Magic link · No password to remember
+          ┼ Reviewed within one business day
         </p>
       </div>
     </form>

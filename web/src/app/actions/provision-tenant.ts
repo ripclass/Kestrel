@@ -32,6 +32,8 @@ export interface ProvisionTenantInput {
   adminName: string;
   adminDesignation: string;
   seedDemoData: boolean;
+  /** Set when approval of a /signup/bank request triggered the provisioning. */
+  signupRequestId?: string;
 }
 
 export interface ProvisionTenantResponse {
@@ -110,9 +112,12 @@ export async function provisionTenant(
 
   const settings: Record<string, unknown> = {
     tenant_kind: input.tenantKind,
-    signup_source: "operator-provisioned",
+    signup_source: input.signupRequestId ? "bank-direct-vetted" : "operator-provisioned",
     provisioned_by: viewer.email,
   };
+  if (input.signupRequestId) {
+    settings.signup_request_id = input.signupRequestId;
+  }
   if (input.seedDemoData) {
     // Picked up by the demo_bank_seed Beat task within ~10 min.
     settings.demo_seed_pending = true;
