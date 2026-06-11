@@ -65,27 +65,40 @@ async def _load_org_name_map(session: AsyncSession, org_ids: set[str]) -> dict[s
     return {str(org_id): str(name) for org_id, name in result.all()}
 
 
-def _label_orgs(values: list[str] | None, org_name_map: dict[str, str]) -> list[str]:
+def _is_regulator(user: AuthenticatedUser) -> bool:
+    return (user.org_type or "").lower() == "regulator"
+
+
+def _label_orgs(
+    values: list[str] | None,
+    user: AuthenticatedUser,
+    org_name_map: dict[str, str],
+) -> list[str]:
+    """Regulator sees real bank names. Bank user sees their own bank's name and
+    anonymised tokens for peers — the engine session bypasses RLS, so the name
+    map always resolves every org; persona gating must happen here, not in SQL.
+    Mirrors cross_bank._label_orgs_for_user."""
+    own_org_id = str(user.org_id) if user.org_id else None
+    if _is_regulator(user):
+        return [org_name_map.get(str(value), str(value)) for value in values or []]
+
     labels: list[str] = []
     peer_index = 1
-
     for value in values or []:
         normalized = str(value)
-        if normalized in org_name_map:
-            labels.append(org_name_map[normalized])
-            continue
-
-        try:
-            UUID(normalized)
+        if normalized == own_org_id:
+            labels.append(org_name_map.get(normalized, "Your institution"))
+        else:
             labels.append(f"Peer institution {peer_index}")
             peer_index += 1
-        except ValueError:
-            labels.append(normalized)
-
     return labels
 
 
-def _serialize_entity_summary(entity: Entity, org_name_map: dict[str, str]) -> dict[str, object]:
+def _serialize_entity_summary(
+    entity: Entity,
+    user: AuthenticatedUser,
+    org_name_map: dict[str, str],
+) -> dict[str, object]:
     return {
         "id": str(entity.id),
         "entity_type": entity.entity_type,
@@ -97,7 +110,7 @@ def _serialize_entity_summary(entity: Entity, org_name_map: dict[str, str]) -> d
         "confidence": _safe_confidence(entity.confidence),
         "status": entity.status,
         "report_count": entity.report_count,
-        "reporting_orgs": _label_orgs(entity.reporting_orgs, org_name_map),
+        "reporting_orgs": _label_orgs(entity.reporting_orgs, user, org_name_map),
         "total_exposure": _as_float(entity.total_exposure),
         "tags": list(entity.tags or []),
         "first_seen": _iso(entity.first_seen),
@@ -298,11 +311,6 @@ async def get_network_graph(
 
     entity_map = await _fetch_entities_by_ids(session, graph_entity_ids)
     graph = build_graph(list(entity_map.values()), [*first_hop, *second_hop_connections])
-    org_name_map = await _load_org_name_map(
-        session,
-        {org_id for item in entity_map.values() for org_id in _candidate_org_ids(item.reporting_orgs)},
-    )
-    del org_name_map
     return export_graph(graph, str(focus.id))
 
 
@@ -343,7 +351,7 @@ async def search_entities(
         session,
         {org_id for entity in entities for org_id in _candidate_org_ids(entity.reporting_orgs)},
     )
-    return [_serialize_entity_summary(entity, org_name_map) for entity in entities]
+    return [_serialize_entity_summary(entity, user, org_name_map) for entity in entities]
 
 
 async def get_entity_dossier(
@@ -392,13 +400,13 @@ async def get_entity_dossier(
     reporting_history = _build_reporting_history(reports)
 
     return {
-        **_serialize_entity_summary(entity, org_name_map),
+        **_serialize_entity_summary(entity, user, org_name_map),
         "narrative": _build_narrative(entity, reporting_history, linked_alert_ids, linked_case_ids),
         "linked_case_ids": linked_case_ids,
         "linked_alert_ids": linked_alert_ids,
         "reporting_history": reporting_history,
         "connections": [
-            _serialize_entity_summary(connected_entities[entity_id], org_name_map)
+            _serialize_entity_summary(connected_entities[entity_id], user, org_name_map)
             for entity_id in connected_ids
             if entity_id in connected_entities
         ],
@@ -425,7 +433,7 @@ async def list_matches(session: AsyncSession, *, user: AuthenticatedUser) -> lis
                 "entity_id": str(match.entity_id) if match.entity_id else "",
                 "match_key": match.match_key,
                 "match_type": match.match_type,
-                "involved_orgs": _label_orgs(match.involved_org_ids, org_name_map),
+                "involved_orgs": _label_orgs(match.involved_org_ids, user, org_name_map),
                 "involved_str_ids": [str(value) for value in match.involved_str_ids or []],
                 "match_count": match.match_count,
                 "total_exposure": _as_float(match.total_exposure),
