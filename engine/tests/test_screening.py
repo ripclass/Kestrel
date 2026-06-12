@@ -293,3 +293,31 @@ def test_screening_match_serializes_via_asdict_not_dunder_dict() -> None:
     assert model.list_source == "BIS"
     assert model.match_score == 0.82
     assert model.matched_aliases == ["Meridian Precision", "MPI Co"]
+
+
+def test_screen_entity_fails_closed_on_db_error() -> None:
+    """A DB error on the watchlist query must raise ScreeningUnavailableError,
+    not return [] (which reads as a clean screen and silently feeds a false
+    all-clear into realtime approve / KYC low-risk / the agent tool)."""
+    import asyncio
+
+    from app.services.screening import (
+        ScreeningRequest,
+        ScreeningUnavailableError,
+        screen_entity,
+    )
+
+    class _BoomSession:
+        async def execute(self, _stmt):
+            raise RuntimeError("connection reset by peer")
+
+    async def _run():
+        await screen_entity(
+            _BoomSession(), request=ScreeningRequest(name="Some Person")
+        )
+
+    try:
+        asyncio.run(_run())
+    except ScreeningUnavailableError:
+        return  # expected
+    raise AssertionError("screen_entity should have raised ScreeningUnavailableError")

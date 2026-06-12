@@ -48,6 +48,7 @@ from app.services.adverse_media import (
 from app.services.billing import require_feature
 from app.services.screening import (
     ScreeningRequest,
+    ScreeningUnavailableError,
     get_screening_coverage,
     screen_entity,
 )
@@ -74,7 +75,13 @@ async def screen(
         screening_lists=[s.upper() for s in (body.screening_lists or [])],
         minimum_match_score=float(body.minimum_match_score),
     )
-    matches = await screen_entity(session, request=request)
+    try:
+        matches = await screen_entity(session, request=request)
+    except ScreeningUnavailableError as exc:
+        # Honest 503 — never present an unran screen as a clean result.
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=str(exc)
+        ) from exc
     request_id = current_request_id() or uuid.uuid4().hex
 
     session.add(

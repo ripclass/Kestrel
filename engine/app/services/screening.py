@@ -46,6 +46,12 @@ _WEIGHT_NATIONALITY = 0.2
 _WEIGHT_IDENTIFIER = 0.1
 
 
+class ScreeningUnavailableError(RuntimeError):
+    """The watchlist query could not run. Callers MUST fail closed: a screen
+    that cannot execute is NOT a clean screen. Never let this degrade to an
+    empty match list (which reads as 'no sanctions hit')."""
+
+
 @dataclass(slots=True)
 class ScreeningRequest:
     """Inbound screening payload."""
@@ -294,10 +300,21 @@ async def screen_entity(
     try:
         result = await session.execute(stmt)
         candidates = list(result.all())
-    except Exception:
-        # Defensive: missing pg_trgm extension or test session.
-        logger.warning("screening.lookup_failed", extra={"name": candidate})
-        return []
+    except Exception as exc:  # noqa: BLE001
+        # FAIL CLOSED. This previously returned [] — which reads as "no
+        # sanctions match" and silently fed a false all-clear into realtime
+        # approve / KYC low-risk / the agent screen tool. A transient DB error
+        # on the watchlist query must surface as 'unavailable' so the caller
+        # holds rather than clears.
+        logger.error(
+            "screening.lookup_failed",
+            # NB: 'name' is a reserved LogRecord attr — using it as an extra key
+            # raises KeyError. Use 'candidate'.
+            extra={"candidate": candidate, "error_type": type(exc).__name__},
+        )
+        raise ScreeningUnavailableError(
+            "Watchlist screening is temporarily unavailable; treat as unscreened."
+        ) from exc
 
     matches: list[ScreeningMatch] = []
     for entry, sim in candidates:

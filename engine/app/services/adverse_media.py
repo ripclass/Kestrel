@@ -60,7 +60,7 @@ async def search_adverse_media(query: AdverseMediaQuery) -> list[AdverseMediaHit
     if not settings.complyadvantage_api_key:
         logger.info(
             "adverse_media.skipped",
-            extra={"reason": "provider_not_configured", "name": query.name},
+            extra={"reason": "provider_not_configured", "query_name": query.name},
         )
         return []
 
@@ -85,20 +85,20 @@ async def search_adverse_media(query: AdverseMediaQuery) -> list[AdverseMediaHit
         if response.status_code >= 400:
             logger.warning(
                 "adverse_media.upstream_error",
-                extra={"status_code": response.status_code, "name": query.name},
+                extra={"status_code": response.status_code, "query_name": query.name},
             )
             return []
         body = response.json()
     except httpx.HTTPError as exc:
         logger.warning(
             "adverse_media.network_error",
-            extra={"error_type": type(exc).__name__, "name": query.name},
+            extra={"error_type": type(exc).__name__, "query_name": query.name},
         )
         return []
     except Exception as exc:  # pragma: no cover - defensive
         logger.warning(
             "adverse_media.unexpected_error",
-            extra={"error_type": type(exc).__name__, "name": query.name},
+            extra={"error_type": type(exc).__name__, "query_name": query.name},
         )
         return []
 
