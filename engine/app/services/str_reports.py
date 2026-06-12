@@ -1,3 +1,4 @@
+import logging
 from copy import deepcopy
 from datetime import UTC, datetime
 from decimal import Decimal
@@ -26,6 +27,8 @@ from app.schemas.str_report import (
     STRReviewState,
 )
 from app.services.tenancy import ensure_org_access, scope_to_user
+
+logger = logging.getLogger("kestrel.str_reports")
 
 _EDITABLE_STATUSES = {"draft"}
 _REVIEW_OUTCOMES = {
@@ -581,24 +584,38 @@ async def submit_str_report(
     )
 
     org_uuid = _require_uuid(user.org_id, "Authenticated user is missing a valid organization id.")
+    enrichment_error: str | None = None
     try:
         pipeline_result = await run_str_pipeline(
             session, str_report=report, org_id=org_uuid
         )
-    except Exception as exc:
-        pipeline_result = {"entities": [], "matches": [], "alerts": [], "error": str(exc)}
+    except Exception as exc:  # noqa: BLE001
+        # The STR still submits (don't block filing on enrichment), but the
+        # cross-bank enrichment is the platform's headline value — its failure
+        # must NOT vanish. Previously the error string was put in a local dict
+        # and dropped entirely: not logged, not audited, indistinguishable from
+        # a legitimately-unmatched STR. Make it LOUD.
+        enrichment_error = str(exc)[:500]
+        pipeline_result = {"entities": [], "matches": [], "alerts": [], "error": enrichment_error}
+        logger.exception(
+            "str_report.enrichment_failed",
+            extra={"str_report_id": str(report.id), "org_id": str(org_uuid)},
+        )
 
+    audit_details: dict[str, Any] = {
+        "from_status": previous_status,
+        "to_status": report.status,
+        "entities_resolved": len(pipeline_result.get("entities", [])),
+        "cross_bank_matches": len(pipeline_result.get("matches", [])),
+    }
+    if enrichment_error is not None:
+        audit_details["enrichment_error"] = enrichment_error
     await _record_audit(
         session,
         report=report,
         user=user,
         action="str_report.submitted",
-        details={
-            "from_status": previous_status,
-            "to_status": report.status,
-            "entities_resolved": len(pipeline_result.get("entities", [])),
-            "cross_bank_matches": len(pipeline_result.get("matches", [])),
-        },
+        details=audit_details,
         ip=ip,
     )
     await session.commit()
