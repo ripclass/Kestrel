@@ -24,6 +24,7 @@ import uuid
 from datetime import UTC, datetime
 from typing import Any
 
+from sqlalchemy import func, select, update
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import (
     AsyncSession,
@@ -104,6 +105,7 @@ async def _orchestrate() -> dict[str, Any]:
                 "ran_at": datetime.now(UTC).isoformat(),
                 "sources": results,
                 "ingested_total": sum(r.get("ingested", 0) for r in results),
+                "removed_total": sum(r.get("removed", 0) for r in results),
             }
         except Exception as exc:  # noqa: BLE001 — surface raw failure so we can diagnose
             summary = {
@@ -174,6 +176,13 @@ async def _run_one(
             }
         parsed = source.parse(content)
         ingested = await _upsert_batch(factory, parsed)
+        reconcile = {"reconciled": False, "removed": 0}
+        if parsed:
+            # All rows in a feed share one list_version; entries NOT carrying
+            # this run's version are delistings (or stale and were not re-sent).
+            reconcile = await _reconcile_delistings(
+                factory, list_source=name, run_version=parsed[0].list_version, parsed_count=len(parsed)
+            )
     except NotImplementedError as exc:
         logger.info("watchlist.source.not_implemented", extra={"source": name})
         return {"source": name, "ingested": 0, "skipped_reason": str(exc)}
@@ -192,7 +201,10 @@ async def _run_one(
             "error_message": str(exc)[:500],
             "traceback_tail": tb_tail,
         }
-    return {"source": name, "ingested": ingested}
+    result = {"source": name, "ingested": ingested, "removed": reconcile.get("removed", 0)}
+    if not reconcile.get("reconciled", False) and reconcile.get("reason"):
+        result["reconcile_skipped_reason"] = reconcile["reason"]
+    return result
 
 
 def _row_id(row: ParsedWatchlistEntry) -> uuid.UUID:
@@ -210,15 +222,35 @@ _PG_BIND_LIMIT = 32_767  # PostgreSQL hard limit on bind parameters per query
 _UPSERT_CHUNK_SIZE = 2000
 
 
+# Don't reconcile delistings unless the new feed is at least this fraction of
+# the existing active live set. A feed that suddenly came back at < half size
+# is far more likely a fetch/parse failure than a real mass delisting — and we
+# must never mass-remove real sanctions entries off a truncated download.
+_RECONCILE_MIN_RATIO = 0.5
+
+
+def _should_reconcile(parsed_count: int, existing_active_live: int) -> bool:
+    """Safety gate for delisting reconciliation. Pure so it's unit-testable."""
+    if parsed_count <= 0:
+        return False
+    if existing_active_live <= 0:
+        return True  # nothing to remove — reconciliation is a no-op
+    return parsed_count >= _RECONCILE_MIN_RATIO * existing_active_live
+
+
 async def _upsert_batch(
     factory: async_sessionmaker[AsyncSession], rows: list[ParsedWatchlistEntry]
 ) -> int:
-    """Idempotent upsert keyed off the deterministic PK from ``_row_id``.
+    """Upsert keyed off the deterministic PK from ``_row_id``, refreshing
+    mutable fields on conflict so a changed entry (new alias / identifier /
+    program / reason) doesn't stay stale — the old ``DO NOTHING`` silently
+    dropped every change. Also clears ``removed_at`` so a re-listed entry is
+    reactivated. Identity columns (id / list_source / primary_name /
+    date_of_birth) are left untouched; the conflict row shares them by
+    construction.
 
-    Chunks into ``_UPSERT_CHUNK_SIZE``-row sub-batches. The OFAC SDN list
-    has ~12-15k entries; a single multi-row INSERT would hit Postgres'
-    32767 bind-parameter limit (12 cols × 12k rows = 144k binds). Chunked
-    UPSERTs keep us under the limit and bound the per-statement work."""
+    Chunks into ``_UPSERT_CHUNK_SIZE``-row sub-batches to stay under Postgres'
+    32767 bind-parameter limit. Returns the number of rows processed."""
     if not rows:
         return 0
     payload = [
@@ -243,11 +275,84 @@ async def _upsert_batch(
         for offset in range(0, len(payload), _UPSERT_CHUNK_SIZE):
             chunk = payload[offset : offset + _UPSERT_CHUNK_SIZE]
             async with session.begin():
-                stmt = (
-                    pg_insert(WatchlistEntry.__table__)
-                    .values(chunk)
-                    .on_conflict_do_nothing(index_elements=["id"])
+                insert_stmt = pg_insert(WatchlistEntry.__table__).values(chunk)
+                upsert = insert_stmt.on_conflict_do_update(
+                    index_elements=["id"],
+                    set_={
+                        "list_version": insert_stmt.excluded.list_version,
+                        "entry_type": insert_stmt.excluded.entry_type,
+                        "aliases": insert_stmt.excluded.aliases,
+                        "nationality": insert_stmt.excluded.nationality,
+                        "identifiers": insert_stmt.excluded.identifiers,
+                        "addresses": insert_stmt.excluded.addresses,
+                        "reason": insert_stmt.excluded.reason,
+                        "raw_record": insert_stmt.excluded.raw_record,
+                        "ingested_at": func.now(),
+                        "removed_at": None,
+                    },
                 )
-                await session.execute(stmt)
+                await session.execute(upsert)
             total += len(chunk)
     return total
+
+
+# Synthetic seed rows carry raw_record->>'source' = 'synthetic'. Live
+# reconciliation must NEVER soft-remove them (they're demo data sharing the
+# same table + id space as live entries).
+_SYNTHETIC_MARKER = "synthetic"
+
+
+async def _reconcile_delistings(
+    factory: async_sessionmaker[AsyncSession],
+    *,
+    list_source: str,
+    run_version: str,
+    parsed_count: int,
+) -> dict[str, Any]:
+    """Soft-delete entries that fell off the upstream list.
+
+    The upsert stamped every current entry with this run's ``list_version``;
+    any still-active LIVE entry of this source NOT carrying that version is a
+    delisting (no longer published) and is marked ``removed_at = now()`` so it
+    stops producing false-positive matches. Guarded by ``_should_reconcile``
+    against a truncated feed, and scoped away from synthetic seed rows."""
+    async with factory() as session:
+        existing_active_live = await session.scalar(
+            select(func.count())
+            .select_from(WatchlistEntry.__table__)
+            .where(
+                WatchlistEntry.list_source == list_source,
+                WatchlistEntry.removed_at.is_(None),
+                func.coalesce(WatchlistEntry.raw_record.op("->>")("source"), "") != _SYNTHETIC_MARKER,
+            )
+        )
+        existing = int(existing_active_live or 0)
+        if not _should_reconcile(parsed_count, existing):
+            logger.warning(
+                "watchlist.reconcile.skipped",
+                extra={"source": list_source, "parsed": parsed_count, "existing_active_live": existing},
+            )
+            return {
+                "reconciled": False,
+                "removed": 0,
+                "reason": f"feed size {parsed_count} below {_RECONCILE_MIN_RATIO:.0%} of {existing} active — skipped to avoid mass false removal",
+            }
+
+        async with session.begin():
+            result = await session.execute(
+                update(WatchlistEntry.__table__)
+                .where(
+                    WatchlistEntry.list_source == list_source,
+                    WatchlistEntry.removed_at.is_(None),
+                    WatchlistEntry.list_version != run_version,
+                    func.coalesce(WatchlistEntry.raw_record.op("->>")("source"), "") != _SYNTHETIC_MARKER,
+                )
+                .values(removed_at=func.now())
+            )
+            removed = result.rowcount or 0
+        if removed:
+            logger.info(
+                "watchlist.reconcile.removed",
+                extra={"source": list_source, "removed": removed, "run_version": run_version},
+            )
+        return {"reconciled": True, "removed": removed}
