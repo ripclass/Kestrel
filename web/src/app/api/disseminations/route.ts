@@ -27,6 +27,13 @@ export async function POST(request: NextRequest) {
     body: JSON.stringify({
       recipient_agency: body.recipientAgency,
       recipient_type: body.recipientType,
+      // BD regulatory-alignment fields (migration 024) — the form collects
+      // these; forward them or the analyst's MLPA citation / Circular-22 flag /
+      // predicate offences are silently dropped.
+      recipient_authority: body.recipientAuthority ?? null,
+      mlpa_section: body.mlpaSection ?? null,
+      circular_22_exchange: body.circular22Exchange ?? false,
+      predicate_offences: body.predicateOffences ?? [],
       subject_summary: body.subjectSummary,
       linked_report_ids: body.linkedReportIds ?? [],
       linked_entity_ids: body.linkedEntityIds ?? [],
