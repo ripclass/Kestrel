@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 from datetime import UTC, datetime
 from decimal import Decimal
 from uuid import UUID
@@ -19,6 +20,8 @@ from app.schemas.scan import DetectionRunDetail, FlaggedAccount, ScanQueueReques
 from app.services.csv_ingest import ingest_upload
 from app.services.storage import StorageError, upload_to_uploads_bucket
 from app.services.tenancy import ensure_org_access, scope_to_user
+
+logger = logging.getLogger("kestrel.scanning")
 
 
 def _as_uuid(value: str | UUID | None) -> UUID | None:
@@ -355,9 +358,15 @@ async def queue_run_with_upload(
                 else "text/csv"
             ),
         )
-    except StorageError:
-        # Swallow — ingestion can still proceed
+    except StorageError as exc:
+        # Archiving the raw file is non-critical — ingestion still proceeds —
+        # but don't let the failure vanish; the operator should know the raw
+        # upload wasn't retained.
         run.file_url = None
+        logger.warning(
+            "scan.raw_upload_archive_failed",
+            extra={"run_id": str(run.id), "error_type": type(exc).__name__},
+        )
 
     # Dispatch CSV vs XLSX on the raw bytes (ingest_upload handles decoding).
     try:
