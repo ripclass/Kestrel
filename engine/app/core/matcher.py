@@ -7,6 +7,7 @@ severity escalates.
 
 from __future__ import annotations
 
+import logging
 import uuid
 from datetime import UTC, datetime
 from typing import Any
@@ -17,6 +18,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.models.alert import Alert
 from app.models.entity import Entity
 from app.models.match import Match
+
+logger = logging.getLogger("kestrel.matcher")
 
 
 def _severity_for(score: int) -> str:
@@ -55,7 +58,14 @@ async def _find_existing_match(
     try:
         result = await session.execute(stmt)
         return result.scalars().first()
-    except Exception:
+    except Exception as exc:  # noqa: BLE001 — defensive: never abort matching on a lookup blip
+        # But make it LOUD: a swallowed lookup error here means we treat an
+        # existing match as absent and create a duplicate. Surface it so a
+        # real DB problem is visible instead of silently corrupting matches.
+        logger.warning(
+            "matcher.existing_lookup_failed",
+            extra={"match_type": match_type, "match_key": match_key, "error_type": type(exc).__name__},
+        )
         return None
 
 

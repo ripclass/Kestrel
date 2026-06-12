@@ -30,6 +30,7 @@ from app.schemas.screening import (
     AdverseMediaHitModel,
     AdverseMediaRequest,
     AdverseMediaResponse,
+    ScreeningCoverageResponse,
     ScreeningEntityRequest,
     ScreeningEntityResponse,
     ScreeningMatchModel,
@@ -45,7 +46,11 @@ from app.services.adverse_media import (
     search_adverse_media,
 )
 from app.services.billing import require_feature
-from app.services.screening import ScreeningRequest, screen_entity
+from app.services.screening import (
+    ScreeningRequest,
+    get_screening_coverage,
+    screen_entity,
+)
 
 router = APIRouter()
 
@@ -146,6 +151,17 @@ async def screen_media(
         screened_at=datetime.now(UTC).isoformat(),
         request_id=request_id,
     )
+
+
+@router.get("/coverage", response_model=ScreeningCoverageResponse)
+async def coverage(
+    user: Annotated[AuthenticatedUser, Depends(get_current_user)],
+    session: Annotated[AsyncSession, Depends(get_current_session)],
+) -> ScreeningCoverageResponse:
+    """What a screen actually checks against — active watchlist sources +
+    counts, expected-but-empty sources, and adverse-media config state."""
+    payload = await get_screening_coverage(session)
+    return ScreeningCoverageResponse.model_validate(payload)
 
 
 @router.get("/entries", response_model=list[WatchlistEntryView])

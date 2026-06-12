@@ -25,7 +25,12 @@ web/.next/
 
 dist/
 build/
-coverage/
+# Test-coverage reports — anchored so a source dir literally named "coverage"
+# (e.g. an /api/screening/coverage route) isn't swallowed.
+/coverage/
+web/coverage/
+engine/coverage/
+engine/htmlcov/
 
 .idea/
 .vscode/
