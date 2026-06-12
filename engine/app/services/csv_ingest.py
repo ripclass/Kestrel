@@ -14,8 +14,21 @@ from app.models.account import Account
 from app.models.org import Organization
 from app.models.transaction import Transaction
 from app.parsers.csv import parse_csv
+from app.parsers.xlsx import parse_xlsx
 
 REQUIRED_COLUMNS = ("posted_at", "src_account", "amount")
+
+# File-format magic bytes. .xlsx is a ZIP container; legacy .xls is OLE2.
+_XLSX_MAGIC = b"PK\x03\x04"
+_XLS_MAGIC = b"\xd0\xcf\x11\xe0"
+
+
+def _looks_like_xlsx(content_bytes: bytes, file_name: str | None) -> bool:
+    return content_bytes[:4] == _XLSX_MAGIC or (file_name or "").lower().endswith(".xlsx")
+
+
+def _looks_like_legacy_xls(content_bytes: bytes, file_name: str | None) -> bool:
+    return content_bytes[:4] == _XLS_MAGIC or (file_name or "").lower().endswith(".xls")
 
 
 def _parse_timestamp(value: str) -> datetime:
@@ -104,10 +117,10 @@ async def ingest_csv(
     org_id: uuid.UUID,
     content: str,
 ) -> dict[str, int]:
-    """Parse CSV content and insert Account + Transaction rows.
+    """Parse decoded CSV text and insert Account + Transaction rows.
 
-    Returns {'tx_count': N, 'accounts_touched': M}. Raises HTTPException(400)
-    on malformed CSV or missing required columns.
+    Retained for callers that already hold decoded text. The upload path uses
+    ``ingest_upload`` (bytes + filename) so it can dispatch CSV vs XLSX.
     """
     try:
         rows = parse_csv(content)
@@ -116,18 +129,83 @@ async def ingest_csv(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=f"CSV parse error: {exc}",
         ) from exc
+    return await _ingest_rows(
+        session, run_id=run_id, org_id=org_id, rows=rows, source_label="csv_upload"
+    )
 
+
+async def ingest_upload(
+    session: AsyncSession,
+    *,
+    run_id: uuid.UUID,
+    org_id: uuid.UUID,
+    content_bytes: bytes,
+    file_name: str | None,
+) -> dict[str, int]:
+    """Ingest an uploaded statement file, dispatching by format.
+
+    Handles .xlsx (openpyxl) and CSV/text. Legacy .xls is rejected with a
+    clear message rather than being mis-decoded as garbage text and surfacing
+    a confusing 'missing required columns' error.
+    """
+    if _looks_like_legacy_xls(content_bytes, file_name):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Legacy .xls workbooks aren't supported. Re-save as .xlsx or export to CSV.",
+        )
+
+    if _looks_like_xlsx(content_bytes, file_name):
+        try:
+            rows = parse_xlsx(content_bytes)
+        except Exception as exc:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Could not read the Excel file: {exc}",
+            ) from exc
+        source_label = "xlsx_upload"
+    else:
+        try:
+            content_str = content_bytes.decode("utf-8-sig")
+        except UnicodeDecodeError:
+            content_str = content_bytes.decode("latin-1")
+        try:
+            rows = parse_csv(content_str)
+        except Exception as exc:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"CSV parse error: {exc}",
+            ) from exc
+        source_label = "csv_upload"
+
+    return await _ingest_rows(
+        session, run_id=run_id, org_id=org_id, rows=rows, source_label=source_label
+    )
+
+
+async def _ingest_rows(
+    session: AsyncSession,
+    *,
+    run_id: uuid.UUID,
+    org_id: uuid.UUID,
+    rows: list[dict[str, str]],
+    source_label: str,
+) -> dict[str, int]:
+    """Validate parsed rows and insert Account + Transaction records.
+
+    Returns {'tx_count': N, 'accounts_touched': M}. Raises HTTPException(400)
+    on an empty file or missing required columns.
+    """
     if not rows:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="CSV file is empty.",
+            detail="The uploaded file is empty.",
         )
 
     missing = [col for col in REQUIRED_COLUMNS if col not in rows[0]]
     if missing:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"CSV is missing required columns: {', '.join(missing)}. "
+            detail=f"File is missing required columns: {', '.join(missing)}. "
                    f"Expected at least: {', '.join(REQUIRED_COLUMNS)}.",
         )
 
@@ -177,7 +255,7 @@ async def ingest_csv(
             channel=(row.get("channel") or "").strip() or None,
             tx_type=(row.get("tx_type") or "").strip() or None,
             description=(row.get("description") or "").strip() or None,
-            metadata_json={"source": "csv_upload", "row": idx},
+            metadata_json={"source": source_label, "row": idx},
         )
         session.add(tx)
         tx_count += 1

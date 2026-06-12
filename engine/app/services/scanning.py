@@ -16,7 +16,7 @@ from app.models.detection_run import DetectionRun
 from app.models.entity import Entity
 from app.models.match import Match
 from app.schemas.scan import DetectionRunDetail, FlaggedAccount, ScanQueueRequest, ScanQueueResponse
-from app.services.csv_ingest import ingest_csv
+from app.services.csv_ingest import ingest_upload
 from app.services.storage import StorageError, upload_to_uploads_bucket
 from app.services.tenancy import ensure_org_access, scope_to_user
 
@@ -343,26 +343,30 @@ async def queue_run_with_upload(
     await session.flush()
 
     # Best-effort upload of the raw file. Storage down ≠ failed scan.
+    is_xlsx = safe_name.lower().endswith(".xlsx") or content_bytes[:4] == b"PK\x03\x04"
     storage_path = f"{org_uuid}/{run.id}/{safe_name}"
     try:
         run.file_url = await upload_to_uploads_bucket(
             path=storage_path,
             content=content_bytes,
-            content_type="text/csv",
+            content_type=(
+                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                if is_xlsx
+                else "text/csv"
+            ),
         )
     except StorageError:
         # Swallow — ingestion can still proceed
         run.file_url = None
 
-    # Decode and ingest
+    # Dispatch CSV vs XLSX on the raw bytes (ingest_upload handles decoding).
     try:
-        content_str = content_bytes.decode("utf-8-sig")
-    except UnicodeDecodeError:
-        content_str = content_bytes.decode("latin-1")
-
-    try:
-        ingest_summary = await ingest_csv(
-            session, run_id=run.id, org_id=org_uuid, content=content_str
+        ingest_summary = await ingest_upload(
+            session,
+            run_id=run.id,
+            org_id=org_uuid,
+            content_bytes=content_bytes,
+            file_name=safe_name,
         )
     except HTTPException as exc:
         run.status = "failed"

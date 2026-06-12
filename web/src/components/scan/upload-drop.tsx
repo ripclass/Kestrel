@@ -32,8 +32,9 @@ export function UploadDrop({
           Section · Upload transactions
         </p>
         <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
-          Drop a CSV export to run detection on just those transactions. Expected columns: posted_at,
-          src_account, amount. Optional: dst_account, currency, channel, tx_type, description.
+          Drop a CSV or Excel (.xlsx) export to run detection on just those transactions. Expected
+          columns: posted_at, src_account, amount. Optional: dst_account, currency, channel, tx_type,
+          description.
         </p>
       </div>
       <div className="space-y-5 p-6">
@@ -51,7 +52,7 @@ export function UploadDrop({
             </>
           ) : (
             <>
-              <span className="block">Click to choose a CSV, or leave empty to scan the existing database</span>
+              <span className="block">Click to choose a CSV or Excel file, or leave empty to scan the existing database</span>
               <span className="mt-1 inline-block text-[10px] text-muted-foreground/70">
                 (drag &amp; drop support in a later cut)
               </span>
@@ -61,7 +62,7 @@ export function UploadDrop({
         <input
           ref={inputRef}
           type="file"
-          accept=".csv,text/csv"
+          accept=".csv,text/csv,.xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
           className="hidden"
           onChange={handleFileSelected}
         />
