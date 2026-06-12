@@ -77,7 +77,7 @@ export function DiagramBuilder() {
     setSearching(true);
     try {
       const response = await fetch(
-        `/api/investigate/search?q=${encodeURIComponent(searchTerm)}`,
+        `/api/investigate/search?query=${encodeURIComponent(searchTerm)}`,
         { cache: "no-store" },
       );
       const payload = (await readResponsePayload<EntitySearchResponse>(response)) as

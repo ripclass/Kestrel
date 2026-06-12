@@ -59,7 +59,7 @@ export function AnalystView() {
         <p className="mt-2 text-sm leading-relaxed text-foreground">
           Looking for goAML workflows? Every screen is here — see the{" "}
           <a
-            href="/docs/goaml-coverage"
+            href="/docs/goaml"
             className="border-b border-accent pb-0.5 text-accent transition hover:border-foreground hover:text-foreground"
           >
             coverage guide
