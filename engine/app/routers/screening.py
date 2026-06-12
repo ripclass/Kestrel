@@ -13,6 +13,7 @@ regulator persona can browse / mutate the underlying watchlist.
 from __future__ import annotations
 
 import uuid
+from dataclasses import asdict
 from datetime import UTC, datetime
 from typing import Annotated
 
@@ -90,7 +91,8 @@ async def screen(
     await session.commit()
 
     return ScreeningEntityResponse(
-        matches=[ScreeningMatchModel(**match.__dict__) for match in matches],
+        # ScreeningMatch is a slots=True dataclass (no __dict__), so use asdict.
+        matches=[ScreeningMatchModel(**asdict(match)) for match in matches],
         screened_at=datetime.now(UTC).isoformat(),
         request_id=request_id,
     )
