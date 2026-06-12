@@ -260,3 +260,36 @@ def test_score_sanctions_uses_top_match_only() -> None:
 def test_sanctions_threshold_constant_matches_default() -> None:
     """The realtime sanctions threshold should equal the screening service default."""
     assert _SANCTIONS_HIT_THRESHOLD == 0.7
+
+
+def test_screening_match_serializes_via_asdict_not_dunder_dict() -> None:
+    """Regression: ScreeningMatch is a slots=True dataclass, so it has no
+    __dict__. The /screening/entity router must serialise matches via
+    dataclasses.asdict — `ScreeningMatchModel(**match.__dict__)` raised
+    AttributeError and 500'd on every actual hit (zero-match screens slipped
+    through because the list comprehension never ran)."""
+    from dataclasses import asdict
+
+    from app.schemas.screening import ScreeningMatchModel
+
+    match = ScreeningMatch(
+        list_source="BIS",
+        list_version="2026-06-12",
+        entry_id=str(uuid.uuid4()),
+        entry_type="entity",
+        matched_name="Meridian Precision Instruments Co",
+        matched_aliases=["Meridian Precision", "MPI Co"],
+        matched_entry={"reason": "BIS Entity List"},
+        match_score=0.82,
+        match_reasons=["name 0.95"],
+    )
+
+    # slots dataclass → no __dict__ (the old code path).
+    assert not hasattr(match, "__dict__")
+
+    payload = asdict(match)
+    assert set(payload) == set(ScreeningMatchModel.model_fields)
+    model = ScreeningMatchModel(**payload)
+    assert model.list_source == "BIS"
+    assert model.match_score == 0.82
+    assert model.matched_aliases == ["Meridian Precision", "MPI Co"]
