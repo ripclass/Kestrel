@@ -241,6 +241,43 @@ _ENTRIES: list[_Entry] = [
         nationality="BD",
         reason="PEP-CENTRAL-BANK-FORMER",
     ),
+
+    # --- BIS (US export-control denied-party / entity lists, via trade.gov CSL)
+    # Fictional names. Demonstrates the proliferation-financing / dual-use
+    # screening gap a trade-finance bank cares about (Ramprosad / Sonali ask).
+    # Live ingestion replaces these with the full ~1.5k BIS rows.
+    _Entry(
+        list_source="BIS", entry_type="entity",
+        primary_name="Meridian Precision Instruments Co",
+        aliases=["Meridian Precision", "MPI Co"],
+        nationality="CN",
+        addresses=[{"address1": "Shenzhen, China"}],
+        reason="BIS Entity List · dual-use electronics diversion risk",
+    ),
+    _Entry(
+        list_source="BIS", entry_type="entity",
+        primary_name="Crescent Advanced Materials Ltd",
+        aliases=["Crescent Materials", "CAM Ltd"],
+        nationality="PK",
+        addresses=[{"address1": "Lahore, Pakistan"}],
+        reason="BIS Entity List · licence: presumption of denial",
+    ),
+    _Entry(
+        list_source="BIS", entry_type="individual",
+        primary_name="Viktor Sorokin",
+        aliases=["V. Sorokin"],
+        date_of_birth=date(1974, 2, 11),
+        nationality="RU",
+        reason="BIS Denied Persons List · export privileges denied",
+    ),
+    _Entry(
+        list_source="BIS", entry_type="entity",
+        primary_name="Orient Tech Sourcing FZE",
+        aliases=["Orient Tech", "OTS FZE"],
+        nationality="AE",
+        addresses=[{"address1": "Dubai, United Arab Emirates"}],
+        reason="BIS Unverified List · end-use could not be verified",
+    ),
 ]
 
 

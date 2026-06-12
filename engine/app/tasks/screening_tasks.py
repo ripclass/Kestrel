@@ -34,7 +34,7 @@ from sqlalchemy.pool import NullPool
 
 from app.config import get_settings
 from app.models.watchlist import WatchlistEntry
-from app.screening.sources import ofac, un, uk_ofsi
+from app.screening.sources import bis, ofac, un, uk_ofsi
 from app.screening.sources.base import ParsedWatchlistEntry
 from app.tasks.celery_app import celery_app
 
@@ -45,7 +45,7 @@ _NAMESPACE = uuid.UUID("8d393384-a67a-4b64-bf0b-7b66b8d5da76")
 logger = logging.getLogger("kestrel.tasks.screening")
 
 # Module-level registry — easy to extend in Phase 6.
-_SOURCES: list[Any] = [ofac, un, uk_ofsi]
+_SOURCES: list[Any] = [ofac, un, uk_ofsi, bis]
 
 
 def _ingestion_enabled() -> bool:
