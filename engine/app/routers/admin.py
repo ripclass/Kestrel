@@ -200,13 +200,14 @@ async def screening_outbound_probe(
 
     import httpx
 
-    from app.screening.sources import ofac, uk_ofsi, un
+    from app.screening.sources import bis, ofac, uk_ofsi, un
 
     _require_regulator_admin(user)
     targets = [
         (ofac.LIST_SOURCE, ofac.FEED_URL),
         (un.LIST_SOURCE, un.FEED_URL),
         (uk_ofsi.LIST_SOURCE, uk_ofsi.FEED_URL),
+        (bis.LIST_SOURCE, bis.FEED_URL),
     ]
     results: list[dict] = []
     async with httpx.AsyncClient(timeout=15.0, follow_redirects=True) as client:
@@ -332,8 +333,8 @@ def _shape_check(source: str, sample: bytes) -> bool:
     text = sample.lstrip().lower()
     if source in ("OFAC", "UN"):
         return text.startswith(b"<?xml") or text.startswith(b"<sdnlist") or text.startswith(b"<consolidated")
-    if source == "UK_OFSI":
-        # Header row begins with "Last Updated," in the new unified format.
+    if source in ("UK_OFSI", "BIS"):
+        # CSV feeds — header is comma-delimited, not an HTML wrapper page.
         return b"," in sample[:200] and not text.startswith(b"<!doctype") and not text.startswith(b"<html")
     return True
 

@@ -12,6 +12,7 @@ The directory is expected to contain one or more of:
     sdn.xml             # OFAC
     consolidated.xml    # UN
     UK-Sanctions-List.csv  # UK OFSI
+    consolidated.csv    # BIS (trade.gov CSL, filtered to BIS sublists)
 
 Filename matching is case-insensitive and tolerant of arbitrary
 prefixes/suffixes (e.g. ``ofac-2026-05-05.sdn.xml``). The script:
@@ -38,17 +39,21 @@ import sys
 from pathlib import Path
 from typing import Any, Callable
 
-from app.screening.sources import ofac, uk_ofsi, un
+from app.screening.sources import bis, ofac, uk_ofsi, un
 from app.screening.sources.base import ParsedWatchlistEntry
 from app.tasks.screening_tasks import _upsert_batch as upsert_batch
 
 logger = logging.getLogger("kestrel.scripts.import_watchlist_archive")
 
-# Filename predicate -> (parser, list_source) — matched in order.
+# Filename predicate -> (parser, list_source) — matched in order. UK is matched
+# before BIS so an explicitly UK-named .csv wins; a CSL `consolidated.csv` /
+# `csl-*.csv` falls through to BIS. UN's `consolidated.xml` can't collide (BIS
+# is .csv).
 _HANDLERS: list[tuple[Callable[[str], bool], Any, str]] = [
     (lambda name: "sdn" in name and name.endswith(".xml"), ofac, "OFAC"),
     (lambda name: "consolidated" in name and name.endswith(".xml"), un, "UN"),
     (lambda name: name.endswith(".csv") and ("uk" in name or "ofsi" in name or "sanctions" in name), uk_ofsi, "UK_OFSI"),
+    (lambda name: name.endswith(".csv") and ("consolidated" in name or "csl" in name or "bis" in name or "screening" in name), bis, "BIS"),
 ]
 
 
