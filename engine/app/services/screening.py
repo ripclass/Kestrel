@@ -74,6 +74,43 @@ class ScreeningMatch:
     match_reasons: list[str]
 
 
+# Lists a sanctions/PEP screen is expected to cover. EU ships an adapter that
+# raises NotImplementedError (credentialed feed), so it's commonly inactive;
+# surfacing that is the whole point of the coverage endpoint.
+_EXPECTED_WATCHLIST_SOURCES = ("OFAC", "UN", "UK_OFSI", "BIS", "EU", "BB_DOMESTIC", "PEP")
+
+
+async def get_screening_coverage(session: AsyncSession) -> dict[str, Any]:
+    """Report which watchlist sources actually have entries, which expected
+    ones are empty, and whether adverse-media is configured. Lets the UI tell
+    a user exactly what a screen checked — so 'no matches' never reads as a
+    false all-clear when EU isn't loaded or ComplyAdvantage isn't on."""
+    from app.services.adverse_media import is_provider_configured
+
+    result = await session.execute(
+        select(WatchlistEntry.list_source, func.count())
+        .where(WatchlistEntry.removed_at.is_(None))
+        .group_by(WatchlistEntry.list_source)
+    )
+    counts = {str(src): int(n) for src, n in result.all()}
+    active = [
+        {"source": src, "count": counts[src]}
+        for src in sorted(counts)
+        if counts[src] > 0
+    ]
+    inactive = [src for src in _EXPECTED_WATCHLIST_SOURCES if counts.get(src, 0) == 0]
+    configured = is_provider_configured()
+    return {
+        "active_sources": active,
+        "inactive_sources": inactive,
+        "adverse_media": {
+            "configured": configured,
+            "provider": "complyadvantage" if configured else "stub",
+        },
+        "total_entries": sum(counts.values()),
+    }
+
+
 def normalize_name(value: str | None) -> str:
     """Lowercase, strip diacritics, collapse whitespace. Mirrors how
     pg_trgm normalises tokens server-side. Used only in pure helpers; the

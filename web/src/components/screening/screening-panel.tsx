@@ -60,6 +60,37 @@ interface WatchlistRow {
   ingested_at: string | null;
 }
 
+interface CoverageData {
+  active_sources: { source: string; count: number }[];
+  inactive_sources: string[];
+  adverse_media: { configured: boolean; provider: string };
+  total_entries: number;
+}
+
+const SOURCE_LABEL: Record<string, string> = {
+  OFAC: "OFAC",
+  UN: "UN",
+  UK_OFSI: "UK OFSI",
+  BIS: "BIS",
+  EU: "EU",
+  BB_DOMESTIC: "BB Domestic",
+  PEP: "PEP",
+};
+
+function sourceLabel(source: string): string {
+  return SOURCE_LABEL[source] ?? source;
+}
+
+function compactCount(n: number): string {
+  if (n >= 1000) return `${(n / 1000).toFixed(n >= 10000 ? 0 : 1)}k`;
+  return String(n);
+}
+
+function activeListSummary(coverage: CoverageData | null): string {
+  if (!coverage || coverage.active_sources.length === 0) return "the loaded watchlists";
+  return coverage.active_sources.map((s) => sourceLabel(s.source)).join(", ");
+}
+
 function Eyebrow({ children }: { children: React.ReactNode }) {
   return (
     <p className="font-mono text-[10px] uppercase tracking-[0.28em] text-muted-foreground">
@@ -86,6 +117,44 @@ function scoreTone(score: number): string {
   return "text-foreground";
 }
 
+function CoverageStrip({ coverage }: { coverage: CoverageData | null }) {
+  if (!coverage) return null;
+  const unavailable: string[] = [
+    ...coverage.inactive_sources.map((s) => `${sourceLabel(s)} (not loaded)`),
+  ];
+  if (!coverage.adverse_media.configured) {
+    unavailable.push("Adverse media (not configured)");
+  }
+  return (
+    <section className="border border-border">
+      <div className="border-b border-border px-6 py-5">
+        <Eyebrow>Coverage · what a screen checks against</Eyebrow>
+      </div>
+      <div className="space-y-3 px-6 py-5">
+        <div className="flex flex-wrap gap-2">
+          {coverage.active_sources.map((s) => (
+            <span
+              key={s.source}
+              className="border border-border px-3 py-1 font-mono text-[10px] uppercase tracking-[0.18em] text-foreground"
+            >
+              {sourceLabel(s.source)}{" "}
+              <span className="text-muted-foreground tabular-nums">{compactCount(s.count)}</span>
+            </span>
+          ))}
+        </div>
+        {unavailable.length > 0 ? (
+          <p className="font-mono text-[11px] uppercase tracking-[0.18em] text-accent">
+            ┼ Not active: {unavailable.join(" · ")}
+          </p>
+        ) : null}
+        <p className="text-xs leading-relaxed text-muted-foreground">
+          A clean result means no match against the active lists above — not the unavailable ones.
+        </p>
+      </div>
+    </section>
+  );
+}
+
 export function ScreeningPanel({ viewer }: { viewer: Viewer }) {
   const [name, setName] = useState("");
   const [dob, setDob] = useState("");
@@ -101,8 +170,26 @@ export function ScreeningPanel({ viewer }: { viewer: Viewer }) {
 
   const [poolPreview, setPoolPreview] = useState<WatchlistRow[]>([]);
   const [poolLoading, setPoolLoading] = useState(true);
+  const [coverage, setCoverage] = useState<CoverageData | null>(null);
 
   const isRegulator = viewer.persona === "bfiu_director" || viewer.persona === "bfiu_analyst";
+
+  useEffect(() => {
+    let cancelled = false;
+    fetch(`/api/screening/coverage`, { cache: "no-store" })
+      .then(async (r) => {
+        const json = await r.json();
+        if (!r.ok) throw new Error(json.detail ?? "coverage");
+        if (!cancelled) setCoverage(json as CoverageData);
+      })
+      .catch((err: Error) => {
+        // Coverage strip is informational; failing it shouldn't block screening.
+        if (!cancelled) console.warn("screening coverage failed", err.message);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -166,6 +253,7 @@ export function ScreeningPanel({ viewer }: { viewer: Viewer }) {
 
   return (
     <div className="space-y-8">
+      <CoverageStrip coverage={coverage} />
       <Section eyebrow="Candidate · enter the party you want to screen">
         <form className="space-y-6 px-6 py-6" onSubmit={handleSubmit}>
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
@@ -316,7 +404,11 @@ export function ScreeningPanel({ viewer }: { viewer: Viewer }) {
       ) : response.matches.length === 0 ? (
         <EmptyState
           title="No matches above threshold"
-          description={`Candidate '${name}' did not match any watchlist entry above ${minScore.toFixed(2)}. Lower the threshold or supply more identifiers (DOB, nationality, NID, passport) to widen the search.`}
+          description={`Clean against ${activeListSummary(coverage)} — '${name}' did not match any entry above ${minScore.toFixed(2)}.${
+            coverage && (coverage.inactive_sources.length > 0 || !coverage.adverse_media.configured)
+              ? " Note: this does not cover the lists shown as not active above."
+              : ""
+          } Lower the threshold or supply more identifiers (DOB, nationality, NID, passport) to widen the search.`}
         />
       ) : (
         <Section eyebrow={`Matches · ${response.matches.length} above threshold`}>

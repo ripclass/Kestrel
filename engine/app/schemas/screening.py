@@ -4,7 +4,7 @@ from typing import Any, Literal
 from pydantic import BaseModel, Field
 
 
-_VALID_LIST_SOURCES = {"OFAC", "EU", "UN", "UK_OFSI", "BB_DOMESTIC", "PEP", "ADVERSE_MEDIA"}
+_VALID_LIST_SOURCES = {"OFAC", "EU", "UN", "UK_OFSI", "BIS", "BB_DOMESTIC", "PEP", "ADVERSE_MEDIA"}
 _VALID_ENTRY_TYPES = {"individual", "entity", "vessel", "aircraft"}
 
 
@@ -55,6 +55,27 @@ class AdverseMediaResponse(BaseModel):
     hits: list[AdverseMediaHitModel] = Field(default_factory=list)
     screened_at: str
     request_id: str
+
+
+class SourceCount(BaseModel):
+    source: str
+    count: int
+
+
+class AdverseMediaCoverage(BaseModel):
+    configured: bool
+    provider: Literal["stub", "complyadvantage"]
+
+
+class ScreeningCoverageResponse(BaseModel):
+    """What a screen actually checks against — so an empty result is read as
+    'screened clean against these lists', never as a false all-clear when a
+    list isn't loaded or a provider isn't configured."""
+
+    active_sources: list[SourceCount] = Field(default_factory=list)
+    inactive_sources: list[str] = Field(default_factory=list)
+    adverse_media: AdverseMediaCoverage
+    total_entries: int
 
 
 class WatchlistEntryView(BaseModel):
